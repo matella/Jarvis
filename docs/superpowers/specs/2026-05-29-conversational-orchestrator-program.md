@@ -220,6 +220,20 @@ concurrent inference bites (likely during 7 or after 6b). Cross-cutting tracks (
 feedback/eval, observability ingest, memory governance) layer in opportunistically. Each phase is
 its own spec + build + live-verify + commit, the same rhythm as M0–P5.
 
+## Detailed per-milestone specs (all written 2026-05-30)
+- 5.5a Durability — `2026-05-30-p55a-durability-design.md`
+- 5.5b Self-observability + audit — `2026-05-30-p55b-self-observability-audit-design.md`
+- 5.5c Security primitives — `2026-05-30-p55c-security-primitives-design.md`
+- 6a Conversational backend — `2026-05-30-p6a-conversational-backend-design.md`
+- 6b Console + presence UI (orb) — `2026-05-30-p6b-console-presence-ui-design.md`
+- 7 Orchestration + action safety — `2026-05-30-p7-orchestration-action-safety-design.md`
+- 8 Connectors (read+act) + webhooks — `2026-05-30-p8-connectors-design.md`
+- 9 Search + visual capture — `2026-05-30-p9-search-visual-capture-design.md`
+- 10 Voice — `2026-05-30-p10-voice-design.md`
+- 11 GPU scheduler + budgets — `2026-05-30-p11-gpu-scheduler-design.md`
+- Cross-cutting — `2026-05-30-cross-cutting-tracks-design.md`
+
 ## Process note
-Lightweight path (saved preference): this program spec is the planning record. Each phase gets
-its own short spec at build time; subagent review loop + separate writing-plans pass skipped.
+Lightweight path (saved preference): this program spec is the planning record; each milestone now
+has its own detailed spec (above). Build each against its spec (spec → build → live-verify →
+commit), same rhythm as M0–P5; reality will refine the later specs as earlier ones land.
