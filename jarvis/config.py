@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     code_chunk_lines: int = 60
     code_max_file_bytes: int = 200_000
 
+    # `jarvis run` daemon — periodic collector cadences (ingest/consume/metrics self-loop).
+    topology_interval_s: int = 300
+    deploy_interval_s: int = 120
+
     # Redis Streams — event spine topology.
     events_stream: str = "jarvis:events"
     consumer_group: str = "jarvis:projectors"

@@ -551,6 +551,14 @@ def incidents_show(incident_id: str) -> None:
     console.print(JSON(inc.model_dump_json()))
 
 
+@app.command()
+def run() -> None:
+    """Run the whole spine continuously: ingest + consume + metrics + topology + deploy."""
+    from jarvis.core.supervisor import run as run_supervisor
+
+    run_supervisor()
+
+
 def main() -> None:
     app()
 

@@ -35,26 +35,46 @@ _CONTAINER_STATUS: dict[str, str | None] = {
 }
 
 
+# Metric signal events update health attrs (cpu_status / mem_status) without touching the
+# lifecycle status — so `state show` reflects resource health, not just up/down.
+_SIGNAL_ATTRS: dict[str, tuple[str, str]] = {
+    "container.cpu_high": ("cpu_status", "high"),
+    "container.cpu_normal": ("cpu_status", "normal"),
+    "container.memory_high": ("mem_status", "high"),
+    "container.memory_normal": ("mem_status", "normal"),
+}
+
+
 def status_for_type(event_type: str) -> str | None:
     """Container status implied by an event type (None = no status change)."""
     return _CONTAINER_STATUS.get(event_type)
 
 
+def signal_attr_for_type(event_type: str) -> tuple[str, str] | None:
+    """Health (attrs key, value) implied by a metric signal event, if any."""
+    return _SIGNAL_ATTRS.get(event_type)
+
+
 def project(conn: psycopg.Connection, event: Event) -> bool:
     """Apply an event to the state projection. Returns True if it was projected."""
-    if not event.type.startswith("container.") or event.type not in _CONTAINER_STATUS:
-        return False
-    if event.entity_ref is None:
+    if event.entity_ref is None or not event.type.startswith("container."):
         return False
 
-    status = _CONTAINER_STATUS[event.type]
     attrs: dict[str, object] = {
         "last_action": event.type,
         "last_severity": event.severity.value,
     }
-    for key in ("image", "exit_code", "health"):
-        if event.payload.get(key) is not None:
-            attrs[key] = event.payload[key]
+    if event.type in _CONTAINER_STATUS:
+        status = _CONTAINER_STATUS[event.type]
+        for key in ("image", "exit_code", "health"):
+            if event.payload.get(key) is not None:
+                attrs[key] = event.payload[key]
+    elif event.type in _SIGNAL_ATTRS:
+        status = None  # health signal — don't change lifecycle status
+        key, value = _SIGNAL_ATTRS[event.type]
+        attrs[key] = value
+    else:
+        return False
 
     # Upsert, but only advance when the incoming event is newer (ULID-sortable id).
     conn.execute(
