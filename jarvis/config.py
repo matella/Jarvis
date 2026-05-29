@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     notify_group: str = "jarvis:notifier"
     notify_cooldown_s: int = 300
 
+    # Ambient reactor — auto-propose (gated) on container-down events.
+    reactor_enabled: bool = True
+    reactor_group: str = "jarvis:reactor"
+    reactor_cooldown_s: int = 600
+
     # Redis Streams — event spine topology.
     events_stream: str = "jarvis:events"
     consumer_group: str = "jarvis:projectors"

@@ -8,7 +8,7 @@ from jarvis.state.projector import signal_attr_for_type, status_for_type
 
 def test_workers_registry() -> None:
     names = [name for name, _fn in workers(threading.Event())]
-    assert names == ["ingest", "consume", "metrics", "notify", "topology", "deploy"]
+    assert names == ["ingest", "consume", "metrics", "notify", "reactor", "topology", "deploy"]
     # all callables resolved (imports valid)
     assert all(callable(fn) for _n, fn in workers(threading.Event()))
 

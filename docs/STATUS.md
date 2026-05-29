@@ -5,8 +5,8 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 4 (started) — Contextual notifications** · *DONE (acceptance passed live)*.
-Phase 3 trio also done (deploy awareness · `jarvis run` daemon · code-change proposals).
+**Phase 5 (started) — Ambient reactor** · *DONE (acceptance passed live)*.
+The cognition loop is closed: event → (reactor) → agent → gated proposal → (gate) → execution.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -24,16 +24,21 @@ Phase 3 trio also done (deploy awareness · `jarvis run` daemon · code-change p
 - **Phase 4**: contextual notifications (`notify/` — rules-based notifier consumer on the spine,
   webhook channel, deduped; notifies on incidents + critical events; 6th `jarvis run` worker;
   notifier group starts at `$` so it never replays history). Set `NOTIFY_WEBHOOK_URL` to enable.
-- Latest: `pytest` 98/98, `ruff` clean. Migrations at head = 0007 (no schema change in P4).
+- **Phase 4**: contextual notifications (`notify/` consumer + webhook). **Phase 5**: ambient
+  reactor (`core/reactor.py` — spine consumer auto-runs the infra agent on container-down events
+  → GATED proposal, observe-only, loop-safe, per-entity cooldown, off-switch `reactor_enabled`;
+  7th `jarvis run` worker).
+- Latest: `pytest` 103/103, `ruff` clean. Migrations at head = 0007 (no schema change P4/P5).
 
 ## In progress
 - *(nothing)*
 
 ## Next step — do this first
-Open menu (per `docs/PLAN.md`): **Phase 5 — ambient** (proactive/auto agents — e.g. the daemon
-auto-runs correlation on alert bursts, or the infra agent auto-proposes a gated restart intent
-when a watched container dies). Or remaining Phase 4 multi-node bits (deferred — premature with
-one box). Or harden/observe. The notifier + daemon make ambient triggering a natural next step.
+Rest of Phase 5 (per `docs/PLAN.md`): **auto-correlation** (incidents created without a CLI
+call — needs incident-dedup), **predictive observability** (trend forecasting over metrics),
+**adaptive attention** (learn which alerts matter), **operational playbooks** (procedural
+memory), **full operational-mode state machine** (assist/approval_required/semi_autonomous/
+maintenance — currently a single global `mode`). Or harden/observe. Pick.
 
 ## Open questions / blockers
 - *(none)*

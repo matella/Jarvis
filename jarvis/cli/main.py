@@ -605,8 +605,16 @@ def notify_test() -> None:
 
 
 @app.command()
+def reactor(once: bool = typer.Option(False, help="Process one batch then exit")) -> None:
+    """Ambient reactor: auto-propose gated intents on container-down events (observe-only)."""
+    from jarvis.core.reactor import run_reactor
+
+    run_reactor(once=once)
+
+
+@app.command()
 def run() -> None:
-    """Run the whole spine continuously: ingest+consume+metrics+notify+topology+deploy."""
+    """Run the whole spine: ingest+consume+metrics+notify+reactor+topology+deploy."""
     from jarvis.core.supervisor import run as run_supervisor
 
     run_supervisor()

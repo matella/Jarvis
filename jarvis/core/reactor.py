@@ -1,0 +1,92 @@
+"""Ambient reactor — Jarvis acts on its own perception.
+
+A spine consumer that, on a qualifying operational event, auto-runs ONE cognition step: the
+infrastructure agent proposes a GATED intent. This closes the cognition loop (event → reasoning
+→ proposed intent), but adds no execution power — every proposal still flows through the M4
+approval+mode gate, and under observe nothing runs. Loop-safe: it reacts only to operational
+events, never to Jarvis's own (so proposing can't trigger more proposing).
+"""
+
+from __future__ import annotations
+
+import os
+import socket
+import time
+from dataclasses import dataclass, field
+
+import redis
+
+from jarvis.config import get_settings
+from jarvis.events.models import Event
+from jarvis.events.stream import ensure_group, get_redis
+
+_TRIGGER_TYPES = {"container.died", "container.oom_killed"}
+# React only to genuine operational signals — never Jarvis's own cognition events, so an
+# auto-proposed intent (source=infrastructure_agent) can't trigger another reaction.
+_OPERATIONAL_SOURCES = {"docker", "metrics"}
+
+
+def should_react(event: Event) -> bool:
+    return (
+        event.source in _OPERATIONAL_SOURCES
+        and event.type in _TRIGGER_TYPES
+        and event.entity_ref is not None
+    )
+
+
+@dataclass
+class ReactorState:
+    cooldown_s: int
+    _last: dict[str, float] = field(default_factory=dict)
+
+    def allow(self, entity: str, now: float) -> bool:
+        last = self._last.get(entity)
+        if last is not None and now - last < self.cooldown_s:
+            return False
+        self._last[entity] = now
+        return True
+
+
+def process_batch(
+    r: redis.Redis, *, stream: str, group: str, consumer: str, state: ReactorState,
+    count: int = 10, block_ms: int = 1000,
+) -> int:
+    from jarvis.agents.infrastructure import propose_intent
+
+    resp = r.xreadgroup(group, consumer, {stream: ">"}, count=count, block=block_ms)
+    reacted = 0
+    for _stream, messages in resp or []:
+        for msg_id, fields in messages:
+            try:
+                event = Event.model_validate_json(fields["data"])
+                if should_react(event) and state.allow(event.entity_ref, time.monotonic()):
+                    intent = propose_intent(event.entity_ref)
+                    reacted += 1
+                    print(
+                        f"[reactor] {event.type} {event.entity_ref} → proposed "
+                        f"{intent.type} ({intent.intent_id})",
+                        flush=True,
+                    )
+            except Exception as exc:  # noqa: BLE001 — one bad reaction must not stall the loop
+                print(f"[reactor] reaction failed: {exc!r}", flush=True)
+            r.xack(stream, group, msg_id)
+    return reacted
+
+
+def run_reactor(*, once: bool = False) -> None:
+    s = get_settings()
+    if not s.reactor_enabled:
+        print("[reactor] disabled (reactor_enabled=false)", flush=True)
+        return
+    r = get_redis()
+    consumer = f"{socket.gethostname()}-{os.getpid()}"
+    ensure_group(r, s.events_stream, s.reactor_group, start_id="$")  # only new events
+    state = ReactorState(s.reactor_cooldown_s)
+    while True:
+        reacted = process_batch(
+            r, stream=s.events_stream, group=s.reactor_group, consumer=consumer, state=state
+        )
+        if once:
+            return
+        if reacted == 0:
+            time.sleep(0.5)
