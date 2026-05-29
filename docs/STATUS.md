@@ -5,32 +5,39 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**M0 — Repo + infra skeleton** · *DONE (acceptance passed against remote)*
+**M1 — Data model & contracts** · *DONE (acceptance passed against remote)*
 
 ## Done
-- Architecture locked. Plan written (`CLAUDE.md`, `docs/PLAN.md`).
-- Rationale recorded (`docs/DECISIONS.md`). Module map written (`docs/MAP.md`).
-- M0 scaffolding: `docker-compose.yml` (pgvector pg16 + redis 7, remote-loopback binds),
-  `pyproject.toml`, `.gitignore`, `.env.example`, `jarvis/config.py` (Pydantic Settings),
-  `scripts/healthcheck.py`, `Makefile` (SSH-context workflow), `tests/test_config.py`.
-- **M0 acceptance PASSED** on remote `matella@192.168.129.85` (daemon 29.4.3): stack up via
-  SSH docker context, healthcheck through the tunnel → Postgres 16.14 (pgvector ready) +
-  Redis 7.4.9, exit 0. `pytest` green (3/3).
+- M0 (infra spine) DONE — see git history. Stack runs on remote `matella@192.168.129.85`
+  via SSH docker context; healthcheck through the tunnel passes.
+- M1 design recorded in `docs/superpowers/specs/2026-05-29-m1-data-model-design.md`
+  (Alembic runner-only · TEXT+CHECK enums · prefixed ULID ids · raw psycopg3 · vector(768)).
+- M1 built: Alembic migration `0001` (events/intents/executions/state/snapshots/memory,
+  pgvector, CHECK constraints, HNSW cosine index); Pydantic `Event`/`Intent`/`Execution`/
+  `MemoryRecord` + enums; `jarvis/ids.py`, `jarvis/db.py`; thin repositories; `MemoryStore`
+  ABC + `PgVectorMemoryStore`.
+- **M1 acceptance PASSED** on remote: migration applied (alembic_version=0001, all 6 tables,
+  pgvector live); event→intent→execution share one `correlation_id` and round-trip;
+  `MemoryStore` embedding round-trips + similarity search returns nearest. `pytest` 11/11,
+  `ruff` clean.
 
 ## In progress
-- *(nothing — ready to start M1)*
+- *(nothing — ready to start M2)*
 
 ## Next step — do this first
-Begin **M1 — boundary contracts + schema**: Pydantic models for events/intents/executions
-(schema_version, correlation_id/causation_id, occurred_at/recorded_at), the first versioned
-migration, and the `state` projection skeleton. See `docs/PLAN.md` for the M1 acceptance test.
+Begin **M2 — event spine, zero AI**: Docker events ingester → Redis Stream → consumer group
+→ `events` table → state **projector**; DLQ via consumer-group pending list → `jarvis:dlq`;
+introspection CLI (`events tail`, `state show`, `inspect`, `trace`, `dlq`). The `state`/
+`snapshots` Pydantic models land here with the projector (deferred from M1 by design).
+See `docs/PLAN.md` for the M2 acceptance test.
 
 ## Open questions / blockers
 - *(none)*
 
 ## Notes for next session
-- Drop the original architecture spec into `docs/ARCHITECTURE.md` (referenced by the plan, not yet present).
-- Docs (STATUS/MAP/PLAN/DECISIONS) currently live in repo root, not `docs/` — reconcile with `CLAUDE.md`'s layout.
+- Integration tests need the SSH tunnel up + `alembic upgrade head` already run.
+- `state`/`snapshots` tables exist but have no Pydantic models yet — add them with the
+  M2 projector (their only writer).
 
 ---
 *How to update:* overwrite the four working sections (Current milestone / Done / In progress /

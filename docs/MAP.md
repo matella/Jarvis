@@ -8,7 +8,8 @@ has rules worth lazy-loading — created with the module, not in advance.
 | Module (`jarvis/…`) | Purpose | Entry point | Built in |
 |---|---|---|---|
 | `intents/` | Intent + Execution contracts (Pydantic, schema-versioned, causal ids) | `models.py` | M1 |
-| `state/` | Postgres models, the event→state **projector**, snapshots, migrations | `projector.py` | M1–M2 |
+| `state/` | Postgres state models + the event→state **projector**, snapshots | `projector.py` | M2 |
+| `migrations/` (repo root) | Alembic versioned schema migrations (runner-only, raw SQL) | `versions/0001_initial_schema.py` | M1 |
 | `memory/` | `MemoryStore` interface + pgvector implementation | `store.py` | M1 |
 | `events/` | Redis Streams producers/consumers, event schemas, DLQ handling | `consumer.py` | M2 |
 | `ingest/` | Docker events → event stream (metrics ingest comes in Phase 2) | `docker_events.py` | M2 |

@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_db: int = 0
 
+    # Embeddings — dimension is a property of the model; changing it requires a
+    # migration + re-embed (a vector column can't silently change width).
+    embedding_model: str = "nomic-embed-text"
+    embedding_dim: int = 768
+
     # Global operational mode — defaults to propose-only.
     jarvis_mode: Mode = "observe"
 
