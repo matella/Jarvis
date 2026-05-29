@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     gpu_util_high_pct: float = 90.0
     gpu_mem_high_pct: float = 90.0
 
+    # Alert correlation — temporal-burst clustering of warning+ alerts.
+    incident_cluster_gap_s: int = 300
+    incident_min_alerts: int = 2
+
     # Redis Streams — event spine topology.
     events_stream: str = "jarvis:events"
     consumer_group: str = "jarvis:projectors"

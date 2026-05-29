@@ -25,12 +25,14 @@ state_app = typer.Typer(no_args_is_help=True, help="State projection")
 metrics_app = typer.Typer(no_args_is_help=True, help="Resource metrics ingest")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
+incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert incidents")
 replay_app = typer.Typer(no_args_is_help=True, help="Replay a decision")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
 app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
+app.add_typer(incidents_app, name="incidents")
 app.add_typer(replay_app, name="replay")
 
 console = Console()
@@ -385,6 +387,57 @@ def metrics_show(
             )
         table.add_row(row["entity"], row["kind"], stats, _short(row["ts"]))
     console.print(table)
+
+
+@app.command()
+def correlate(
+    since: str = typer.Option("1h", "--since", help="Window: 1h, 30m, 2d"),
+) -> None:
+    """Correlate recent warning+ alerts into incidents (deterministic cluster + LLM root-cause)."""
+    from jarvis.agents.correlator import correlate as run_correlate
+
+    incidents = run_correlate(_parse_duration(since))
+    if not incidents:
+        console.print("[dim]no incidents (no alert clusters met the threshold)[/dim]")
+        return
+    for inc in incidents:
+        console.print(
+            f"[bold]{inc.incident_id}[/bold]  severity={inc.severity.value}  "
+            f"events={inc.event_count}  entities={len(inc.entity_refs)}"
+        )
+        console.print(f"  summary: {inc.summary}")
+        console.print(f"  root cause: {inc.root_cause}")
+
+
+@incidents_app.command("list")
+def incidents_list(n: int = typer.Option(20, "-n", "--number")) -> None:
+    """List recent incidents."""
+    from jarvis.incidents.repository import list_incidents
+
+    with db.connect() as conn:
+        rows = list_incidents(conn, n)
+    table = Table(title=f"incidents (last {len(rows)})")
+    for col in ("created_at", "severity", "events", "summary", "incident_id"):
+        table.add_column(col, overflow="fold")
+    for inc in reversed(rows):
+        table.add_row(
+            _short(inc.created_at), inc.severity.value, str(inc.event_count),
+            inc.summary, inc.incident_id,
+        )
+    console.print(table)
+
+
+@incidents_app.command("show")
+def incidents_show(incident_id: str) -> None:
+    """Show a single incident in full (incl. the alerts it grouped)."""
+    from jarvis.incidents.repository import get_incident
+
+    with db.connect() as conn:
+        inc = get_incident(conn, incident_id)
+    if inc is None:
+        console.print(f"[red]no incident[/red] {incident_id}")
+        raise typer.Exit(code=1)
+    console.print(JSON(inc.model_dump_json()))
 
 
 def main() -> None:

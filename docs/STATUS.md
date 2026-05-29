@@ -5,7 +5,7 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 2 — Metrics ingest** · *DONE (acceptance passed live)* · (M0–M4 spine done before it)
+**Phase 2 — Alert correlation** · *DONE (acceptance passed live)* · (M0–M4 + P2 metrics before it)
 
 ## Done
 - M0 (infra) + M1 (contracts) + M2 (event spine) + M3 (the model) DONE — see git history.
@@ -31,19 +31,23 @@
   thresholds + `remote_ssh`; debounced threshold signal events (container.cpu_high/_normal,
   memory_*, gpu.*); CLI `metrics run` / `metrics show`. Raw samples → metrics table (NOT
   state/log, per Hard Rules); only signal events reach the spine.
-- **P2 metrics acceptance PASSED** live: poller sampled 23 containers + GPU into `metrics`;
-  `metrics show` displays usage; a CPU-burner crossed threshold → exactly one
-  `container.cpu_high` (100.3%) + one `container.cpu_normal` on recovery (debounce works, no
-  flooding). `pytest` 55/55, `ruff` clean.
+- P2 metrics ingest DONE (migration 0003, poller, signal events) — see git history.
+- P2 alert correlation: migration `0004` (`incidents` table), `incidents/` module
+  (models + repository), `agents/correlator.py` (deterministic temporal-burst clustering of
+  warning+ alerts, dedup, one-shot LLM root-cause per cluster, excludes Jarvis's own meta
+  events by source), CLI `correlate` / `incidents list` / `incidents show`.
+- **P2 correlation acceptance PASSED** live: stopped 3 throwaway containers → 9 warning+ alerts
+  in a burst → `jarvis correlate` produced ONE incident (events=9, entities=3) with grounded
+  summary + root-cause hypothesis + linked event_ids + context_ref. `pytest` 61/61, `ruff` clean.
 
 ## In progress
 - *(nothing)*
 
 ## Next step — do this first
-Pick the next Phase 2 piece (see `docs/PLAN.md` / `docs/ARCHITECTURE.md`): **alert correlation**
-(now has metrics + lifecycle + signal events to correlate), reflect metrics signals into
-`state.attrs` via the projector (clean follow-up), the **GPU scheduler** (telemetry exists),
-operational journaling, or harden/observe. Pick a direction.
+Pick next (see `docs/PLAN.md`): reflect metric signals into `state.attrs` via the projector +
+a supervised `jarvis run` daemon (consolidation — the spine only runs in bursts today), or
+continue the plan: topology awareness, operational journaling, GPU scheduler (still premature
+per DECISIONS — one inference path). Pick a direction.
 
 ## Open questions / blockers
 - *(none)*

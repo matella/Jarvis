@@ -17,6 +17,7 @@ INTENT = "int"
 EXECUTION = "exec"
 SNAPSHOT = "snap"
 MEMORY = "mem"
+INCIDENT = "inc"
 CORRELATION = "corr"
 CONTEXT = "ctx"
 
