@@ -72,18 +72,29 @@ The perimeter (web UI, connectors that act, autonomy) makes these non-negotiable
 state; an approve/mode-change shows up in the audit timeline with an actor; a seeded PII string is
 redacted before storage; the kill switch freezes all execution instantly.
 
-### Phase 6 — Conversational core
+### Phase 6 — Conversational core + presentation layer
 - **6a (backend):** `gateway/app.py` (FastAPI + WS, auth + capability scopes) +
-  `agents/conversation.py` (NL+assembled context → {answer | proposed Intent | plan}, grounded +
-  cited) + `conversation/` memory (conversations/messages) + confirm-to-act (a "yes" → approve+
-  execute through the gate, attributed in the audit log) + **self-describing capabilities** (Jarvis
-  answers "what can you do?" from the tool/capability registry).
-  **Accept:** over WS, "what's wrong with my media stack?" answers from real state/incidents;
-  "restart qbittorrent" creates a *gated* intent; "yes" approves it (mode-respecting, audited); the
-  turn is replayable (`trace`/`explain`).
-- **6b (UI):** React/Vite console — streaming chat, live events/incidents feed, approvals panel,
-  mode switch, self-observability + audit panels, a **decision inspector** (explain/replay/trace in
-  the browser). **Accept:** drive a full propose→approve loop from the browser.
+  `agents/conversation.py` (NL+assembled context → a structured **turn result**, grounded + cited)
+  + `conversation/` memory (conversations/messages) + confirm-to-act (a "yes" → approve+execute
+  through the gate, attributed in the audit log) + **self-describing capabilities** (answers "what
+  can you do?" from the tool/capability registry).
+- **Presentation layer (generative UI):** the turn result is one or more typed **view artifacts**
+  the console renders — `markdown` | `table` | `chart` | `status_grid` | `topology_graph` |
+  `embed(url)` | `image` — plus optional `intent` (gated) or `plan`. "Show/open X" resolves to an
+  `embed(url)` (a local service URL via topology + indexed compose) or a rendered result
+  (search/connector). **Display is read-only → no gate**; any action button inside a view is a
+  gated Intent.
+  **Accept:** "what's wrong with my media stack?" → grounded answer; "show me my dashboard" → the
+  local service embedded; "restart qbittorrent" → a *gated* intent, "yes" approves it (audited);
+  the turn is replayable (`trace`/`explain`).
+- **6b (UI — React/Vite console / HUD):** streaming chat that renders the view artifacts; a default
+  **situational dashboard** (current state · active incidents · recent deploys · predictions ·
+  GPU/model status); built-in visualizations (**topology graph** from the edges, **metrics charts**
+  from the `metrics` table with the trend/prediction overlaid, **incident/journal timeline**);
+  **interactive gated controls** (service cards with one-click gated actions, an approvals queue, a
+  Cmd-K command palette); self-observability + audit panels; a **decision inspector**
+  (explain/replay/trace in the browser). **Accept:** drive a full propose→approve loop *and* open a
+  local service *and* read a live metrics chart, all from the browser.
 
 ### Phase 7 — Full orchestration (+ action safety)
 - `core/planner.py` (goal → validated plan DAG of known capabilities) + `core/plan_executor.py`
@@ -109,10 +120,14 @@ redacted before storage; the kill switch freezes all execution instantly.
   `mail.send` intent you approve; a Grafana alert webhook lands as an event and can correlate; a
   malicious email/page cannot trigger an ungated action.
 
-### Phase 9 — Real-time search
+### Phase 9 — Real-time search (+ visual capture)
 - SearXNG container + `SearchProvider` + a search capability the conversation agent invokes
-  (web RAG, results quoted as untrusted data). **Accept:** "what's the latest on CVE-…?" returns
-  a cited answer from live search, grounded + injection-safe.
+  (web RAG, results quoted as untrusted data).
+- **Screenshot/visual capture** (headless Playwright, behind the egress allowlist): for external
+  sites or services that block embedding (`X-Frame-Options`), "show me X" → capture → render an
+  `image` artifact. The narrow, display-only use of the deferred "research/browser" muscle.
+- **Accept:** "what's the latest on CVE-…?" → a cited answer from live search (grounded +
+  injection-safe); "show me weather.com" → a captured image rendered in the console.
 
 ### Phase 10 — Voice
 - Whisper.cpp STT + Piper TTS as transport over the conversation pipeline (all local/CPU).
@@ -137,6 +152,9 @@ redacted before storage; the kill switch freezes all execution instantly.
   → sharper correlation/root-cause than docker stats alone.
 - **Memory governance:** a UI to view/forget/consolidate memories, summaries, playbooks; memory
   consolidation (compact old episodes) ties into the snapshot/compaction work.
+- **Multimodal + ambient presentation:** speak a summary *while* showing the chart (present layer
+  × voice, P10); a **kiosk/ambient HUD mode** (the situational dashboard on a spare monitor —
+  glanceable status). Polish on top of 6b + 10.
 - **Security & audit (continuous):** auth + capability scopes, secrets vault, egress allowlist,
   prompt-injection quarantine, kill switch, audit attribution — established in Phase 5.5, enforced
   in every later phase.
