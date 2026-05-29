@@ -5,7 +5,7 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 2 — COMPLETE** · metrics ✓ · alert correlation ✓ · topology ✓ · journaling ✓ · (GPU scheduling deferred-by-design) · (M0–M4 spine before it)
+**Phase 3 (MVP) — Code intelligence** · *DONE (acceptance passed live)* · (Phase 2 complete before it)
 
 ## Done
 - M0 (infra) + M1 (contracts) + M2 (event spine) + M3 (the model) DONE — see git history.
@@ -44,19 +44,25 @@
 - P2 topology awareness DONE — see git history.
 - P2 operational journaling: `core/journal.py` (derived timeline — NO new table; merges
   incidents + intents/executions + warning+ operational events, time-sorted), CLI `journal`.
-- **P2 journaling acceptance PASSED** live: stopped 2 containers + ran correlate →
-  `jarvis journal --since 1h` showed a unified diary (6 alerts → 1 incident, oldest first).
-  `pytest` 70/70, `ruff` clean. **Phase 2 complete.**
+- Phase 2 COMPLETE (metrics/correlation/topology/journaling) — see git history.
+- P3 code-intelligence MVP: migration `0006` (`code_chunks`), `ingest/code_index.py`
+  (secret-safe remote indexer over SSH — exclude .env/.key/secret, allowlist compose
+  files + Dockerfile + .conf/.toml/.sh, redact secret values, N-line chunks; `router.embed_many`
+  bulk embeds with ONE summary event), `agents/coder.py` (read-only retrieval-augmented Q&A),
+  CLI `code index` / `ask` / `search`.
+- **P3 MVP acceptance PASSED** live: indexed 58 chunks from 20 homelab compose files; security
+  spot-check clean (0 chunks from secret paths, secret values redacted, 0 leaks);
+  `code ask "how is qbittorrent networked?"` → grounded answer (service:gluetun + depends_on)
+  citing file:line. `pytest` 79/79, `ruff` clean.
 
 ## In progress
-- *(nothing — Phase 2 complete)*
+- *(nothing)*
 
 ## Next step — do this first
-Phase 2 done (metrics/correlation/topology/journaling; GPU scheduling deferred-by-design per
-DECISIONS — telemetry seed in place). Next per `docs/PLAN.md`: **Phase 3 — development
-intelligence** (coding agent, repo indexing, CI awareness) or **Phase 4 — distributed
-execution**. Off-plan consolidation still parked: reflect metric signals into `state.attrs`
-+ a supervised `jarvis run` daemon (spine runs in bursts today). Pick a direction.
+Continue Phase 3 (per `docs/PLAN.md` — development intelligence): **git/commit awareness**,
+**CI ingestion**, **deployment analysis**, or **code-change proposal intents** (route diffs
+through the M4 gate). Or Phase 4 (distributed execution). Off-plan consolidation still parked:
+reflect metric signals into `state.attrs` + a supervised `jarvis run` daemon.
 
 ## Open questions / blockers
 - *(none)*

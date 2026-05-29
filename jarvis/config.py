@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     incident_cluster_gap_s: int = 300
     incident_min_alerts: int = 2
 
+    # Code intelligence — index a repo on the remote host (read over SSH).
+    code_repo_path: str = "/home/matella/homelab"
+    code_repo_name: str = "homelab"
+    code_chunk_lines: int = 60
+    code_max_file_bytes: int = 200_000
+
     # Redis Streams — event spine topology.
     events_stream: str = "jarvis:events"
     consumer_group: str = "jarvis:projectors"

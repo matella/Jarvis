@@ -24,6 +24,7 @@ events_app = typer.Typer(no_args_is_help=True, help="Event log introspection")
 state_app = typer.Typer(no_args_is_help=True, help="State projection")
 metrics_app = typer.Typer(no_args_is_help=True, help="Resource metrics ingest")
 topology_app = typer.Typer(no_args_is_help=True, help="Service-dependency topology")
+code_app = typer.Typer(no_args_is_help=True, help="Code intelligence (index + Q&A)")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
 incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert incidents")
@@ -32,6 +33,7 @@ app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
 app.add_typer(topology_app, name="topology")
+app.add_typer(code_app, name="code")
 app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
 app.add_typer(incidents_app, name="incidents")
@@ -412,6 +414,46 @@ def topology_show() -> None:
         table.add_column(col, overflow="fold")
     for src, dst, rel in edges:
         table.add_row(src, rel, dst)
+    console.print(table)
+
+
+@code_app.command("index")
+def code_index() -> None:
+    """Index the configured repo (over SSH) into the code vector store."""
+    from jarvis.ingest.code_index import index_repo
+
+    count = index_repo()
+    console.print(f"indexed {count} chunks from {get_settings().code_repo_name}")
+
+
+@code_app.command("ask")
+def code_ask(question: str) -> None:
+    """Ask the coder model a question grounded in the indexed code."""
+    from jarvis.agents.coder import ask
+
+    result = ask(question)
+    console.print(result.answer)
+    if result.sources:
+        console.print("\n[dim]sources:[/dim] " + ", ".join(result.sources))
+
+
+@code_app.command("search")
+def code_search(
+    query: str, n: int = typer.Option(6, "-n", "--number")
+) -> None:
+    """Show the code chunks most relevant to a query (retrieval only, no model)."""
+    from jarvis.ingest.code_index import search_chunks
+    from jarvis.models import router
+
+    query_vec = router.embed(query)
+    with db.connect() as conn:
+        hits = search_chunks(conn, query_vec, k=n)
+    table = Table(title=f"code search ({len(hits)} hits)")
+    for col in ("path:lines", "distance", "first line"):
+        table.add_column(col, overflow="fold")
+    for path, start, end, content, distance in hits:
+        first = content.splitlines()[0] if content else ""
+        table.add_row(f"{path}:{start}-{end}", f"{distance:.3f}", first[:80])
     console.print(table)
 
 

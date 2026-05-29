@@ -18,6 +18,7 @@ EXECUTION = "exec"
 SNAPSHOT = "snap"
 MEMORY = "mem"
 INCIDENT = "inc"
+CHUNK = "chk"
 CORRELATION = "corr"
 CONTEXT = "ctx"
 

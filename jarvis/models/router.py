@@ -98,6 +98,28 @@ def chat(
     return resp
 
 
+def embed_many(
+    texts: list[str], *, role: str = "embedding", correlation_id: str | None = None
+) -> list[list[float]]:
+    """Embed many texts under ONE semaphore hold; emit ONE summary event (no per-item flood)."""
+    model = model_for_role(role)
+    correlation_id = correlation_id or ids.new_id(ids.CORRELATION)
+    with _INFERENCE_SEM:
+        before = _swap_to(model, role, correlation_id)
+        start = time.monotonic()
+        vectors = [oclient.embeddings(model, t) for t in texts]
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
+        if model not in before:
+            _emit(_event("model.loaded", model, correlation_id, role=role))
+        _emit(
+            _event(
+                "inference.completed", model, correlation_id, role=role,
+                duration_ms=duration_ms, batch=len(texts),
+            )
+        )
+    return vectors
+
+
 def embed(text: str, *, role: str = "embedding", correlation_id: str | None = None) -> list[float]:
     model = model_for_role(role)
     correlation_id = correlation_id or ids.new_id(ids.CORRELATION)
