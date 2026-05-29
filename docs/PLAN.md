@@ -167,11 +167,19 @@ PostgreSQL + pgvector, one database. All boundary rows carry `schema_version`,
   actions, contextual notifications.
 - **Phase 5 — Ambient intelligence:** proactive assistance, predictive observability,
   adaptive attention, operational playbooks, full operational modes.
-- **Phases 6–11 — Conversational orchestrator** (planned; spec:
-  `docs/superpowers/specs/2026-05-29-conversational-orchestrator-program.md`): gateway + React
-  console, conversation/executive agent (talk to Jarvis), planner + deterministic plan executor,
-  connectors (mail/calendar/feeds, read + act, gated), real-time web search (SearXNG), voice
-  (Whisper/Piper), GPU scheduler. Additive; same deterministic-boundary/observe/replay rules.
+- **Phases 5.5–11 — Conversational orchestrator** (planned; full spec:
+  `docs/superpowers/specs/2026-05-29-conversational-orchestrator-program.md`):
+  - **5.5 Hardening foundation** (first): backups+DR, event compaction/retention,
+    self-observability, audit log + actor attribution, PII redaction, security primitives
+    (vault, egress allowlist, prompt-injection quarantine, kill switch).
+  - **6** gateway + React console + conversation/executive agent (talk to Jarvis) + self-describing
+    capabilities + decision inspector · **7** planner + deterministic plan executor + action safety
+    (rollback, blast-radius/rate limits, approval policies, what-if) · **8** connectors
+    (mail/calendar/feeds/Home Assistant, read+act gated) + inbound webhooks · **9** real-time
+    search (SearXNG) · **10** voice (Whisper/Piper) · **11** GPU scheduler + cognition budgets.
+  - **Cross-cutting:** scheduled routines/briefings · feedback loop + eval/replay harness · richer
+    observability ingest (Prometheus/Loki) · memory governance.
+  Additive; same deterministic-boundary / observe-by-default / replay / local-first rules.
 
 ---
 

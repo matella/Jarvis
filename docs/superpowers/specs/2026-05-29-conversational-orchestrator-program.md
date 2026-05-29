@@ -1,4 +1,4 @@
-# Program Spec — Conversational Orchestrator (Phases 6–11)
+# Program Spec — Conversational Orchestrator (Phases 5.5–11 + cross-cutting tracks)
 
 > Date: 2026-05-29 · A multi-phase, **additive** evolution: turn Jarvis into an operational
 > orchestrator you converse with (text + voice), that plans multi-step work, reads/acts on
@@ -53,27 +53,61 @@
 
 ## Phased milestones (each additive, each with an acceptance test)
 
-### Phase 6 — Conversational core
-- **6a (backend):** `gateway/app.py` (FastAPI + WS) + `agents/conversation.py` (NL+assembled
-  context → {answer | proposed Intent | plan}, grounded + cited) + `conversation/` memory
-  (conversations/messages) + confirm-to-act (a "yes" → approve+execute through the gate).
-  **Accept:** over WS, "what's wrong with my media stack?" answers from real state/incidents;
-  "restart qbittorrent" creates a *gated* intent; "yes" approves it (mode-respecting); the turn
-  is replayable (`trace`/`explain`).
-- **6b (UI):** React/Vite console — streaming chat, live events/incidents feed, approvals panel,
-  mode switch. **Accept:** drive a full propose→approve loop from the browser.
+### Phase 5.5 — Hardening foundation (do FIRST — plumbing/observability before more autonomy)
+The perimeter (web UI, connectors that act, autonomy) makes these non-negotiable.
+- **Backups + DR:** scheduled `pg_dump`/WAL backups of Postgres (the source of truth) + a
+  **tested restore drill** (a backup is only as good as a verified restore).
+- **Event-log compaction + retention:** finally write the `snapshots` table (compaction
+  checkpoints) + retention/prune for `metrics`/`code_chunks`/old events.
+- **Self-observability ("Jarvis watches Jarvis"):** `/health`; surface daemon-worker liveness,
+  DLQ depth, inference latency + model-swap frequency, stream backlog/lag in events + the console.
+- **Audit log + actor attribution:** every human action (approve/execute/reject/mode change/chat
+  command) attributed to an actor and auditable; queryable timeline of "who did what."
+- **PII redaction layer:** generalize the secret-redaction into a content sanitizer applied to
+  connector/search content before it is stored or sent to the model (mail/calendar = PII).
+- **Security primitives:** secrets vault for connector creds; egress allowlist (what
+  connectors/search may reach); prompt-injection quarantine as a tested component; **panic/kill
+  switch** (one action → instant `maintenance` freeze, from CLI/UI/voice).
+**Accept:** restore a backup into a scratch DB and replay; `/health` reports worker+DLQ+inference
+state; an approve/mode-change shows up in the audit timeline with an actor; a seeded PII string is
+redacted before storage; the kill switch freezes all execution instantly.
 
-### Phase 7 — Full orchestration
+### Phase 6 — Conversational core
+- **6a (backend):** `gateway/app.py` (FastAPI + WS, auth + capability scopes) +
+  `agents/conversation.py` (NL+assembled context → {answer | proposed Intent | plan}, grounded +
+  cited) + `conversation/` memory (conversations/messages) + confirm-to-act (a "yes" → approve+
+  execute through the gate, attributed in the audit log) + **self-describing capabilities** (Jarvis
+  answers "what can you do?" from the tool/capability registry).
+  **Accept:** over WS, "what's wrong with my media stack?" answers from real state/incidents;
+  "restart qbittorrent" creates a *gated* intent; "yes" approves it (mode-respecting, audited); the
+  turn is replayable (`trace`/`explain`).
+- **6b (UI):** React/Vite console — streaming chat, live events/incidents feed, approvals panel,
+  mode switch, self-observability + audit panels, a **decision inspector** (explain/replay/trace in
+  the browser). **Accept:** drive a full propose→approve loop from the browser.
+
+### Phase 7 — Full orchestration (+ action safety)
 - `core/planner.py` (goal → validated plan DAG of known capabilities) + `core/plan_executor.py`
   (deterministic sequencing; each step → Intent→gate→executor or a query) + `plans` table; chat
-  issues multi-step goals. **Accept:** "diagnose why media is slow and fix it" → a plan you can
-  watch execute step-by-step under the current mode; the whole run is one `trace` chain.
+  issues multi-step goals.
+- **Action safety (lands here, before autonomy is used in anger):** execute the tool contract's
+  `rollback` (snapshot-before / revert-on-failure for reversible tools); **blast-radius + rate
+  limits** (≤N actions/window, never >K entities at once); **approval policies / delegation**
+  (graduated auto-approval rules per capability/entity/time, extending the mode machine);
+  **plan simulation / "what-if"** (preview a plan's projected effects before running).
+- **Accept:** "diagnose why media is slow and fix it" → a plan you can simulate, then watch
+  execute step-by-step under the current mode/policies; a failing reversible step rolls back; the
+  whole run is one `trace` chain.
 
-### Phase 8 — Connectors (read + act)
+### Phase 8 — Connectors (read + act) + inbound integrations
 - Connector framework + **mail** first (IMAP read → `mail.received` events; `mail.send` Tool →
-  gated Intent), then calendar + feeds. Untrusted-content framing; secrets in config.
-  **Accept:** ingested mail is queryable + can feed correlation; "reply to X that …" → a *gated*
-  `mail.send` intent you approve; a malicious email cannot trigger an ungated action.
+  gated Intent), then **calendar**, **feeds/RSS**, and **Home Assistant** (scenes/devices via
+  gated intents — homelab-native). All ingested content runs through the PII/untrusted-content
+  sanitizer; secrets in the vault.
+- **Inbound webhooks:** a gateway endpoint that receives pushed events (GitHub, Grafana alerts,
+  Home Assistant) into the spine — the *push* complement to *pull* connectors.
+- **Accept:** ingested mail is queryable + feeds correlation; "reply to X that …" → a *gated*
+  `mail.send` intent you approve; a Grafana alert webhook lands as an event and can correlate; a
+  malicious email/page cannot trigger an ungated action.
 
 ### Phase 9 — Real-time search
 - SearXNG container + `SearchProvider` + a search capability the conversation agent invokes
@@ -84,27 +118,47 @@
 - Whisper.cpp STT + Piper TTS as transport over the conversation pipeline (all local/CPU).
   **Accept:** speak a question → spoken grounded answer; actions still gated.
 
-### Phase 11 — GPU scheduler (enabler — slot when contention is real)
-- `models/scheduler.py`: queue + per-role budgets (VRAM/context/tokens) + swap-frequency limits,
-  arbitrating inference across chat / plans / reactor / connectors. (DECISIONS deferred this until
-  contention existed; orchestration + chat *create* it.) **Accept:** under concurrent demand,
-  inference is scheduled (not starved/thrashing) and swap frequency stays bounded; observable via
-  the existing model/inference events.
+### Phase 11 — GPU scheduler + cognition budgets (enabler — slot when contention is real)
+- `models/scheduler.py`: queue + per-role budgets (VRAM/context/tokens) + swap-frequency limits +
+  **per-session/routine cognition budgets**, arbitrating inference across chat / plans / reactor /
+  connectors / routines. (DECISIONS deferred this until contention existed; orchestration + chat
+  *create* it.) **Accept:** under concurrent demand, inference is scheduled (not starved/thrashing),
+  swap frequency stays bounded, and a runaway routine can't exhaust the GPU; observable via the
+  existing model/inference events.
 
-## Security (cross-cutting, lands with Phase 6/8)
-Gateway auth (JWT/session) + per-client capability scopes; secrets vault for connector creds;
-untrusted-content quarantine + prompt-injection framing; all connector/chat actions still
-mode-gated + approved + audited.
+## Cross-cutting / ongoing tracks (run alongside the phases)
+- **Scheduled routines / proactive briefings:** a cron-like capability ("morning briefing:
+  overnight incidents + mail digest", "weekly deploy report") composing summarizer + connectors +
+  search. Makes it a *personal* operational assistant.
+- **Feedback loop + eval harness:** operator rates proposals/incidents in the UI (the signal
+  **adaptive attention** (P5) needs) + a **replay-based regression harness** (re-run stored
+  `context_ref`s, flag decision drift — run on every model/agent change).
+- **Richer observability ingest:** Prometheus/Loki (ARCHITECTURE §9.1) for real metrics + **logs**
+  → sharper correlation/root-cause than docker stats alone.
+- **Memory governance:** a UI to view/forget/consolidate memories, summaries, playbooks; memory
+  consolidation (compact old episodes) ties into the snapshot/compaction work.
+- **Security & audit (continuous):** auth + capability scopes, secrets vault, egress allowlist,
+  prompt-injection quarantine, kill switch, audit attribution — established in Phase 5.5, enforced
+  in every later phase.
+
+## Deferred — still premature (seed later, by the same discipline)
+- **Knowledge graph** (Neo4j) — relational + vector + topology suffice for a long time.
+- **Multi-user identity / personalization** beyond audit attribution.
+- **Multi-node distributed execution** (the deferred Phase-4 core) — wait for a 2nd box.
+- **OS-level executor sandboxing** (separate users/scoped tokens) + a **staging/sandbox docker
+  context** for safely developing autonomy/plans away from the real homelab.
 
 ## What stays exactly the same
 Deterministic execution boundary · one-shot agents · observe-by-default + mode machine ·
 event-sourced + replayable + `context_ref` provenance · local-first (cloud only behind
-interfaces) · one model resident + semaphore (until the scheduler generalizes it).
+interfaces) · one model resident + semaphore (until the scheduler generalizes it) ·
+**every external input is data, never instructions; every action is a gated, audited Intent.**
 
 ## Suggested order
-6a → 6b → 7 → 8 → 9 → 10, with 11 (scheduler) slotted as soon as concurrent inference bites
-(likely during 7 or after 6b). Each phase is its own spec + build + live-verify + commit, the
-same rhythm as M0–P5.
+**5.5 (hardening) → 6a → 6b → 7 → 8 → 9 → 10**, with **11 (scheduler)** slotted as soon as
+concurrent inference bites (likely during 7 or after 6b). Cross-cutting tracks (routines,
+feedback/eval, observability ingest, memory governance) layer in opportunistically. Each phase is
+its own spec + build + live-verify + commit, the same rhythm as M0–P5.
 
 ## Process note
 Lightweight path (saved preference): this program spec is the planning record. Each phase gets
