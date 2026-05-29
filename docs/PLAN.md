@@ -167,6 +167,11 @@ PostgreSQL + pgvector, one database. All boundary rows carry `schema_version`,
   actions, contextual notifications.
 - **Phase 5 — Ambient intelligence:** proactive assistance, predictive observability,
   adaptive attention, operational playbooks, full operational modes.
+- **Phases 6–11 — Conversational orchestrator** (planned; spec:
+  `docs/superpowers/specs/2026-05-29-conversational-orchestrator-program.md`): gateway + React
+  console, conversation/executive agent (talk to Jarvis), planner + deterministic plan executor,
+  connectors (mail/calendar/feeds, read + act, gated), real-time web search (SearXNG), voice
+  (Whisper/Piper), GPU scheduler. Additive; same deterministic-boundary/observe/replay rules.
 
 ---
 
