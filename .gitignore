@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Docker volumes / data dirs (if mounted locally)
+data/
+postgres-data/
+redis-data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Logs
+*.log
+logs/
+
+# Distribution
+*.tar.gz
+*.whl

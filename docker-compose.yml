@@ -1,0 +1,45 @@
+# M0 infra spine — Postgres+pgvector and Redis Streams, nothing else.
+# Runs on the REMOTE homelab daemon via an SSH docker context:
+#   docker --context jarvis compose up -d   (see Makefile / README)
+#
+# Ports bind the REMOTE loopback only (BIND_HOST=127.0.0.1) so nothing is
+# exposed on the LAN; reach them from the Mac through an SSH tunnel, then
+# `python scripts/healthcheck.py` (connects to 127.0.0.1) must exit 0.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: jarvis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis}
+      POSTGRES_DB: ${POSTGRES_DB:-jarvis}
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jarvis} -d ${POSTGRES_DB:-jarvis}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: jarvis-redis
+    restart: unless-stopped
+    # appendonly so the event stream survives a restart; Streams live in the AOF.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:
