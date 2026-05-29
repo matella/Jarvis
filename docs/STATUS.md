@@ -36,16 +36,19 @@ Loop closed; autonomy governed by mode; now forecasts threshold crossings before
   projection over `metrics` → `*_trending` events (cpu/mem/gpu mem) when a metric is forecast to
   cross its threshold within the horizon; debounced; 8th `jarvis run` worker; notifier pages on
   `*_trending`; appears in journal. CLI `jarvis predict`.
-- Latest: `pytest` 119/119, `ruff` clean. Migrations at head = 0008.
+- **P5 operational playbooks**: `playbooks/` module + migration `0009` (pgvector); operator
+  authors procedures (`jarvis playbook add/list`); the infra agent retrieves relevant playbooks
+  by similarity and injects "Relevant playbooks" into its proposal context (stored in
+  context_ref for explain). Activates the M1 memory pillar.
+- Latest: `pytest` 123/123, `ruff` clean. Migrations at head = 0009.
 
 ## In progress
 - *(nothing)*
 
 ## Next step — do this first
-Rest of Phase 5 (per `docs/PLAN.md`): **auto-correlation** (incidents without a CLI call —
-needs incident-dedup), **adaptive attention** (learn which alerts matter / tune notify+reactor),
-**operational playbooks** (procedural memory in pgvector — retrieve a known fix for an incident).
-Or harden/observe. Pick.
+Last Phase-5 threads (per `docs/PLAN.md`): **auto-correlation** (incidents without a manual
+`correlate` — needs incident-dedup), **adaptive attention** (learn which alerts matter from
+approve/reject + execution history; tune notify/reactor). Or harden/observe. Pick.
 
 ## Open questions / blockers
 - *(none)*

@@ -9,6 +9,7 @@ has rules worth lazy-loading — created with the module, not in advance.
 |---|---|---|---|
 | `intents/` | Intent + Execution contracts (Pydantic, schema-versioned, causal ids) + approval/mode gate | `models.py`, `service.py` | M1, M4 |
 | `incidents/` | Correlated-alert incident contract + repository (alert correlation output) | `models.py` | P2 |
+| `playbooks/` | Operator-authored procedural memory (pgvector); grounds agent proposals | `repository.py` | P5 |
 | `state/` | Postgres state models + the event→state **projector**, snapshots | `projector.py` | M2 |
 | `migrations/` (repo root) | Alembic versioned schema migrations (runner-only, raw SQL) | `versions/0001_initial_schema.py` | M1 |
 | `memory/` | `MemoryStore` interface + pgvector implementation | `store.py` | M1 |

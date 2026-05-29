@@ -19,6 +19,7 @@ SNAPSHOT = "snap"
 MEMORY = "mem"
 INCIDENT = "inc"
 CHUNK = "chk"
+PLAYBOOK = "pb"
 CORRELATION = "corr"
 CONTEXT = "ctx"
 

@@ -22,6 +22,8 @@ from jarvis.intents.models import Intent, IntentReasoning, Risk
 from jarvis.intents.repository import get_intent, insert_intent
 from jarvis.memory.store import MemoryStore
 from jarvis.models import router
+from jarvis.playbooks.models import Playbook
+from jarvis.playbooks.repository import search_playbooks
 from jarvis.tools.registry import get_tool, valid_intent_types
 
 _WINDOW_HOURS = 24
@@ -34,8 +36,16 @@ _SYSTEM = (
     "Allowed types: 'docker.restart_container' (target {\"container\": name}) when a container "
     "is down/unhealthy and a restart is the safe, reversible fix; 'infra.investigate' or "
     "'infra.recommend' (target {}) when no direct action is warranted. "
+    "If 'Relevant playbooks' are provided, follow their guidance. "
     "Base everything only on the provided events — never invent facts."
 )
+
+
+def _playbook_section(playbooks: list[Playbook]) -> str:
+    if not playbooks:
+        return ""
+    lines = "\n".join(f"- {p.title}: {p.procedure}" for p in playbooks)
+    return "\n\nRelevant playbooks:\n" + lines
 
 
 class IntentProposal(BaseModel):
@@ -86,14 +96,24 @@ def propose_intent(entity: str, *, store: MemoryStore | None = None) -> Intent:
             conn, since=since, entity=entity,
             query=f"should {entity} be acted on?", store=store,
         )
+        # Procedural memory: retrieve operator playbooks relevant to this situation.
+        try:
+            pb_vec = router.embed(
+                f"how to handle an issue with {entity}", correlation_id=correlation_id
+            )
+            playbooks = [pb for pb, _ in search_playbooks(conn, pb_vec, k=2)]
+        except Exception:  # noqa: BLE001 — playbook retrieval is best-effort
+            playbooks = []
+        prompt = ctx.prompt + _playbook_section(playbooks)
+
         params = {"num_ctx": settings.inference_context, "keep_alive": settings.keep_alive}
         save_context(
-            conn, context_ref=ctx.context_ref, prompt=ctx.prompt,
+            conn, context_ref=ctx.context_ref, prompt=prompt,
             model=settings.model_reasoning, params=params,
         )
 
         resp = router.chat(
-            "reasoning", _messages(ctx.prompt),
+            "reasoning", _messages(prompt),
             correlation_id=correlation_id, context_ref=ctx.context_ref, format="json",
         )
         proposal = _parse(str(resp["message"]["content"]))

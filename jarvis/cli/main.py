@@ -27,6 +27,7 @@ topology_app = typer.Typer(no_args_is_help=True, help="Service-dependency topolo
 code_app = typer.Typer(no_args_is_help=True, help="Code intelligence (index + Q&A)")
 deploy_app = typer.Typer(no_args_is_help=True, help="Deployment / image-change detection")
 notify_app = typer.Typer(no_args_is_help=True, help="Contextual notifications")
+playbook_app = typer.Typer(no_args_is_help=True, help="Operational playbooks (procedural memory)")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
 incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert incidents")
@@ -38,6 +39,7 @@ app.add_typer(topology_app, name="topology")
 app.add_typer(code_app, name="code")
 app.add_typer(deploy_app, name="deploy")
 app.add_typer(notify_app, name="notify")
+app.add_typer(playbook_app, name="playbook")
 app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
 app.add_typer(incidents_app, name="incidents")
@@ -603,6 +605,39 @@ def notify_test() -> None:
     url = get_settings().notify_webhook_url or "(unset — log only)"
     sent = send(title="Jarvis test", message="notification channel check", priority="default")
     console.print(f"channel={url}  delivered={sent}")
+
+
+@playbook_app.command("add")
+def playbook_add(
+    title: str,
+    procedure: str,
+    when: str = typer.Option("", "--when", help="When this playbook applies (matching basis)"),
+) -> None:
+    """Add an operational playbook (procedural memory the agent can retrieve)."""
+    from jarvis.models import router
+    from jarvis.playbooks.models import Playbook
+    from jarvis.playbooks.repository import add_playbook
+
+    pb = Playbook(title=title, when_to_use=when, procedure=procedure)
+    vec = router.embed(f"{title}\n{when}")
+    with db.connect(autocommit=True) as conn:
+        add_playbook(conn, pb, vec)
+    console.print(f"added playbook [bold]{pb.id}[/bold]: {title}")
+
+
+@playbook_app.command("list")
+def playbook_list() -> None:
+    """List operational playbooks."""
+    from jarvis.playbooks.repository import list_playbooks
+
+    with db.connect() as conn:
+        rows = list_playbooks(conn)
+    table = Table(title=f"playbooks ({len(rows)})")
+    for col in ("title", "when_to_use", "procedure", "id"):
+        table.add_column(col, overflow="fold")
+    for p in rows:
+        table.add_row(p.title, p.when_to_use, p.procedure, p.id)
+    console.print(table)
 
 
 @app.command()
