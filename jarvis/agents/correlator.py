@@ -20,6 +20,7 @@ from jarvis.events.models import Event, Severity, utcnow
 from jarvis.events.stream import emit_event
 from jarvis.incidents.models import Incident, IncidentAnalysis
 from jarvis.incidents.repository import insert_incident
+from jarvis.ingest.topology import edges_for
 from jarvis.models import router
 
 _SEVERITY_ORDER = [
@@ -72,11 +73,15 @@ def _dedup_lines(cluster_events: list[Event]) -> list[str]:
     ]
 
 
-def _render(cluster_events: list[Event]) -> str:
+def _render(cluster_events: list[Event], edges: list[tuple[str, str, str]] | None = None) -> str:
     start = cluster_events[0].occurred_at
     end = cluster_events[-1].occurred_at
     header = f"Cluster of {len(cluster_events)} alerts from {start:%H:%M:%S} to {end:%H:%M:%S} UTC:"
-    return header + "\n" + "\n".join(f"- {line}" for line in _dedup_lines(cluster_events))
+    text = header + "\n" + "\n".join(f"- {line}" for line in _dedup_lines(cluster_events))
+    if edges:
+        deps = sorted({f"{src} {rel} {dst}" for src, dst, rel in edges})
+        text += "\n\nKnown dependencies:\n" + "\n".join(f"- {line}" for line in deps)
+    return text
 
 
 def _context_ref(prompt: str, model: str) -> str:
@@ -122,7 +127,8 @@ def correlate(since: timedelta) -> list[Incident]:
             if len(cluster_events) < settings.incident_min_alerts:
                 continue
             correlation_id = ids.new_id(ids.CORRELATION)
-            prompt = _render(cluster_events)
+            entities = sorted({e.entity_ref for e in cluster_events if e.entity_ref})
+            prompt = _render(cluster_events, edges_for(conn, entities))
             context_ref = _context_ref(prompt, settings.model_reasoning)
             save_context(
                 conn, context_ref=context_ref, prompt=prompt,
@@ -130,7 +136,6 @@ def correlate(since: timedelta) -> list[Incident]:
                 params={"num_ctx": settings.inference_context, "keep_alive": settings.keep_alive},
             )
             analysis = _analyze(prompt, correlation_id, context_ref)
-            entities = sorted({e.entity_ref for e in cluster_events if e.entity_ref})
             incident = Incident(
                 window_label=window,
                 severity=_max_severity(cluster_events),

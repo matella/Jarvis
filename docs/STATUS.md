@@ -5,7 +5,7 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 2 — Alert correlation** · *DONE (acceptance passed live)* · (M0–M4 + P2 metrics before it)
+**Phase 2 — Topology awareness** · *DONE (acceptance passed live)* · (M0–M4 + P2 metrics + correlation before it)
 
 ## Done
 - M0 (infra) + M1 (contracts) + M2 (event spine) + M3 (the model) DONE — see git history.
@@ -36,18 +36,24 @@
   (models + repository), `agents/correlator.py` (deterministic temporal-burst clustering of
   warning+ alerts, dedup, one-shot LLM root-cause per cluster, excludes Jarvis's own meta
   events by source), CLI `correlate` / `incidents list` / `incidents show`.
-- **P2 correlation acceptance PASSED** live: stopped 3 throwaway containers → 9 warning+ alerts
-  in a burst → `jarvis correlate` produced ONE incident (events=9, entities=3) with grounded
-  summary + root-cause hypothesis + linked event_ids + context_ref. `pytest` 61/61, `ruff` clean.
+- P2 alert correlation DONE — see git history.
+- P2 topology awareness: migration `0005` (`topology` edges table), `ingest/topology.py`
+  (deterministic builder from docker inspect: depends_on / network_mode / same_project;
+  `build_topology`, `edges_for`, `all_edges`), wired into the correlator's prompt
+  ("Known dependencies" section), CLI `topology build` / `show`.
+- **P2 topology acceptance PASSED** live: `topology build` derived real edges
+  (qbittorrent→gluetun depends_on + network_mode); a grounded-correlation demo (dep routes
+  through base) produced an incident whose root-cause CITED the network_mode dependency.
+  `pytest` 67/67, `ruff` clean.
 
 ## In progress
 - *(nothing)*
 
 ## Next step — do this first
-Pick next (see `docs/PLAN.md`): reflect metric signals into `state.attrs` via the projector +
-a supervised `jarvis run` daemon (consolidation — the spine only runs in bursts today), or
-continue the plan: topology awareness, operational journaling, GPU scheduler (still premature
-per DECISIONS — one inference path). Pick a direction.
+Plan items remaining (see `docs/PLAN.md`): **operational journaling** (curated timeline), then
+later phases (dev intelligence, distributed execution, ambient). GPU scheduler still premature
+per DECISIONS (one inference path). Consolidation still parked (off-plan): reflect metric
+signals into `state.attrs` + a supervised `jarvis run` daemon so the spine runs continuously.
 
 ## Open questions / blockers
 - *(none)*

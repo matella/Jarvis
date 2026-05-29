@@ -23,6 +23,7 @@ app = typer.Typer(no_args_is_help=True, add_completion=False, help="Jarvis CLI")
 events_app = typer.Typer(no_args_is_help=True, help="Event log introspection")
 state_app = typer.Typer(no_args_is_help=True, help="State projection")
 metrics_app = typer.Typer(no_args_is_help=True, help="Resource metrics ingest")
+topology_app = typer.Typer(no_args_is_help=True, help="Service-dependency topology")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
 incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert incidents")
@@ -30,6 +31,7 @@ replay_app = typer.Typer(no_args_is_help=True, help="Replay a decision")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
+app.add_typer(topology_app, name="topology")
 app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
 app.add_typer(incidents_app, name="incidents")
@@ -386,6 +388,30 @@ def metrics_show(
                 f"temp={sample.get('temp_c')}C"
             )
         table.add_row(row["entity"], row["kind"], stats, _short(row["ts"]))
+    console.print(table)
+
+
+@topology_app.command("build")
+def topology_build() -> None:
+    """Derive the service-dependency graph from docker inspect and store it."""
+    from jarvis.ingest.topology import build_topology
+
+    count = build_topology()
+    console.print(f"topology built: {count} edges")
+
+
+@topology_app.command("show")
+def topology_show() -> None:
+    """Show the current topology edges."""
+    from jarvis.ingest.topology import all_edges
+
+    with db.connect() as conn:
+        edges = all_edges(conn)
+    table = Table(title=f"topology ({len(edges)} edges)")
+    for col in ("src", "relation", "dst"):
+        table.add_column(col, overflow="fold")
+    for src, dst, rel in edges:
+        table.add_row(src, rel, dst)
     console.print(table)
 
 
