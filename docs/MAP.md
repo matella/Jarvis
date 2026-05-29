@@ -19,6 +19,7 @@ has rules worth lazy-loading — created with the module, not in advance.
 | `core/` | Orchestrator: deterministic context assembly, intent routing, planning | `assembly.py` | M3–M4 |
 | `agents/` | One-shot reasoning endpoints (summarizer, infrastructure agent, alert correlator, coder Q&A) | `summarizer.py` | M3, M4, P2, P3 |
 | `tools/` | Deterministic, capability-scoped executors (the tool contract) | `registry.py` | M4 |
+| `notify/` | Contextual notifications: rules-based notifier consumer + webhook channel | `notifier.py` | Phase 4 |
 | `gateway/` | FastAPI + WebSockets API (multi-client; later than the CLI) | `app.py` | Phase 4 |
 
 ## Where the truth lives

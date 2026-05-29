@@ -72,6 +72,11 @@ class Settings(BaseSettings):
     topology_interval_s: int = 300
     deploy_interval_s: int = 120
 
+    # Contextual notifications — webhook channel + notifier consumer.
+    notify_webhook_url: str = ""  # empty → log-only
+    notify_group: str = "jarvis:notifier"
+    notify_cooldown_s: int = 300
+
     # Redis Streams — event spine topology.
     events_stream: str = "jarvis:events"
     consumer_group: str = "jarvis:projectors"

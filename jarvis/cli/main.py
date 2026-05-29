@@ -26,6 +26,7 @@ metrics_app = typer.Typer(no_args_is_help=True, help="Resource metrics ingest")
 topology_app = typer.Typer(no_args_is_help=True, help="Service-dependency topology")
 code_app = typer.Typer(no_args_is_help=True, help="Code intelligence (index + Q&A)")
 deploy_app = typer.Typer(no_args_is_help=True, help="Deployment / image-change detection")
+notify_app = typer.Typer(no_args_is_help=True, help="Contextual notifications")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
 incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert incidents")
@@ -36,6 +37,7 @@ app.add_typer(metrics_app, name="metrics")
 app.add_typer(topology_app, name="topology")
 app.add_typer(code_app, name="code")
 app.add_typer(deploy_app, name="deploy")
+app.add_typer(notify_app, name="notify")
 app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
 app.add_typer(incidents_app, name="incidents")
@@ -584,9 +586,27 @@ def incidents_show(incident_id: str) -> None:
     console.print(JSON(inc.model_dump_json()))
 
 
+@notify_app.command("run")
+def notify_run(once: bool = typer.Option(False, help="Process one batch then exit")) -> None:
+    """Run the notifier: push notify-worthy events (incidents, critical) to the webhook."""
+    from jarvis.notify.notifier import run_notifier
+
+    run_notifier(once=once)
+
+
+@notify_app.command("test")
+def notify_test() -> None:
+    """Send a test notification through the configured channel."""
+    from jarvis.notify.channel import send
+
+    url = get_settings().notify_webhook_url or "(unset — log only)"
+    sent = send(title="Jarvis test", message="notification channel check", priority="default")
+    console.print(f"channel={url}  delivered={sent}")
+
+
 @app.command()
 def run() -> None:
-    """Run the whole spine continuously: ingest + consume + metrics + topology + deploy."""
+    """Run the whole spine continuously: ingest+consume+metrics+notify+topology+deploy."""
     from jarvis.core.supervisor import run as run_supervisor
 
     run_supervisor()

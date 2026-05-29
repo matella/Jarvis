@@ -5,8 +5,8 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 3 — substantially built.** The user-approved trio is DONE:
-deploy awareness ✓ · `jarvis run` daemon ✓ · code-change proposal intents ✓.
+**Phase 4 (started) — Contextual notifications** · *DONE (acceptance passed live)*.
+Phase 3 trio also done (deploy awareness · `jarvis run` daemon · code-change proposals).
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -21,16 +21,19 @@ deploy awareness ✓ · `jarvis run` daemon ✓ · code-change proposal intents 
   **`jarvis run` daemon** (`core/supervisor.py` supervises all 5 collectors; metric signals
   reflected into `state.attrs`) · **code-change proposals** (`agents/code_editor.py` +
   `code.edit_file` tool → M4 gate; capability-scoped, YAML-validated, backup, observe=dry-run).
-- Latest: `pytest` 93/93, `ruff` clean. Migrations at head = 0007.
+- **Phase 4**: contextual notifications (`notify/` — rules-based notifier consumer on the spine,
+  webhook channel, deduped; notifies on incidents + critical events; 6th `jarvis run` worker;
+  notifier group starts at `$` so it never replays history). Set `NOTIFY_WEBHOOK_URL` to enable.
+- Latest: `pytest` 98/98, `ruff` clean. Migrations at head = 0007 (no schema change in P4).
 
 ## In progress
-- *(nothing — the approved Phase-3 trio is complete)*
+- *(nothing)*
 
 ## Next step — do this first
-Open menu (per `docs/PLAN.md`): remaining Phase 3 (CI ingestion — needs an external CI source;
-git awareness — N/A, homelab isn't git-tracked), **Phase 4 — distributed execution** (execution
-nodes, capability manifests, cross-device), or **Phase 5 — ambient** (proactive/auto agents:
-e.g. event-driven auto-correlation, agent reacting to incidents). Or harden/observe. Pick.
+Open menu (per `docs/PLAN.md`): **Phase 5 — ambient** (proactive/auto agents — e.g. the daemon
+auto-runs correlation on alert bursts, or the infra agent auto-proposes a gated restart intent
+when a watched container dies). Or remaining Phase 4 multi-node bits (deferred — premature with
+one box). Or harden/observe. The notifier + daemon make ambient triggering a natural next step.
 
 ## Open questions / blockers
 - *(none)*

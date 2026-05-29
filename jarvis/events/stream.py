@@ -23,10 +23,14 @@ def get_redis() -> redis.Redis:
     )
 
 
-def ensure_group(r: redis.Redis, stream: str, group: str) -> None:
-    """Create the consumer group (and the stream) if absent; no-op if it exists."""
+def ensure_group(r: redis.Redis, stream: str, group: str, start_id: str = "0") -> None:
+    """Create the consumer group (and the stream) if absent; no-op if it exists.
+
+    start_id="0" replays all history (the projector must); "$" starts at new events only
+    (the notifier — don't page about historical incidents on first start).
+    """
     try:
-        r.xgroup_create(stream, group, id="0", mkstream=True)
+        r.xgroup_create(stream, group, id=start_id, mkstream=True)
     except redis.ResponseError as exc:
         if "BUSYGROUP" not in str(exc):
             raise

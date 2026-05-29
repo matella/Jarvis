@@ -43,12 +43,14 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.ingest.docker_events import run_ingester
     from jarvis.ingest.metrics import run_poller
     from jarvis.ingest.topology import build_topology
+    from jarvis.notify.notifier import run_notifier
 
     s = get_settings()
     return [
         ("ingest", run_ingester),
         ("consume", run_forever),
         ("metrics", run_poller),
+        ("notify", run_notifier),
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
     ]
