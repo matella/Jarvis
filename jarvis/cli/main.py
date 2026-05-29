@@ -439,6 +439,39 @@ def code_ask(question: str) -> None:
         console.print("\n[dim]sources:[/dim] " + ", ".join(result.sources))
 
 
+@code_app.command("propose-edit")
+def code_propose_edit(request: str) -> None:
+    """Propose a config-file edit as an intent (gated). Apply via `intents approve/execute`."""
+    import difflib
+
+    from jarvis.agents.code_editor import propose_edit
+    from jarvis.ingest.code_index import _read_file
+
+    intent = propose_edit(request)
+    r = intent.reasoning
+    console.print(
+        f"[bold]{intent.intent_id}[/bold]  {intent.type}  status={intent.status.value}  "
+        f"risk={r.risk.value} confidence={r.confidence} approval={intent.requires_approval}"
+    )
+    console.print(f"  target: {intent.target['path']}")
+    console.print(f"  summary: {r.summary}")
+
+    current = _read_file(get_settings().remote_ssh, intent.target["path"],
+                         get_settings().code_max_file_bytes)
+    diff = difflib.unified_diff(
+        current.splitlines(), intent.target["new_content"].splitlines(),
+        fromfile="current", tofile="proposed", lineterm="",
+    )
+    console.print("\n[bold]proposed diff:[/bold]")
+    for line in diff:
+        color = "green" if line.startswith("+") else "red" if line.startswith("-") else "dim"
+        console.print(f"[{color}]{line}[/{color}]")
+    console.print(
+        f"\n[dim]apply: jarvis intents approve {intent.intent_id} ; "
+        f"JARVIS_MODE=assist jarvis intents execute {intent.intent_id}[/dim]"
+    )
+
+
 @code_app.command("search")
 def code_search(
     query: str, n: int = typer.Option(6, "-n", "--number")

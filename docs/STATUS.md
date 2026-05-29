@@ -5,9 +5,8 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 3 — Deployment awareness** · *DONE (acceptance passed live)*
-User approved doing 3 in sequence: deploy awareness ✓ → **jarvis run daemon (next)** →
-code-change proposal intents.
+**Phase 3 — substantially built.** The user-approved trio is DONE:
+deploy awareness ✓ · `jarvis run` daemon ✓ · code-change proposal intents ✓.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -18,19 +17,20 @@ code-change proposal intents.
 - **Phase 2**: metrics ingest (0003) · alert correlation → incidents (0004) · topology (0005,
   grounds correlation) · operational journaling (derived view). GPU scheduling deferred-by-design.
 - **Phase 3**: code-intelligence MVP (0006 code_chunks; secret-safe SSH indexer; coder Q&A) ·
-  **deployment awareness** (0007 container_images; `ingest/deploy.py` detects image changes →
-  `container.deployed`; wired into journal + correlator prompt).
-- Latest: `pytest` 85/85, `ruff` clean. Migrations at head = 0007.
+  deployment awareness (0007 container_images → `container.deployed`, in journal + correlator) ·
+  **`jarvis run` daemon** (`core/supervisor.py` supervises all 5 collectors; metric signals
+  reflected into `state.attrs`) · **code-change proposals** (`agents/code_editor.py` +
+  `code.edit_file` tool → M4 gate; capability-scoped, YAML-validated, backup, observe=dry-run).
+- Latest: `pytest` 93/93, `ruff` clean. Migrations at head = 0007.
 
 ## In progress
-- Sequence of 3 (user-approved). Deploy awareness done; next = jarvis run daemon.
+- *(nothing — the approved Phase-3 trio is complete)*
 
 ## Next step — do this first
-**Consolidation: `jarvis run` daemon** — one supervised process running ingest + consume +
-metrics + topology + deploy together (restart-on-failure, flushed output) so the spine runs
-continuously instead of in bursts (the consume-backlog seen in demos is the symptom). Plus
-reflect metric signal events into `state.attrs` (cpu_status/mem_status) via the projector.
-Then: **code-change proposal intents** (coder proposes compose diffs → M4 gate, observe=dry-run).
+Open menu (per `docs/PLAN.md`): remaining Phase 3 (CI ingestion — needs an external CI source;
+git awareness — N/A, homelab isn't git-tracked), **Phase 4 — distributed execution** (execution
+nodes, capability manifests, cross-device), or **Phase 5 — ambient** (proactive/auto agents:
+e.g. event-driven auto-correlation, agent reacting to incidents). Or harden/observe. Pick.
 
 ## Open questions / blockers
 - *(none)*
