@@ -186,6 +186,28 @@ redacted before storage; the kill switch freezes all execution instantly.
 - **OS-level executor sandboxing** (separate users/scoped tokens) + a **staging/sandbox docker
   context** for safely developing autonomy/plans away from the real homelab.
 
+## Future ideas / backlog (capture now, prioritize as reality teaches us)
+- **Outcome verification (close the loop):** after an action/proposal, did it actually work? —
+  auto-check the incident cleared / container healthy / metric recovered. The missing piece for
+  *trustworthy* autonomy; feeds confidence + learning.
+- **Auto-postmortems → learned playbooks:** incident resolved → generate a postmortem + suggest
+  codifying it as a playbook. Procedural memory that GROWS from experience.
+- **Confidence + abstention:** surface certainty; say "not enough signal" instead of guessing.
+- **Graceful degradation:** LLM/DB down → keep the deterministic plumbing running, queue reasoning.
+- **Time-travel / temporal diffs:** point-in-time state reconstruction + "what changed since X?"
+  (nearly free given the append-only event log).
+- **Statistical anomaly detection:** flag a metric behaving unusually *for itself* (beyond fixed
+  thresholds/trends).
+- **Knowledge-base ingest:** index operator runbooks/notes/wiki into memory (extends code-intel to
+  docs); optional self-documentation (Jarvis keeps runbooks/STATUS current).
+- **Extensibility:** formalize the tool contract into a small plugin/connector SDK; optionally
+  speak **MCP** to reach external tools.
+- **Cost-aware model strategy:** model tiering (tiny/fast for routing+simple Q&A, big for hard
+  reasoning), inference/embedding caching, off-peak batching of non-urgent reasoning.
+- **Governance polish:** change windows / freeze schedules; a universal per-action preview/diff for
+  every mutation (generalize the code-edit diff); proactive nudges ("3 unapproved intents").
+- **Reach:** mobile PWA access to the console/presence UI.
+
 ## What stays exactly the same
 Deterministic execution boundary · one-shot agents · observe-by-default + mode machine ·
 event-sourced + replayable + `context_ref` provenance · local-first (cloud only behind
