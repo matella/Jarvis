@@ -5,44 +5,43 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**M3 — Add the model** · *DONE (acceptance passed live on remote GPU)*
+**M4 — Intent loop (read-only first)** · *DONE (acceptance passed live on remote GPU)*
 
 ## Done
-- M0 (infra) + M1 (contracts) + M2 (event spine) DONE — see git history.
-- M3 design in `docs/superpowers/specs/2026-05-29-m3-add-the-model-design.md`
-  (full multi-model routing · config-driven roles · structured summarizer).
-- Models pulled on remote: `qwen3:8b` (reasoning), `qwen2.5-coder:7b` (coder),
-  `nomic-embed-text` (embedding), + `llama3.2` placeholder. Tags are config (`MODEL_*`).
-- M3 built: `models/client.py` (Ollama wrapper); `models/router.py` (role→tag policy,
-  global inference semaphore=1, one-resident enforcement, emits model.loaded/unloaded/
-  inference.completed events to the spine); `core/assembly.py` (deterministic recency +
-  entity + vector-relevance, ≤8K, context_ref hash); `agents/summarizer.py` (one-shot
-  → SummaryResult{window,event_count,summary,notable[]}, stores summary in `memory`);
-  CLI `summarize` + `models`; Ollama in healthcheck; tunnel adds 11434.
-- **M3 acceptance PASSED** live: `jarvis summarize --since 1h` produced grounded prose +
-  deterministic notable[]; one run drove 3 inferences with real GPU swaps, all visible as
-  `inference.completed` (qwen3:8b reasoning ~9.6s, nomic embed ~1-6s) + model.loaded/unloaded
-  events, reasoning call carrying `context_ref`. `pytest` 34/34, `ruff` clean.
+- M0 (infra) + M1 (contracts) + M2 (event spine) + M3 (the model) DONE — see git history.
+- M4 design in `docs/superpowers/specs/2026-05-29-m4-intent-loop-design.md`
+  (dedicated contexts table · dry-run-under-observe gate · JSON-constrained agent).
+- M4 built: migration `0002` (`contexts` provenance table); `core/context_store.py`;
+  `tools/contract.py` + `tools/registry.py` (frozen tool contract + `docker.restart_container`
+  capability-scoped executor); `agents/infrastructure.py` (one-shot `propose_intent` →
+  IntentProposal JSON → validate vs capabilities → Intent adopting the trigger event's
+  correlation_id; + `replay`); `intents/service.py` (approve/reject/execute; approval gate +
+  mode gate: observe=dry-run/skipped, elevated=real executor, typed failure_class); router
+  gains a `format` passthrough; CLI `intents propose/list/approve/reject/execute`,
+  `inspect intent`, `explain`, `replay intent`.
+- **M4 acceptance PASSED** live: agent proposed `docker.restart_container` (conf 0.95, risk
+  medium, reversible) for a downed probe; gate blocked unapproved -> dry-run skipped under
+  observe -> REAL restart under `JARVIS_MODE=assist` (exited->running); two executions share
+  the trigger's correlation_id; `explain` surfaced the stored context (incl. a vector-relevance
+  hit on the M3 summary memory); `replay` re-ran the model (same type, diff confidence/risk);
+  `trace` showed the full event->intent->execution chain. `pytest` 49/49, `ruff` clean.
 
 ## In progress
-- *(nothing — ready to start M4)*
+- *(nothing — M0–M4 spine complete)*
 
 ## Next step — do this first
-Begin **M4 — intent loop (read-only first)**: infrastructure agent proposes Intents
-(investigate/recommend) validated vs schema + capabilities, logged with `context_ref`;
-the **tool contract** (version/permissions/side_effects/idempotent/max_retries/
-timeout_seconds/rollback) + capability-scoped executors; global `mode` (default `observe`)
-+ approval gate; CLI `inspect intent`/`explain`/`replay`. **Acceptance:** agent proposes a
-`restart_container` intent with confidence/risk/reversible; approval gate works under
-`observe`; execution recorded as a separate `executions` row sharing the correlation_id;
-`jarvis explain` surfaces the stored context. See `docs/PLAN.md`.
+M0–M4 (the MVP cognition spine) is complete: events -> state -> context -> model -> intent ->
+validated execution, all replayable. Next is **Phase 2** territory (see `docs/PLAN.md` /
+`docs/ARCHITECTURE.md`): metrics ingest (cAdvisor/`docker stats`), alert correlation, GPU
+scheduling, operational journaling — or harden/observe what exists. Pick a direction.
 
 ## Open questions / blockers
 - *(none)*
 
 ## Notes for next session
 - Integration tests need the SSH tunnel up (now incl. 11434) + `alembic upgrade head`.
-- Run live: `jarvis ingest` + `jarvis consume`; then `jarvis summarize --since 1h`.
+- Live loop: `jarvis ingest` + `jarvis consume`; `jarvis summarize`; `jarvis intents propose <entity>`.
+- Real execution requires `JARVIS_MODE` != observe (default observe = propose-only/dry-run).
 - Reasoning defaults to `qwen3:8b`; set `MODEL_REASONING=llama3.2:latest` in `.env` for fast/cheap.
 - `snapshots` table still has no model/writer (compaction comes later).
 

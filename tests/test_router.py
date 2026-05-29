@@ -20,7 +20,7 @@ def test_chat_emits_loaded_and_completed(monkeypatch) -> None:
     monkeypatch.setattr(oclient, "unload", lambda m: None)
     monkeypatch.setattr(
         oclient, "chat",
-        lambda model, messages, *, num_ctx, keep_alive: {
+        lambda model, messages, *, num_ctx, keep_alive, format=None: {
             "message": {"role": "assistant", "content": "hi"},
             "total_duration": 123, "eval_count": 5,
         },
@@ -45,7 +45,7 @@ def test_chat_does_not_reemit_loaded_when_resident(monkeypatch) -> None:
     monkeypatch.setattr(oclient, "unload", lambda m: None)
     monkeypatch.setattr(
         oclient, "chat",
-        lambda model, messages, *, num_ctx, keep_alive: {"message": {"content": "x"}},
+        lambda model, messages, *, num_ctx, keep_alive, format=None: {"message": {"content": "x"}},
     )
 
     router.chat("reasoning", [{"role": "user", "content": "q"}])
@@ -59,7 +59,7 @@ def test_swap_unloads_other_models(monkeypatch) -> None:
     monkeypatch.setattr(oclient, "unload", unloaded.append)
     monkeypatch.setattr(
         oclient, "chat",
-        lambda model, messages, *, num_ctx, keep_alive: {"message": {"content": "x"}},
+        lambda model, messages, *, num_ctx, keep_alive, format=None: {"message": {"content": "x"}},
     )
 
     router.chat("reasoning", [{"role": "user", "content": "q"}])

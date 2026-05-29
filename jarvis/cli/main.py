@@ -23,9 +23,13 @@ app = typer.Typer(no_args_is_help=True, add_completion=False, help="Jarvis CLI")
 events_app = typer.Typer(no_args_is_help=True, help="Event log introspection")
 state_app = typer.Typer(no_args_is_help=True, help="State projection")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
+intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
+replay_app = typer.Typer(no_args_is_help=True, help="Replay a decision")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(inspect_app, name="inspect")
+app.add_typer(intents_app, name="intents")
+app.add_typer(replay_app, name="replay")
 
 console = Console()
 
@@ -214,6 +218,137 @@ def models() -> None:
         console.print(f"loaded now: {', '.join(running) if running else '(none)'}")
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red]ollama unreachable[/red] — {exc}")
+
+
+def _print_intent(intent) -> None:
+    r = intent.reasoning
+    console.print(
+        f"[bold]{intent.intent_id}[/bold]  {intent.type}  status={intent.status.value}"
+    )
+    console.print(
+        f"  risk={r.risk.value} confidence={r.confidence} reversible={r.reversible} "
+        f"requires_approval={intent.requires_approval}"
+    )
+    console.print(f"  target={intent.target}")
+    console.print(f"  summary: {r.summary}")
+    console.print(f"  correlation_id={intent.correlation_id}  context_ref={intent.context_ref}")
+
+
+@intents_app.command("propose")
+def intents_propose(entity: str) -> None:
+    """Run the infrastructure agent over an entity and persist a proposed intent."""
+    from jarvis.agents.infrastructure import propose_intent
+
+    _print_intent(propose_intent(entity))
+
+
+@intents_app.command("list")
+def intents_list(n: int = typer.Option(20, "-n", "--number")) -> None:
+    """List recent intents."""
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT intent_id, created_at, type, status, requires_approval, "
+            "reasoning->>'risk' AS risk, reasoning->>'confidence' AS confidence "
+            "FROM intents ORDER BY intent_id DESC LIMIT %s",
+            (n,),
+        ).fetchall()
+    table = Table(title=f"intents (last {len(rows)})")
+    for col in ("created_at", "type", "status", "risk", "conf", "approval?", "intent_id"):
+        table.add_column(col, overflow="fold")
+    for row in reversed(rows):
+        table.add_row(
+            _short(row["created_at"]), row["type"], row["status"], row["risk"] or "",
+            row["confidence"] or "", str(row["requires_approval"]), row["intent_id"],
+        )
+    console.print(table)
+
+
+@intents_app.command("approve")
+def intents_approve(intent_id: str) -> None:
+    from jarvis.intents import service
+
+    with db.connect(autocommit=True) as conn:
+        _print_intent(service.approve(conn, intent_id))
+
+
+@intents_app.command("reject")
+def intents_reject(intent_id: str) -> None:
+    from jarvis.intents import service
+
+    with db.connect(autocommit=True) as conn:
+        _print_intent(service.reject(conn, intent_id))
+
+
+@intents_app.command("execute")
+def intents_execute(intent_id: str) -> None:
+    """Execute an intent through the approval + mode gate (dry-run under observe)."""
+    from jarvis.intents import service
+
+    with db.connect(autocommit=True) as conn:
+        try:
+            execution = service.execute(conn, intent_id)
+        except service.ApprovalRequired as exc:
+            console.print(f"[yellow]blocked[/yellow] — {exc}")
+            raise typer.Exit(code=1) from exc
+    mode = get_settings().jarvis_mode
+    console.print(
+        f"[bold]execution[/bold] {execution.exec_id}  outcome={execution.outcome.value}  "
+        f"mode={mode}"
+    )
+    console.print(f"  before={execution.before_state}  after={execution.after_state}")
+    if execution.error:
+        console.print(f"  [red]error[/red] ({execution.failure_class}): {execution.error}")
+    console.print(f"  correlation_id={execution.correlation_id}")
+
+
+@inspect_app.command("intent")
+def inspect_intent(intent_id: str) -> None:
+    """Print a single intent row in full."""
+    from jarvis.intents.repository import get_intent
+
+    with db.connect() as conn:
+        intent = get_intent(conn, intent_id)
+    if intent is None:
+        console.print(f"[red]no intent[/red] {intent_id}")
+        raise typer.Exit(code=1)
+    console.print(JSON(intent.model_dump_json()))
+
+
+@app.command()
+def explain(intent_id: str) -> None:
+    """Show the stored context (prompt + model/params) that produced an intent."""
+    from jarvis.core.context_store import get_context
+    from jarvis.intents.repository import get_intent
+
+    with db.connect() as conn:
+        intent = get_intent(conn, intent_id)
+        if intent is None:
+            console.print(f"[red]no intent[/red] {intent_id}")
+            raise typer.Exit(code=1)
+        ctx = get_context(conn, intent.context_ref) if intent.context_ref else None
+
+    _print_intent(intent)
+    console.print()
+    if ctx is None:
+        console.print("[yellow]no stored context for this intent[/yellow]")
+        return
+    console.print(f"[bold]context[/bold] {ctx.context_ref}  model={ctx.model}  params={ctx.params}")
+    console.print(ctx.prompt)
+
+
+@replay_app.command("intent")
+def replay_intent(intent_id: str) -> None:
+    """Re-run the model on the stored context and diff against the original decision."""
+    from jarvis.agents.infrastructure import replay
+
+    result = replay(intent_id)
+    console.print(f"[bold]replay[/bold] {intent_id}  context_ref={result['context_ref']}")
+    console.print(f"  original : {result['original']}")
+    console.print(f"  replayed : {result['replayed']}")
+    console.print(
+        f"  type matches original: {result['matches_type']} "
+        "[dim](inference is non-deterministic; differences are expected)[/dim]"
+    )
 
 
 def main() -> None:

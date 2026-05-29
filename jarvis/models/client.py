@@ -26,12 +26,23 @@ def _as_dict(obj: Any) -> dict:
     return dict(obj)
 
 
-def chat(model: str, messages: list[dict], *, num_ctx: int, keep_alive: str) -> dict:
-    return _as_dict(
-        get_client().chat(
-            model=model, messages=messages, options={"num_ctx": num_ctx}, keep_alive=keep_alive
-        )
-    )
+def chat(
+    model: str,
+    messages: list[dict],
+    *,
+    num_ctx: int,
+    keep_alive: str,
+    format: str | None = None,
+) -> dict:
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "options": {"num_ctx": num_ctx},
+        "keep_alive": keep_alive,
+    }
+    if format is not None:
+        kwargs["format"] = format
+    return _as_dict(get_client().chat(**kwargs))
 
 
 def embeddings(model: str, text: str) -> list[float]:

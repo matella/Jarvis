@@ -44,6 +44,14 @@ def publish_event(
     )
 
 
+def emit_event(event: Event) -> None:
+    """Best-effort publish for telemetry events; never raises (must not break callers)."""
+    try:
+        publish_event(get_redis(), event)
+    except Exception:
+        pass
+
+
 def publish_dlq(
     r: redis.Redis,
     *,
