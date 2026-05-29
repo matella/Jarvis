@@ -20,6 +20,11 @@ class _Conn:
     """Returns canned rows depending on which table the SQL targets."""
 
     def execute(self, sql, params=None):
+        if "container.deployed" in sql:  # must precede the generic FROM events branch
+            return _Cursor([
+                {"id": "evt_1", "entity_ref": "container:a", "image": "nginx:1.1",
+                 "occurred_at": _NOW - timedelta(minutes=3)},
+            ])
         if "FROM events" in sql:
             return _Cursor([
                 {"id": "evt_2", "type": "container.died", "severity": "warning",
@@ -45,8 +50,8 @@ class _Conn:
 
 def test_journal_merges_and_sorts_chronologically() -> None:
     entries = build_journal(_Conn(), timedelta(hours=1))
-    assert [e.kind for e in entries] == ["event", "incident", "intent", "execution"]
-    # sorted ascending by ts
+    # deploy(-3m) → event(-2m) → incident(-1m) → intent(now) → execution(+1m)
+    assert [e.kind for e in entries] == ["deploy", "event", "incident", "intent", "execution"]
     assert [e.ts for e in entries] == sorted(e.ts for e in entries)
 
 

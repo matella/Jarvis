@@ -42,6 +42,14 @@ def build_journal(conn: psycopg.Connection, since: timedelta) -> list[JournalEnt
         entries.append(JournalEntry(r["occurred_at"], "event", r["severity"], title, r["id"]))
 
     for r in conn.execute(
+        "SELECT id, entity_ref, occurred_at, payload->>'image' AS image FROM events "
+        "WHERE type = 'container.deployed' AND occurred_at >= %s",
+        (since_dt,),
+    ).fetchall():
+        title = f"deployed {r['entity_ref']} -> {r['image']}"
+        entries.append(JournalEntry(r["occurred_at"], "deploy", "info", title, r["id"]))
+
+    for r in conn.execute(
         "SELECT incident_id, severity, summary, created_at FROM incidents WHERE created_at >= %s",
         (since_dt,),
     ).fetchall():

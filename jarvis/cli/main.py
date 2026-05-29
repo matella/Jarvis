@@ -25,6 +25,7 @@ state_app = typer.Typer(no_args_is_help=True, help="State projection")
 metrics_app = typer.Typer(no_args_is_help=True, help="Resource metrics ingest")
 topology_app = typer.Typer(no_args_is_help=True, help="Service-dependency topology")
 code_app = typer.Typer(no_args_is_help=True, help="Code intelligence (index + Q&A)")
+deploy_app = typer.Typer(no_args_is_help=True, help="Deployment / image-change detection")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
 incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert incidents")
@@ -34,6 +35,7 @@ app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
 app.add_typer(topology_app, name="topology")
 app.add_typer(code_app, name="code")
+app.add_typer(deploy_app, name="deploy")
 app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
 app.add_typer(incidents_app, name="incidents")
@@ -454,6 +456,30 @@ def code_search(
     for path, start, end, content, distance in hits:
         first = content.splitlines()[0] if content else ""
         table.add_row(f"{path}:{start}-{end}", f"{distance:.3f}", first[:80])
+    console.print(table)
+
+
+@deploy_app.command("detect")
+def deploy_detect() -> None:
+    """Detect container image changes since the last run; emit container.deployed events."""
+    from jarvis.ingest.deploy import detect_deployments
+
+    count = detect_deployments()
+    console.print(f"deployments detected: {count}")
+
+
+@deploy_app.command("show")
+def deploy_show() -> None:
+    """Show the current per-container image baseline."""
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT entity, image, updated_at FROM container_images ORDER BY entity"
+        ).fetchall()
+    table = Table(title=f"container images ({len(rows)})")
+    for col in ("entity", "image", "updated_at"):
+        table.add_column(col, overflow="fold")
+    for r in rows:
+        table.add_row(r["entity"], r["image"], _short(r["updated_at"]))
     console.print(table)
 
 

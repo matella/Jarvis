@@ -73,7 +73,23 @@ def _dedup_lines(cluster_events: list[Event]) -> list[str]:
     ]
 
 
-def _render(cluster_events: list[Event], edges: list[tuple[str, str, str]] | None = None) -> str:
+def _recent_deploys(conn, entities: list[str], since) -> list[tuple[str, str]]:
+    if not entities:
+        return []
+    rows = conn.execute(
+        "SELECT entity_ref, payload->>'image' AS image FROM events "
+        "WHERE type = 'container.deployed' AND entity_ref = ANY(%s) AND occurred_at >= %s "
+        "ORDER BY occurred_at",
+        (entities, since),
+    ).fetchall()
+    return [(r["entity_ref"], r["image"]) for r in rows]
+
+
+def _render(
+    cluster_events: list[Event],
+    edges: list[tuple[str, str, str]] | None = None,
+    deploys: list[tuple[str, str]] | None = None,
+) -> str:
     start = cluster_events[0].occurred_at
     end = cluster_events[-1].occurred_at
     header = f"Cluster of {len(cluster_events)} alerts from {start:%H:%M:%S} to {end:%H:%M:%S} UTC:"
@@ -81,6 +97,9 @@ def _render(cluster_events: list[Event], edges: list[tuple[str, str, str]] | Non
     if edges:
         deps = sorted({f"{src} {rel} {dst}" for src, dst, rel in edges})
         text += "\n\nKnown dependencies:\n" + "\n".join(f"- {line}" for line in deps)
+    if deploys:
+        lines = sorted({f"{entity} -> {image}" for entity, image in deploys})
+        text += "\n\nRecent deployments:\n" + "\n".join(f"- {line}" for line in lines)
     return text
 
 
@@ -128,7 +147,9 @@ def correlate(since: timedelta) -> list[Incident]:
                 continue
             correlation_id = ids.new_id(ids.CORRELATION)
             entities = sorted({e.entity_ref for e in cluster_events if e.entity_ref})
-            prompt = _render(cluster_events, edges_for(conn, entities))
+            prompt = _render(
+                cluster_events, edges_for(conn, entities), _recent_deploys(conn, entities, since_dt)
+            )
             context_ref = _context_ref(prompt, settings.model_reasoning)
             save_context(
                 conn, context_ref=context_ref, prompt=prompt,
