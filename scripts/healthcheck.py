@@ -34,13 +34,23 @@ def check_redis(url: str) -> str:
     return str(info["redis_version"])
 
 
+def check_ollama(url: str) -> str:
+    import urllib.request
+
+    with urllib.request.urlopen(f"{url}/api/version", timeout=TIMEOUT_S) as resp:  # noqa: S310
+        import json
+
+        return str(json.load(resp).get("version", "?"))
+
+
 def main() -> int:
     settings = get_settings()
     ok = True
 
     try:
         version = check_postgres(settings.postgres_dsn)
-        print(f"  postgres   OK  ({settings.postgres_host}:{settings.postgres_port}, v{version}, pgvector ready)")
+        host = f"{settings.postgres_host}:{settings.postgres_port}"
+        print(f"  postgres   OK  ({host}, v{version}, pgvector ready)")
     except Exception as exc:  # noqa: BLE001 — report any failure, don't swallow it
         ok = False
         print(f"  postgres   FAIL  {settings.postgres_host}:{settings.postgres_port} — {exc}")
@@ -51,6 +61,13 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         ok = False
         print(f"  redis      FAIL  {settings.redis_host}:{settings.redis_port} — {exc}")
+
+    try:
+        version = check_ollama(settings.ollama_url)
+        print(f"  ollama     OK  ({settings.ollama_host}:{settings.ollama_port}, v{version})")
+    except Exception as exc:  # noqa: BLE001
+        ok = False
+        print(f"  ollama     FAIL  {settings.ollama_host}:{settings.ollama_port} — {exc}")
 
     print("healthcheck: PASS" if ok else "healthcheck: FAIL")
     return 0 if ok else 1

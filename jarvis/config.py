@@ -54,6 +54,23 @@ class Settings(BaseSettings):
     stream_maxlen: int = 100_000
     max_deliveries: int = 5
 
+    # Ollama — reached at 127.0.0.1 via the SSH tunnel (off-LAN, like PG/Redis).
+    ollama_host: str = "127.0.0.1"
+    ollama_port: int = 11434
+
+    # Model roles → Ollama tags. "Qwen 3.5 9B" (CLAUDE.md) has no literal tag; qwen3:8b is
+    # the 8 GB-fit stand-in. Override per-role in .env (e.g. MODEL_REASONING=llama3.2:latest).
+    model_reasoning: str = "qwen3:8b"
+    model_coder: str = "qwen2.5-coder:7b"
+    model_embedding: str = "nomic-embed-text"
+    keep_alive: str = "5m"
+    inference_context: int = 8192
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def ollama_url(self) -> str:
+        return f"http://{self.ollama_host}:{self.ollama_port}"
+
     # Global operational mode — defaults to propose-only.
     jarvis_mode: Mode = "observe"
 

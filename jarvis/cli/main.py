@@ -35,6 +35,17 @@ def _short(value: object) -> str:
     return text[:19] if len(text) > 19 else text
 
 
+def _parse_duration(text: str):
+    """Parse '12h' / '30m' / '2d' / '90s' into a timedelta."""
+    from datetime import timedelta
+
+    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+    text = text.strip().lower()
+    if len(text) < 2 or text[-1] not in units or not text[:-1].isdigit():
+        raise typer.BadParameter("duration must look like 12h, 30m, 2d, or 90s")
+    return timedelta(seconds=int(text[:-1]) * units[text[-1]])
+
+
 @app.command()
 def ingest(once: bool = typer.Option(False, help="Publish one event then exit")) -> None:
     """Stream Docker events from the remote daemon into the event spine."""
@@ -160,6 +171,49 @@ def dlq(n: int = typer.Option(20, "-n", "--number", help="How many DLQ entries")
             fields.get("error", ""), fields.get("original_id", ""),
         )
     console.print(table)
+
+
+@app.command()
+def summarize(
+    since: str = typer.Option("12h", "--since", help="Window: 12h, 30m, 2d, 90s"),
+) -> None:
+    """Summarize recent events with the reasoning model (one-shot)."""
+    from jarvis.agents.summarizer import summarize as run_summary
+
+    result = run_summary(_parse_duration(since))
+    console.print(
+        f"[bold]Summary[/bold]  window={result.window}  events={result.event_count}"
+    )
+    console.print(result.summary or "[dim](empty)[/dim]")
+    if result.notable:
+        table = Table(title=f"notable ({len(result.notable)})")
+        for col in ("occurred_at", "severity", "type", "entity_ref"):
+            table.add_column(col, overflow="fold")
+        for item in result.notable:
+            table.add_row(
+                _short(item.occurred_at), item.severity, item.type, item.entity_ref or ""
+            )
+        console.print(table)
+
+
+@app.command()
+def models() -> None:
+    """Show configured model roles and what's currently loaded in VRAM."""
+    from jarvis.models import client
+
+    settings = get_settings()
+    roles = Table(title="model roles")
+    roles.add_column("role")
+    roles.add_column("ollama tag")
+    roles.add_row("reasoning", settings.model_reasoning)
+    roles.add_row("coder", settings.model_coder)
+    roles.add_row("embedding", settings.model_embedding)
+    console.print(roles)
+    try:
+        running = client.ps()
+        console.print(f"loaded now: {', '.join(running) if running else '(none)'}")
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]ollama unreachable[/red] — {exc}")
 
 
 def main() -> None:

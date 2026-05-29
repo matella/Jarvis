@@ -8,6 +8,7 @@ CONTEXT  ?= jarvis
 REMOTE_SSH ?= user@homelab.lan
 POSTGRES_PORT ?= 5432
 REDIS_PORT ?= 6379
+OLLAMA_PORT ?= 11434
 
 DC = docker --context $(CONTEXT) compose
 
@@ -29,11 +30,12 @@ ps:
 logs:
 	$(DC) logs -f
 
-## Forward remote-loopback Postgres/Redis to this machine's 127.0.0.1 (blocks).
+## Forward remote-loopback Postgres/Redis/Ollama to this machine's 127.0.0.1 (blocks).
 tunnel:
 	ssh -N \
 		-L $(POSTGRES_PORT):localhost:$(POSTGRES_PORT) \
 		-L $(REDIS_PORT):localhost:$(REDIS_PORT) \
+		-L $(OLLAMA_PORT):localhost:$(OLLAMA_PORT) \
 		$(REMOTE_SSH)
 
 ## M0 acceptance: both services answer through the tunnel.
