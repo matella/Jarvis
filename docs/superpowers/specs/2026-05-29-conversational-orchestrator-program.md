@@ -95,6 +95,20 @@ redacted before storage; the kill switch freezes all execution instantly.
   Cmd-K command palette); self-observability + audit panels; a **decision inspector**
   (explain/replay/trace in the browser). **Accept:** drive a full propose→approve loop *and* open a
   local service *and* read a live metrics chart, all from the browser.
+- **Presence UI (the "talking to someone" feel — NOT a classic chatbot):** a central animated
+  **orb** that is Jarvis's embodiment, driven by a **presence-state** streamed from the gateway:
+  `idle` (ambient breathing glow) · `listening` · `thinking` (an inference in-flight, from
+  `inference.completed`/in-flight) · `speaking` (audio-reactive sound-wave bloom) · `alert`
+  (active incident → urgent pulse) · `frozen` (`maintenance` → dimmed). It's an **ambient status
+  surface**, not decoration — wired to the same event spine; **pure read-only display** (no gate,
+  no new risk). Two surfaces, one app: an **immersive presence mode** (orb-centric, voice-first,
+  minimal) and the **console/HUD mode** above; toggle between "talk to Jarvis" and "see the data."
+  Tech: WebGL/Canvas (react-three-fiber or shader) + framer-motion; audio-reactivity wired in
+  Phase 10. Guardrail: **presence, not persona** (aliveness/attention, never a fake human
+  personality — ARCHITECTURE §18). Live captions/transcript beside the orb; optional "thinking
+  out loud" status narration during plans.
+  **Accept:** the orb reflects idle→listening→thinking→speaking→alert→frozen in real time from
+  spine state, with an immersive mode you can talk in and a console mode you switch to.
 
 ### Phase 7 — Full orchestration (+ action safety)
 - `core/planner.py` (goal → validated plan DAG of known capabilities) + `core/plan_executor.py`
@@ -129,9 +143,14 @@ redacted before storage; the kill switch freezes all execution instantly.
 - **Accept:** "what's the latest on CVE-…?" → a cited answer from live search (grounded +
   injection-safe); "show me weather.com" → a captured image rendered in the console.
 
-### Phase 10 — Voice
-- Whisper.cpp STT + Piper TTS as transport over the conversation pipeline (all local/CPU).
-  **Accept:** speak a question → spoken grounded answer; actions still gated.
+### Phase 10 — Voice (+ the orb comes alive)
+- Whisper.cpp STT + Piper TTS as transport over the conversation pipeline (all local/CPU);
+  **OpenWakeWord** "Hey Jarvis" activates presence (glanceable, not always-recording).
+- The **orb becomes audio-reactive** here: the TTS stream feeds a Web Audio `AnalyserNode` → the
+  orb visualizes amplitude/frequency (sound waves emanating) while `speaking`, and reacts to mic
+  input while `listening`. This is what makes it feel like talking to someone.
+  **Accept:** say "Hey Jarvis, what's wrong with my media stack?" → the orb listens, thinks, then
+  speaks with the waveform reacting to its voice; actions still gated.
 
 ### Phase 11 — GPU scheduler + cognition budgets (enabler — slot when contention is real)
 - `models/scheduler.py`: queue + per-role budgets (VRAM/context/tokens) + swap-frequency limits +
@@ -153,8 +172,9 @@ redacted before storage; the kill switch freezes all execution instantly.
 - **Memory governance:** a UI to view/forget/consolidate memories, summaries, playbooks; memory
   consolidation (compact old episodes) ties into the snapshot/compaction work.
 - **Multimodal + ambient presentation:** speak a summary *while* showing the chart (present layer
-  × voice, P10); a **kiosk/ambient HUD mode** (the situational dashboard on a spare monitor —
-  glanceable status). Polish on top of 6b + 10.
+  × voice, P10); a **kiosk/ambient HUD mode** where the **orb doubles as an ambient notifier**
+  (pulses on an incident — glance over and you know) alongside the situational dashboard on a spare
+  monitor. Polish on top of 6b + 10.
 - **Security & audit (continuous):** auth + capability scopes, secrets vault, egress allowlist,
   prompt-injection quarantine, kill switch, audit attribution — established in Phase 5.5, enforced
   in every later phase.
