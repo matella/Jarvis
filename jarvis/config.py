@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     # Docker ingestion — the SSH docker context that targets the remote daemon.
     docker_context: str = "jarvis"
 
+    # SSH target for the remote host (used for nvidia-smi GPU sampling). From .env REMOTE_SSH.
+    remote_ssh: str = ""
+
+    # Metrics ingest — poll cadence, retention, and signal thresholds (percent).
+    metrics_poll_interval_s: int = 30
+    metrics_retention_hours: int = 24
+    cpu_high_pct: float = 85.0
+    mem_high_pct: float = 90.0
+    gpu_util_high_pct: float = 90.0
+    gpu_mem_high_pct: float = 90.0
+
     # Redis Streams — event spine topology.
     events_stream: str = "jarvis:events"
     consumer_group: str = "jarvis:projectors"

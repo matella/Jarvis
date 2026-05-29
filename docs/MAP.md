@@ -12,7 +12,7 @@ has rules worth lazy-loading — created with the module, not in advance.
 | `migrations/` (repo root) | Alembic versioned schema migrations (runner-only, raw SQL) | `versions/0001_initial_schema.py` | M1 |
 | `memory/` | `MemoryStore` interface + pgvector implementation | `store.py` | M1 |
 | `events/` | Redis Streams producers/consumers, event schemas, DLQ handling | `consumer.py` | M2 |
-| `ingest/` | Docker events → event stream (metrics ingest comes in Phase 2) | `docker_events.py` | M2 |
+| `ingest/` | Docker events → event stream (M2); resource metrics poller → `metrics` table + signal events (P2) | `docker_events.py`, `metrics.py` | M2, P2 |
 | `cli/` | Terminal client + introspection (`tail`, `inspect`, `trace`, `explain`, `replay`) | `main.py` | M2, M4 |
 | `models/` | Ollama client, model-router policy, inference semaphore + timing events | `router.py` | M3 |
 | `core/` | Orchestrator: deterministic context assembly, intent routing, planning | `assembly.py` | M3–M4 |

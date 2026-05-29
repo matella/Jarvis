@@ -22,11 +22,13 @@ from jarvis.events.stream import get_redis
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Jarvis CLI")
 events_app = typer.Typer(no_args_is_help=True, help="Event log introspection")
 state_app = typer.Typer(no_args_is_help=True, help="State projection")
+metrics_app = typer.Typer(no_args_is_help=True, help="Resource metrics ingest")
 inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
 replay_app = typer.Typer(no_args_is_help=True, help="Replay a decision")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
+app.add_typer(metrics_app, name="metrics")
 app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
 app.add_typer(replay_app, name="replay")
@@ -349,6 +351,40 @@ def replay_intent(intent_id: str) -> None:
         f"  type matches original: {result['matches_type']} "
         "[dim](inference is non-deterministic; differences are expected)[/dim]"
     )
+
+
+@metrics_app.command("run")
+def metrics_run(once: bool = typer.Option(False, help="Sample one cycle then exit")) -> None:
+    """Poll docker stats + GPU into the metrics table; emit threshold signal events."""
+    from jarvis.ingest.metrics import run_poller
+
+    run_poller(once=once)
+
+
+@metrics_app.command("show")
+def metrics_show(
+    kind: str | None = typer.Option(None, help="Filter: container | gpu"),
+) -> None:
+    """Show the latest sample per entity."""
+    from jarvis.ingest.metrics_store import latest_per_entity
+
+    with db.connect() as conn:
+        rows = latest_per_entity(conn, kind)
+
+    table = Table(title=f"metrics ({len(rows)} entities)")
+    for col in ("entity", "kind", "key stats", "ts"):
+        table.add_column(col, overflow="fold")
+    for row in sorted(rows, key=lambda r: r["entity"]):
+        sample = row["sample"]
+        if row["kind"] == "container":
+            stats = f"cpu={sample.get('cpu_pct')}% mem={sample.get('mem_pct')}%"
+        else:
+            stats = (
+                f"util={sample.get('util_pct')}% mem={sample.get('mem_pct')}% "
+                f"temp={sample.get('temp_c')}C"
+            )
+        table.add_row(row["entity"], row["kind"], stats, _short(row["ts"]))
+    console.print(table)
 
 
 def main() -> None:

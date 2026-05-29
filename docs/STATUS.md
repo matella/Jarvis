@@ -5,7 +5,7 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**M4 — Intent loop (read-only first)** · *DONE (acceptance passed live on remote GPU)*
+**Phase 2 — Metrics ingest** · *DONE (acceptance passed live)* · (M0–M4 spine done before it)
 
 ## Done
 - M0 (infra) + M1 (contracts) + M2 (event spine) + M3 (the model) DONE — see git history.
@@ -26,14 +26,24 @@
   hit on the M3 summary memory); `replay` re-ran the model (same type, diff confidence/risk);
   `trace` showed the full event->intent->execution chain. `pytest` 49/49, `ruff` clean.
 
+- P2 metrics ingest: `ingest/metrics.py` (docker stats + nvidia-smi poller),
+  `ingest/metrics_store.py`, migration `0003` (`metrics` time-series table), config
+  thresholds + `remote_ssh`; debounced threshold signal events (container.cpu_high/_normal,
+  memory_*, gpu.*); CLI `metrics run` / `metrics show`. Raw samples → metrics table (NOT
+  state/log, per Hard Rules); only signal events reach the spine.
+- **P2 metrics acceptance PASSED** live: poller sampled 23 containers + GPU into `metrics`;
+  `metrics show` displays usage; a CPU-burner crossed threshold → exactly one
+  `container.cpu_high` (100.3%) + one `container.cpu_normal` on recovery (debounce works, no
+  flooding). `pytest` 55/55, `ruff` clean.
+
 ## In progress
-- *(nothing — M0–M4 spine complete)*
+- *(nothing)*
 
 ## Next step — do this first
-M0–M4 (the MVP cognition spine) is complete: events -> state -> context -> model -> intent ->
-validated execution, all replayable. Next is **Phase 2** territory (see `docs/PLAN.md` /
-`docs/ARCHITECTURE.md`): metrics ingest (cAdvisor/`docker stats`), alert correlation, GPU
-scheduling, operational journaling — or harden/observe what exists. Pick a direction.
+Pick the next Phase 2 piece (see `docs/PLAN.md` / `docs/ARCHITECTURE.md`): **alert correlation**
+(now has metrics + lifecycle + signal events to correlate), reflect metrics signals into
+`state.attrs` via the projector (clean follow-up), the **GPU scheduler** (telemetry exists),
+operational journaling, or harden/observe. Pick a direction.
 
 ## Open questions / blockers
 - *(none)*
