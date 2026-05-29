@@ -14,9 +14,11 @@ _COLUMNS = (
 
 
 def insert_event(conn: psycopg.Connection, event: Event) -> None:
+    # ON CONFLICT DO NOTHING: the stream is at-least-once, so a redelivered event
+    # must be a harmless no-op (events are an append-only, immutable source of truth).
     conn.execute(
         f"INSERT INTO events ({_COLUMNS}) VALUES "
-        "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
         (
             event.id,
             event.schema_version,

@@ -11,6 +11,8 @@ dependencies = [
     "pgvector>=0.3",
     "python-ulid>=2.2",
     "alembic>=1.13",
+    "typer>=0.12",
+    "rich>=13.0",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +21,9 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+
+[project.scripts]
+jarvis = "jarvis.cli.main:main"
 
 [build-system]
 requires = ["hatchling"]

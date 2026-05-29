@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     embedding_dim: int = 768
 
+    # Docker ingestion — the SSH docker context that targets the remote daemon.
+    docker_context: str = "jarvis"
+
+    # Redis Streams — event spine topology.
+    events_stream: str = "jarvis:events"
+    consumer_group: str = "jarvis:projectors"
+    dlq_stream: str = "jarvis:dlq"
+    stream_maxlen: int = 100_000
+    max_deliveries: int = 5
+
     # Global operational mode — defaults to propose-only.
     jarvis_mode: Mode = "observe"
 

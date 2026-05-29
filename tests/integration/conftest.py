@@ -11,10 +11,12 @@ from collections.abc import Iterator
 
 import psycopg
 import pytest
+import redis as redis_lib
 from pgvector.psycopg import register_vector
 from psycopg.rows import dict_row
 
 from jarvis.config import get_settings
+from jarvis.events.stream import get_redis
 
 
 @pytest.fixture(scope="session")
@@ -41,3 +43,16 @@ def db_conn() -> Iterator[psycopg.Connection]:
         yield conn
     finally:
         conn.close()
+
+
+@pytest.fixture(scope="session")
+def redis_client() -> Iterator[redis_lib.Redis]:
+    client = get_redis()
+    try:
+        client.ping()
+    except redis_lib.RedisError as exc:
+        pytest.skip(f"Redis unreachable — {exc}")
+    try:
+        yield client
+    finally:
+        client.close()

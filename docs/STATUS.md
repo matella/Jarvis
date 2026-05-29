@@ -5,39 +5,40 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**M1 — Data model & contracts** · *DONE (acceptance passed against remote)*
+**M2 — Event spine, zero AI** · *DONE (acceptance passed against remote)*
 
 ## Done
-- M0 (infra spine) DONE — see git history. Stack runs on remote `matella@192.168.129.85`
-  via SSH docker context; healthcheck through the tunnel passes.
-- M1 design recorded in `docs/superpowers/specs/2026-05-29-m1-data-model-design.md`
-  (Alembic runner-only · TEXT+CHECK enums · prefixed ULID ids · raw psycopg3 · vector(768)).
-- M1 built: Alembic migration `0001` (events/intents/executions/state/snapshots/memory,
-  pgvector, CHECK constraints, HNSW cosine index); Pydantic `Event`/`Intent`/`Execution`/
-  `MemoryRecord` + enums; `jarvis/ids.py`, `jarvis/db.py`; thin repositories; `MemoryStore`
-  ABC + `PgVectorMemoryStore`.
-- **M1 acceptance PASSED** on remote: migration applied (alembic_version=0001, all 6 tables,
-  pgvector live); event→intent→execution share one `correlation_id` and round-trip;
-  `MemoryStore` embedding round-trips + similarity search returns nearest. `pytest` 11/11,
-  `ruff` clean.
+- M0 (infra spine) + M1 (data model & contracts) DONE — see git history.
+- M2 design recorded in `docs/superpowers/specs/2026-05-29-m2-event-spine-design.md`
+  (subprocess `docker events` · Typer+Rich CLI · focused container projector).
+- M2 built: `ingest/docker_events.py` (allowlist mapping, drops `exec_*` noise);
+  `events/stream.py` (Redis Streams helpers); `events/consumer.py` (consumer group,
+  per-msg DB tx insert→project→ack, XCLAIM retry → `jarvis:dlq` after max_deliveries);
+  `state/projector.py` + `state/models.py` (monotonic container projection via ULID
+  last_event_id); `cli/main.py` Typer app (`jarvis` console script): ingest/consume/
+  events tail/state show/inspect event/trace/dlq.
+- **M2 acceptance PASSED** live on remote: created+restarted a throwaway `jarvis-m2-probe`;
+  lifecycle events flowed Docker→Redis→consumer→`events`, `events tail` showed them, `state`
+  projected to `running`, `trace`/`inspect`/`dlq` work. No model involved. `pytest` 21/21,
+  `ruff` clean. (Probe + its events/state cleaned up afterward.)
 
 ## In progress
-- *(nothing — ready to start M2)*
+- *(nothing — ready to start M3)*
 
 ## Next step — do this first
-Begin **M2 — event spine, zero AI**: Docker events ingester → Redis Stream → consumer group
-→ `events` table → state **projector**; DLQ via consumer-group pending list → `jarvis:dlq`;
-introspection CLI (`events tail`, `state show`, `inspect`, `trace`, `dlq`). The `state`/
-`snapshots` Pydantic models land here with the projector (deferred from M1 by design).
-See `docs/PLAN.md` for the M2 acceptance test.
+Begin **M3 — add the model**: Ollama client + model-router policy behind a global inference
+semaphore (concurrency=1); emit `model.loaded`/`inference.completed` timing events;
+deterministic context assembly (recency + entity + vector relevance, ≤8K); one-shot
+summarizer agent. **Acceptance:** `jarvis summarize --since 12h` grounded in real events,
+with `inference.completed` timing events. See `docs/PLAN.md`.
 
 ## Open questions / blockers
 - *(none)*
 
 ## Notes for next session
 - Integration tests need the SSH tunnel up + `alembic upgrade head` already run.
-- `state`/`snapshots` tables exist but have no Pydantic models yet — add them with the
-  M2 projector (their only writer).
+- Run the spine live with: `jarvis ingest` (one shell) + `jarvis consume` (another).
+- `snapshots` table still has no Pydantic model/writer (compaction comes later, not M3).
 
 ---
 *How to update:* overwrite the four working sections (Current milestone / Done / In progress /
