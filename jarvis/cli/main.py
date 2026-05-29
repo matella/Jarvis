@@ -294,15 +294,16 @@ def intents_reject(intent_id: str) -> None:
 @intents_app.command("execute")
 def intents_execute(intent_id: str) -> None:
     """Execute an intent through the approval + mode gate (dry-run under observe)."""
+    from jarvis.core.modes import get_mode
     from jarvis.intents import service
 
     with db.connect(autocommit=True) as conn:
+        mode = get_mode(conn).value
         try:
             execution = service.execute(conn, intent_id)
-        except service.ApprovalRequired as exc:
+        except (service.ApprovalRequired, service.ModeBlocked) as exc:
             console.print(f"[yellow]blocked[/yellow] — {exc}")
             raise typer.Exit(code=1) from exc
-    mode = get_settings().jarvis_mode
     console.print(
         f"[bold]execution[/bold] {execution.exec_id}  outcome={execution.outcome.value}  "
         f"mode={mode}"
@@ -610,6 +611,29 @@ def reactor(once: bool = typer.Option(False, help="Process one batch then exit")
     from jarvis.core.reactor import run_reactor
 
     run_reactor(once=once)
+
+
+@app.command("mode")
+def mode_cmd(
+    set_to: str = typer.Argument(
+        None, metavar="[MODE]", help="observe|approval_required|semi_autonomous|maintenance"
+    ),
+) -> None:
+    """Show the current operational mode, or set it (persisted; the daemon picks it up live)."""
+    from jarvis.core.modes import Mode, get_mode, set_mode
+
+    with db.connect(autocommit=True) as conn:
+        if set_to is None:
+            console.print(f"mode: [bold]{get_mode(conn).value}[/bold]")
+            return
+        try:
+            new = Mode(set_to)
+        except ValueError as exc:
+            raise typer.BadParameter(
+                f"unknown mode {set_to!r}; choose: {[m.value for m in Mode]}"
+            ) from exc
+        set_mode(conn, new)
+        console.print(f"mode set to [bold]{new.value}[/bold]")
 
 
 @app.command()

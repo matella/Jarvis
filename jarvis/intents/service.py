@@ -1,9 +1,10 @@
 """Intent lifecycle service — the approval + mode gate, and the only path to execution.
 
 `LLM → Intent` already happened (the agent). This is the deterministic tail:
-`Intent → approval gate → mode gate → capability-scoped executor → Execution`. Under the
-default `observe` mode every approved action is a **dry-run** (records a skipped execution,
-captures before_state, touches no infrastructure); a non-observe mode runs the real executor.
+`Intent → mode policy (decide) → approval gate → capability-scoped executor → Execution`.
+The operational mode (core/modes.py) governs everything: observe = dry-run; approval_required
+= real but human-approved; semi_autonomous = auto-approve+run low-risk/reversible else require
+approval; maintenance = blocked.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import subprocess
 
 import psycopg
 
-from jarvis.config import get_settings
+from jarvis.core.modes import decide, get_mode
 from jarvis.events.models import Event, Severity, utcnow
 from jarvis.events.stream import emit_event
 from jarvis.intents.models import (
@@ -25,8 +26,6 @@ from jarvis.intents.models import (
 from jarvis.intents.repository import get_intent, insert_execution
 from jarvis.tools.registry import get_tool
 
-OBSERVE = "observe"
-
 
 class IntentNotFound(Exception):
     pass
@@ -34,6 +33,10 @@ class IntentNotFound(Exception):
 
 class ApprovalRequired(Exception):
     """Raised when execution is attempted on an intent that still needs approval."""
+
+
+class ModeBlocked(Exception):
+    """Raised when the current mode (maintenance) forbids execution entirely."""
 
 
 def _set_status(conn: psycopg.Connection, intent_id: str, status: IntentStatus) -> None:
@@ -64,12 +67,25 @@ def reject(conn: psycopg.Connection, intent_id: str) -> Intent:
 
 def execute(conn: psycopg.Connection, intent_id: str) -> Execution:
     intent = _require(conn, intent_id)
-    if intent.requires_approval and intent.status is not IntentStatus.approved:
+    mode = get_mode(conn)
+    decision = decide(mode, intent)
+
+    if decision.blocked:
+        raise ModeBlocked(f"execution blocked: mode={mode.value}")
+
+    # Approval gate. semi_autonomous auto-approves auto-safe intents; otherwise an intent that
+    # requires approval (or any intent under approval_required) must be human-approved first.
+    if decision.auto_approve:
+        if intent.status is not IntentStatus.approved:
+            _set_status(conn, intent_id, IntentStatus.approved)
+    elif (intent.requires_approval or decision.force_approval) and (
+        intent.status is not IntentStatus.approved
+    ):
         raise ApprovalRequired(
-            f"intent {intent_id} requires approval (status={intent.status.value})"
+            f"intent {intent_id} requires approval "
+            f"(mode={mode.value}, status={intent.status.value})"
         )
 
-    settings = get_settings()
     tool = get_tool(intent.type)
     before: dict | None = None
     after: dict | None = None
@@ -84,8 +100,8 @@ def execute(conn: psycopg.Connection, intent_id: str) -> Execution:
                 before = tool.inspect(intent.target)
             except Exception as exc:  # noqa: BLE001 — before-state is best-effort
                 error = f"inspect failed: {exc}"
-        if settings.jarvis_mode == OBSERVE:
-            outcome = ExecutionOutcome.skipped  # dry-run — propose-only, no infra touched
+        if decision.dry_run:
+            outcome = ExecutionOutcome.skipped  # observe — propose-only, no infra touched
         else:
             outcome, after, error, failure_class = _run_tool(tool, intent, error)
 
@@ -112,7 +128,7 @@ def execute(conn: psycopg.Connection, intent_id: str) -> Execution:
             severity=Severity.warning if outcome is ExecutionOutcome.failure else Severity.info,
             outcome=outcome.value,
             failure_class=failure_class.value if failure_class else None,
-            mode=settings.jarvis_mode,
+            mode=mode.value,
             exec_id=execution.exec_id,
         )
     )

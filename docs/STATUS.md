@@ -5,8 +5,8 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 5 (started) — Ambient reactor** · *DONE (acceptance passed live)*.
-The cognition loop is closed: event → (reactor) → agent → gated proposal → (gate) → execution.
+**Phase 5 — Ambient reactor + operational-mode state machine** · *DONE (acceptance passed live)*.
+Loop closed (event → reactor → gated proposal → gate → execution); autonomy now governed by mode.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -28,17 +28,20 @@ The cognition loop is closed: event → (reactor) → agent → gated proposal �
   reactor (`core/reactor.py` — spine consumer auto-runs the infra agent on container-down events
   → GATED proposal, observe-only, loop-safe, per-entity cooldown, off-switch `reactor_enabled`;
   7th `jarvis run` worker).
-- Latest: `pytest` 103/103, `ruff` clean. Migrations at head = 0007 (no schema change P4/P5).
+- **P5 mode state machine**: `core/modes.py` — persisted (migration 0008 `system_state`),
+  runtime-settable (`jarvis mode [set]`), 4 modes via one `decide(mode,intent)` policy governing
+  the execution gate (`intents/service`) AND the reactor (suspended on maintenance; auto-runs
+  auto-safe proposals under semi_autonomous).
+- Latest: `pytest` 112/112, `ruff` clean. Migrations at head = 0008.
 
 ## In progress
 - *(nothing)*
 
 ## Next step — do this first
-Rest of Phase 5 (per `docs/PLAN.md`): **auto-correlation** (incidents created without a CLI
-call — needs incident-dedup), **predictive observability** (trend forecasting over metrics),
-**adaptive attention** (learn which alerts matter), **operational playbooks** (procedural
-memory), **full operational-mode state machine** (assist/approval_required/semi_autonomous/
-maintenance — currently a single global `mode`). Or harden/observe. Pick.
+Rest of Phase 5 (per `docs/PLAN.md`): **auto-correlation** (incidents without a CLI call —
+needs incident-dedup), **predictive observability** (trend forecasting over `metrics`),
+**adaptive attention** (learn which alerts matter / tune notify+reactor), **operational
+playbooks** (procedural memory in pgvector). Or harden/observe. Pick.
 
 ## Open questions / blockers
 - *(none)*

@@ -51,7 +51,13 @@ def process_batch(
     r: redis.Redis, *, stream: str, group: str, consumer: str, state: ReactorState,
     count: int = 10, block_ms: int = 1000,
 ) -> int:
+    from jarvis import db
     from jarvis.agents.infrastructure import propose_intent
+    from jarvis.core.modes import Mode, get_mode
+    from jarvis.intents import service
+
+    with db.connect() as conn:
+        mode = get_mode(conn)
 
     resp = r.xreadgroup(group, consumer, {stream: ">"}, count=count, block=block_ms)
     reacted = 0
@@ -59,7 +65,12 @@ def process_batch(
         for msg_id, fields in messages:
             try:
                 event = Event.model_validate_json(fields["data"])
-                if should_react(event) and state.allow(event.entity_ref, time.monotonic()):
+                # maintenance suspends the reactor (still drain so the stream doesn't pile up).
+                if (
+                    mode is not Mode.maintenance
+                    and should_react(event)
+                    and state.allow(event.entity_ref, time.monotonic())
+                ):
                     intent = propose_intent(event.entity_ref)
                     reacted += 1
                     print(
@@ -67,6 +78,15 @@ def process_batch(
                         f"{intent.type} ({intent.intent_id})",
                         flush=True,
                     )
+                    # semi_autonomous: the gate auto-runs it if low-risk+reversible, else holds
+                    # for approval — the mode policy decides, not the reactor.
+                    if mode is Mode.semi_autonomous:
+                        with db.connect(autocommit=True) as conn:
+                            try:
+                                ex = service.execute(conn, intent.intent_id)
+                                print(f"[reactor] auto-executed → {ex.outcome.value}", flush=True)
+                            except service.ApprovalRequired:
+                                print("[reactor] held for approval (not auto-safe)", flush=True)
             except Exception as exc:  # noqa: BLE001 — one bad reaction must not stall the loop
                 print(f"[reactor] reaction failed: {exc!r}", flush=True)
             r.xack(stream, group, msg_id)

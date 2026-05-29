@@ -72,5 +72,9 @@ why — rejected alternative**. Append new ones; don't rewrite history (mark sup
 - **GPU scheduling / resource budgets.** Now: serialize inference + emit timing telemetry.
   Later (Phase 2): GPU time as a schedulable resource. *Why deferred:* only one inference path
   exists today — nothing to schedule yet; building it now would violate scope discipline.
-- **Operational modes.** Now: a single global `mode`, default `observe` (propose-only).
-  Later: `assist`, `approval_required`, `semi_autonomous`, `maintenance_mode`.
+- **Operational modes.** ~~Now: a single global `mode`, default `observe`.~~ **BUILT (P5)**:
+  a persisted, runtime-settable state machine (`core/modes.py`) — `observe` (dry-run) /
+  `approval_required` (real, human-approved) / `semi_autonomous` (auto-approve+run low-risk
+  reversible, else require approval) / `maintenance` (freeze). One `decide(mode, intent)` policy
+  governs the execution gate AND the ambient reactor. Dropped `assist` (overlapped
+  approval_required); `maintenance_mode` → `maintenance`.

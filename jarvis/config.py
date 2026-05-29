@@ -13,9 +13,9 @@ from typing import Literal
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Global operational modes. M0 only needs `observe` (propose-only); the rest are
-# seeded here to match Hard Rule 6 / DECISIONS and grown in a later phase.
-Mode = Literal["observe", "assist", "approval_required", "semi_autonomous", "maintenance_mode"]
+# Default/initial operational mode (the LIVE mode is persisted in DB; see core/modes.py).
+# The state machine: observe → approval_required → semi_autonomous, plus maintenance (freeze).
+Mode = Literal["observe", "approval_required", "semi_autonomous", "maintenance"]
 
 
 class Settings(BaseSettings):

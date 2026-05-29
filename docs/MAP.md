@@ -16,7 +16,7 @@ has rules worth lazy-loading — created with the module, not in advance.
 | `ingest/` | Docker events → stream (M2); metrics poller (P2); topology builder (P2); code indexer → `code_chunks` (P3) | `docker_events.py`, `metrics.py`, `topology.py`, `code_index.py` | M2, P2, P3 |
 | `cli/` | Terminal client + introspection (`tail`, `inspect`, `trace`, `explain`, `replay`) | `main.py` | M2, M4 |
 | `models/` | Ollama client, model-router policy, inference semaphore + timing events | `router.py` | M3 |
-| `core/` | Orchestrator: context assembly (M3), context store (M4), journal (P2), `jarvis run` supervisor + ambient reactor (P5) | `assembly.py`, `supervisor.py`, `reactor.py` | M3–P5 |
+| `core/` | Orchestrator: assembly (M3), context store (M4), journal (P2), supervisor + ambient reactor + operational-mode state machine (P5) | `assembly.py`, `reactor.py`, `modes.py` | M3–P5 |
 | `agents/` | One-shot reasoning endpoints (summarizer, infrastructure agent, alert correlator, coder Q&A) | `summarizer.py` | M3, M4, P2, P3 |
 | `tools/` | Deterministic, capability-scoped executors (the tool contract) | `registry.py` | M4 |
 | `notify/` | Contextual notifications: rules-based notifier consumer + webhook channel | `notifier.py` | Phase 4 |
