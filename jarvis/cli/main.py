@@ -416,6 +416,23 @@ def topology_show() -> None:
 
 
 @app.command()
+def journal(
+    since: str = typer.Option("24h", "--since", help="Window: 24h, 12h, 2d"),
+) -> None:
+    """Show a curated operational timeline (incidents, intents/executions, alerts)."""
+    from jarvis.core.journal import build_journal
+
+    with db.connect() as conn:
+        entries = build_journal(conn, _parse_duration(since))
+    table = Table(title=f"operational journal (since {since}, {len(entries)} entries)")
+    for col in ("time", "kind", "severity", "what", "ref"):
+        table.add_column(col, overflow="fold")
+    for e in entries:
+        table.add_row(_short(e.ts), e.kind, e.severity, e.title, e.ref)
+    console.print(table)
+
+
+@app.command()
 def correlate(
     since: str = typer.Option("1h", "--since", help="Window: 1h, 30m, 2d"),
 ) -> None:

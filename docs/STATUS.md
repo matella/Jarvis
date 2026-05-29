@@ -5,7 +5,7 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 2 — Topology awareness** · *DONE (acceptance passed live)* · (M0–M4 + P2 metrics + correlation before it)
+**Phase 2 — COMPLETE** · metrics ✓ · alert correlation ✓ · topology ✓ · journaling ✓ · (GPU scheduling deferred-by-design) · (M0–M4 spine before it)
 
 ## Done
 - M0 (infra) + M1 (contracts) + M2 (event spine) + M3 (the model) DONE — see git history.
@@ -41,19 +41,22 @@
   (deterministic builder from docker inspect: depends_on / network_mode / same_project;
   `build_topology`, `edges_for`, `all_edges`), wired into the correlator's prompt
   ("Known dependencies" section), CLI `topology build` / `show`.
-- **P2 topology acceptance PASSED** live: `topology build` derived real edges
-  (qbittorrent→gluetun depends_on + network_mode); a grounded-correlation demo (dep routes
-  through base) produced an incident whose root-cause CITED the network_mode dependency.
-  `pytest` 67/67, `ruff` clean.
+- P2 topology awareness DONE — see git history.
+- P2 operational journaling: `core/journal.py` (derived timeline — NO new table; merges
+  incidents + intents/executions + warning+ operational events, time-sorted), CLI `journal`.
+- **P2 journaling acceptance PASSED** live: stopped 2 containers + ran correlate →
+  `jarvis journal --since 1h` showed a unified diary (6 alerts → 1 incident, oldest first).
+  `pytest` 70/70, `ruff` clean. **Phase 2 complete.**
 
 ## In progress
-- *(nothing)*
+- *(nothing — Phase 2 complete)*
 
 ## Next step — do this first
-Plan items remaining (see `docs/PLAN.md`): **operational journaling** (curated timeline), then
-later phases (dev intelligence, distributed execution, ambient). GPU scheduler still premature
-per DECISIONS (one inference path). Consolidation still parked (off-plan): reflect metric
-signals into `state.attrs` + a supervised `jarvis run` daemon so the spine runs continuously.
+Phase 2 done (metrics/correlation/topology/journaling; GPU scheduling deferred-by-design per
+DECISIONS — telemetry seed in place). Next per `docs/PLAN.md`: **Phase 3 — development
+intelligence** (coding agent, repo indexing, CI awareness) or **Phase 4 — distributed
+execution**. Off-plan consolidation still parked: reflect metric signals into `state.attrs`
++ a supervised `jarvis run` daemon (spine runs in bursts today). Pick a direction.
 
 ## Open questions / blockers
 - *(none)*
