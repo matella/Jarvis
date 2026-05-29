@@ -23,7 +23,12 @@ _NOTIFY_TYPES = {"incident.correlated"}
 
 
 def should_notify(event: Event) -> bool:
-    return event.severity.value == "critical" or event.type in _NOTIFY_TYPES
+    # critical events, correlated incidents, and predictive '*_trending' forecasts.
+    return (
+        event.severity.value == "critical"
+        or event.type in _NOTIFY_TYPES
+        or event.type.endswith("_trending")
+    )
 
 
 def _format(event: Event) -> tuple[str, str, str]:

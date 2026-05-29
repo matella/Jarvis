@@ -5,8 +5,8 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 5 — Ambient reactor + operational-mode state machine** · *DONE (acceptance passed live)*.
-Loop closed (event → reactor → gated proposal → gate → execution); autonomy now governed by mode.
+**Phase 5 — ambient reactor + mode machine + predictive observability** · *DONE (live-verified)*.
+Loop closed; autonomy governed by mode; now forecasts threshold crossings before they happen.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -32,16 +32,20 @@ Loop closed (event → reactor → gated proposal → gate → execution); auton
   runtime-settable (`jarvis mode [set]`), 4 modes via one `decide(mode,intent)` policy governing
   the execution gate (`intents/service`) AND the reactor (suspended on maintenance; auto-runs
   auto-safe proposals under semi_autonomous).
-- Latest: `pytest` 112/112, `ruff` clean. Migrations at head = 0008.
+- **P5 predictive observability**: `ingest/predict.py` — deterministic least-squares trend
+  projection over `metrics` → `*_trending` events (cpu/mem/gpu mem) when a metric is forecast to
+  cross its threshold within the horizon; debounced; 8th `jarvis run` worker; notifier pages on
+  `*_trending`; appears in journal. CLI `jarvis predict`.
+- Latest: `pytest` 119/119, `ruff` clean. Migrations at head = 0008.
 
 ## In progress
 - *(nothing)*
 
 ## Next step — do this first
 Rest of Phase 5 (per `docs/PLAN.md`): **auto-correlation** (incidents without a CLI call —
-needs incident-dedup), **predictive observability** (trend forecasting over `metrics`),
-**adaptive attention** (learn which alerts matter / tune notify+reactor), **operational
-playbooks** (procedural memory in pgvector). Or harden/observe. Pick.
+needs incident-dedup), **adaptive attention** (learn which alerts matter / tune notify+reactor),
+**operational playbooks** (procedural memory in pgvector — retrieve a known fix for an incident).
+Or harden/observe. Pick.
 
 ## Open questions / blockers
 - *(none)*

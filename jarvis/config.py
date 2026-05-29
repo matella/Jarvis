@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     reactor_group: str = "jarvis:reactor"
     reactor_cooldown_s: int = 600
 
+    # Predictive observability — project metric trends toward thresholds.
+    predict_interval_s: int = 60
+    predict_window_min: int = 30
+    predict_horizon_min: int = 30
+    predict_min_samples: int = 5
+
     # Redis Streams — event spine topology.
     events_stream: str = "jarvis:events"
     consumer_group: str = "jarvis:projectors"

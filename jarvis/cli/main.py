@@ -606,6 +606,25 @@ def notify_test() -> None:
 
 
 @app.command()
+def predict() -> None:
+    """Project metric trends toward thresholds; report anything forecast to cross soon."""
+    from jarvis.ingest.predict import TrendTracker, detect_trends
+
+    with db.connect() as conn:
+        preds = detect_trends(conn, TrendTracker())
+    if not preds:
+        console.print("[dim]no trends approaching thresholds[/dim]")
+        return
+    table = Table(title=f"predictions ({len(preds)})")
+    for col in ("entity", "metric", "current", "threshold", "eta_min"):
+        table.add_column(col, overflow="fold")
+    for p in preds:
+        table.add_row(p["entity"], p["metric"], str(p["current"]),
+                      str(p["threshold"]), str(p["eta_minutes"]))
+    console.print(table)
+
+
+@app.command()
 def reactor(once: bool = typer.Option(False, help="Process one batch then exit")) -> None:
     """Ambient reactor: auto-propose gated intents on container-down events (observe-only)."""
     from jarvis.core.reactor import run_reactor
