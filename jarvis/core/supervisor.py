@@ -49,6 +49,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.notify.notifier import run_notifier
     from jarvis.ops.backup import run_backup
     from jarvis.ops.health import run_selfcheck
+    from jarvis.reminders import run_reminders
     from jarvis.routines.scheduler import run_routine_scheduler
     from jarvis.state.snapshotter import run_snapshotter
     from jarvis.verify.runner import run_verifier
@@ -67,6 +68,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("verify", run_verifier),
         ("anomaly", run_anomaly),
         ("degrade", run_degrade),
+        ("reminders", run_reminders),
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
@@ -78,6 +80,14 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     if "mail" in s.connectors_enabled:
         from jarvis.connectors.mail import poll_once as mail_poll
         workers_list.append(("mail", lambda: _periodic(mail_poll, s.mail_poll_interval_s, stop)))
+    if "homeassistant" in s.connectors_enabled:
+        from jarvis.connectors.homeassistant import poll_states as ha_poll
+        workers_list.append(
+            ("homeassistant", lambda: _periodic(ha_poll, s.ha_poll_interval_s, stop)))
+    if "calendar" in s.connectors_enabled:
+        from jarvis.connectors.calendar import poll_once as cal_poll
+        workers_list.append(
+            ("calendar", lambda: _periodic(cal_poll, s.calendar_poll_interval_s, stop)))
     # Inbox triage — summarize/classify inbound content and push the important items (opt-in).
     if s.triage_enabled:
         from jarvis.notify.triage import run_triage

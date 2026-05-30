@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -114,6 +114,12 @@ def _is_negative(text: str) -> bool:
 
 _REMEMBER_TRIGGERS = ("remember ", "remember that ", "note that ", "keep in mind ",
                       "don't forget ", "dont forget ", "make a note ", "for the record ")
+_REMIND_TRIGGERS = ("remind me ", "set a reminder ", "remind me to ")
+
+
+def _looks_like_reminder(text: str) -> bool:
+    """Deterministic trigger for setting a time-based reminder ('remind me to … at/in …')."""
+    return text.strip().lower().startswith(_REMIND_TRIGGERS)
 
 
 _PERSONAL_RE = re.compile(r"\b(i|me|my|mine|myself|i'm|i've)\b")
@@ -142,6 +148,40 @@ _FACT_SCHEMA = {
     "properties": {"fact_key": {"type": "string"}, "fact_value": {"type": "string"}},
     "required": ["fact_key", "fact_value"],
 }
+
+
+_REMINDER_SCHEMA = {
+    "type": "object",
+    "properties": {"reminder_text": {"type": "string"}, "due_at": {"type": "string"}},
+    "required": ["reminder_text", "due_at"],
+}
+
+
+def _extract_reminder(utterance: str) -> tuple[str, datetime] | None:
+    """Focused inference: pull {reminder_text, due_at} from 'remind me …', resolved against now."""
+    from jarvis.models.scheduler import Priority
+    from jarvis.models.scheduler import chat as sched_chat
+
+    now = utcnow()
+    prompt = (
+        f"The current time is {now.isoformat()} (UTC). Extract the reminder. Reply with ONE JSON "
+        'object: {"reminder_text": <what to remind>, "due_at": <absolute ISO 8601 UTC timestamp>}. '
+        'Resolve relative times against now: "in 10 minutes", "tomorrow at 9am", "tonight". '
+        f"User: {utterance}"
+    )
+    resp = sched_chat(
+        "reasoning", [{"role": "user", "content": prompt}],
+        priority=Priority.INTERACTIVE, format=_REMINDER_SCHEMA,
+    )
+    try:
+        data = json.loads(str(resp["message"]["content"]))
+        text = str(data.get("reminder_text", "")).strip()
+        due = datetime.fromisoformat(str(data.get("due_at", "")).replace("Z", "+00:00"))
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=UTC)
+        return (text, due) if text else None
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
 
 
 def _extract_fact(utterance: str) -> tuple[str, str] | None:
@@ -306,7 +346,10 @@ def respond(
         result = _confirm(conn, session)
     elif session.pending_intent_id and _is_negative(utterance):
         result = _cancel(session)
-    # Explicit "remember …" → deterministic capture (focused extraction), not the weak router.
+    # Explicit "remind me …" / "remember …" → deterministic capture (focused extraction), not the
+    # weak multi-route classifier. Reminder is checked first (more specific intent).
+    elif _looks_like_reminder(utterance):
+        result = _capture_reminder(conn, session, utterance, store=store)
     elif _looks_like_remember(utterance):
         result = _capture_fact(conn, session, utterance, store=store)
     else:
@@ -432,6 +475,25 @@ def _capture_fact(
     if extracted is None:
         return _reason(conn, session, utterance, store=store)
     return _remember(conn, *extracted)
+
+
+def _capture_reminder(
+    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
+) -> TurnResult:
+    """Deterministic 'remind me …' path: focused extraction → schedule. Falls back to reasoning
+    if no clean text/time can be pulled."""
+    from jarvis.reminders import add_reminder
+
+    extracted = _extract_reminder(utterance)
+    if extracted is None:
+        return _reason(conn, session, utterance, store=store)
+    text, due = extracted
+    try:
+        rem = add_reminder(conn, text, due)
+    except ValueError:
+        return _reason(conn, session, utterance, store=store)
+    when = rem.due_at.strftime("%a %d %b %H:%M UTC")
+    return TurnResult(route=TurnRoute.remember, message=f"Reminder set: \"{rem.text}\" — {when}.")
 
 
 def _plain_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> str:

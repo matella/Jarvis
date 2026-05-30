@@ -252,13 +252,25 @@ class Settings(BaseSettings):
     # important ones via the notifier. Its own spine consumer; one inference per item (BACKGROUND).
     triage_enabled: bool = False
     triage_min_importance: str = "high"  # push items at/above this — high | normal | low
-    # Home Assistant (REST). Token: HA_TOKEN via SecretsProvider.
+    # Home Assistant (REST). Token: HA_TOKEN via SecretsProvider. ha.set_state acts; the read
+    # connector polls watched entities → ha.state_changed events (empty list = read nothing).
     ha_base_url: str = ""  # e.g. http://homeassistant.lan:8123
+    ha_watch_entities: list[str] = []  # e.g. ["binary_sensor.front_door", "climate.living"]
+    ha_poll_interval_s: int = 60
+    # Calendar (read-only). Secret ICS URLs (CalDAV/Google "secret address in iCal"); upcoming
+    # events within the horizon → calendar.event, deduped by UID. Hosts must be egress-allowlisted.
+    calendar_ics_urls: list[str] = []
+    calendar_poll_interval_s: int = 1800
+    calendar_horizon_h: int = 24
+    # Reminders — self-contained (no external service). The worker fires due reminders → notify.
+    reminder_check_interval_s: int = 30
     # Inbound webhooks — per-source HMAC secret names resolved via SecretsProvider
     # (e.g. WEBHOOK_SECRET_GITHUB). Empty signature config → that source is rejected.
     webhook_require_signature: bool = True
 
-    @field_validator("connectors_enabled", "feed_urls", mode="before")
+    @field_validator(
+        "connectors_enabled", "feed_urls", "ha_watch_entities", "calendar_ics_urls", mode="before"
+    )
     @classmethod
     def _split_list_csv(cls, v: object) -> object:
         if isinstance(v, str):

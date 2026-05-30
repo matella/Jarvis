@@ -27,6 +27,7 @@ PLAN = "plan"
 ROUTINE = "rtn"
 VERIFICATION = "vrf"
 DEFERRAL = "dfr"
+REMINDER = "rem"
 
 
 def new_id(prefix: str) -> str:

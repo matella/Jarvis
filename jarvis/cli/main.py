@@ -9,6 +9,8 @@ runtime type hints to build the CLI, and stringized annotations break that.
 """
 
 
+from datetime import UTC
+
 import typer
 from rich.console import Console
 from rich.json import JSON
@@ -41,6 +43,7 @@ routine_app = typer.Typer(no_args_is_help=True, help="Scheduled routines (proact
 obs_app = typer.Typer(no_args_is_help=True, help="Observability ingest (Prometheus + Loki)")
 memory_app = typer.Typer(no_args_is_help=True, help="Memory governance (list/forget/consolidate)")
 kb_app = typer.Typer(no_args_is_help=True, help="Knowledge base (index runbooks/docs into memory)")
+remind_app = typer.Typer(no_args_is_help=True, help="Reminders (time-based nudges → notification)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -61,6 +64,7 @@ app.add_typer(routine_app, name="routine")
 app.add_typer(obs_app, name="obs")
 app.add_typer(memory_app, name="memory")
 app.add_typer(kb_app, name="kb")
+app.add_typer(remind_app, name="remind")
 
 console = Console()
 
@@ -1055,6 +1059,56 @@ def memory_consolidate(
         return
     console.print(f"consolidated [bold]{report['consolidated']}[/bold] → {report['new_id']}")
     console.print(f"\n[bold]{report['summary']}[/bold]")
+
+
+@remind_app.command("add")
+def remind_add(
+    text: str,
+    in_: str = typer.Option("", "--in", help="relative: 90s, 30m, 2h, 1d"),
+    at: str = typer.Option("", "--at", help="absolute ISO 8601 UTC, e.g. 2026-05-31T09:00:00Z"),
+) -> None:
+    """Schedule a reminder (fired via the notifier when due)."""
+    from datetime import datetime
+
+    from jarvis.events.models import utcnow
+    from jarvis.reminders import add_reminder
+
+    if at:
+        due = datetime.fromisoformat(at.replace("Z", "+00:00"))
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=UTC)
+    elif in_:
+        due = utcnow() + _parse_duration(in_)
+    else:
+        raise typer.BadParameter("give --in or --at")
+    with db.connect(autocommit=True) as conn:
+        rem = add_reminder(conn, text, due)
+    console.print(f"reminder [bold]{rem.id}[/bold] set for {rem.due_at.isoformat()}")
+
+
+@remind_app.command("list")
+def remind_list(all_: bool = typer.Option(False, "--all", help="include fired")) -> None:
+    """List pending (or all) reminders."""
+    from jarvis.reminders import list_reminders
+
+    with db.connect() as conn:
+        rems = list_reminders(conn, pending_only=not all_)
+    table = Table(title=f"reminders ({len(rems)})")
+    for col in ("id", "due_at", "fired", "text"):
+        table.add_column(col, overflow="fold")
+    for r in rems:
+        table.add_row(r.id, _short(r.due_at), str(r.fired), r.text)
+    console.print(table)
+
+
+@remind_app.command("fire")
+def remind_fire() -> None:
+    """Fire all due reminders now (one pass) — what the daemon worker does on a loop."""
+    from jarvis.reminders import fire_due
+
+    with db.connect(autocommit=True) as conn:
+        n = fire_due(conn)
+    console.print(f"fired [bold]{n}[/bold] due reminder(s)")
 
 
 @obs_app.command("prometheus")

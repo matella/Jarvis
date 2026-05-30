@@ -237,6 +237,18 @@ Order: **1) notifications keystone → 2) memory (session history + facts) → 3
   gate); degrades cleanly when the LLM is down. Curated FEED_URLS + egress note in `.env.example`.
   Live-verified: triage_item classifies+summarizes on the box. Operator plugs in mail creds + feeds
   (+ allowlist feed hosts) to go fully live.
+- **[4 DONE] Home Assistant + Calendar/Reminders.**
+  - HA **read-ingest** added (control `ha.set_state` already existed): polls `HA_WATCH_ENTITIES` →
+    `ha.state_changed` on real change (opt-in `homeassistant` connector; HA_TOKEN secret).
+  - **Calendar** (`connectors/calendar.py`, opt-in): ICS fetch (egress-guarded) → pure VEVENT parser
+    (RFC-5545 unfolding) → `calendar.event` upcoming-in-horizon, deduped by UID.
+  - **Reminders** (migration 0018, `jarvis/reminders.py`, ALWAYS-ON worker): "remind me to … in 10m"
+    → deterministic trigger + focused {text, due_at} extraction → stored; due-check worker fires via
+    notifier (⏰), marks fired. CLI `jarvis remind add/list/fire`. Live-verified end-to-end.
+- **[mobile] decision: NO native app** — ntfy is the local-first push answer (native would relay via
+  FCM/APNs). Recommended next client work = a mobile-first **PWA pass** (+ Capacitor only if "one app"
+  is later wanted). Not built yet — candidate for next session.
+- Model: operator moving `MODEL_REASONING` → `qwen3:4b` (lifts recall/triage/extraction fidelity).
 
 ## Building the backlog — ALL DONE ✅
 1. Outcome verification · 2. auto-postmortems · 3. anomaly detection · 4. confidence/abstention ·
