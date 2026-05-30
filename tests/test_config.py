@@ -29,3 +29,19 @@ def test_redis_url_includes_db_index() -> None:
 
 def test_mode_defaults_to_observe() -> None:
     assert _settings().jarvis_mode == "observe"
+
+
+def test_egress_allowlist_parses_from_env(monkeypatch) -> None:
+    # Must parse from the ENV source (where pydantic-settings would otherwise JSON-pre-parse and
+    # reject a bare host) — exactly how the gateway/daemon containers receive EGRESS_ALLOWLIST.
+    monkeypatch.setenv("EGRESS_ALLOWLIST", "searxng")
+    assert Settings(_env_file=None).egress_allowlist == ["searxng"]
+
+    monkeypatch.setenv("EGRESS_ALLOWLIST", "Searx.lan, API.example.com")
+    assert Settings(_env_file=None).egress_allowlist == ["searx.lan", "api.example.com"]
+
+    monkeypatch.setenv("EGRESS_ALLOWLIST", '["a.lan", "b.lan"]')  # JSON list form still works
+    assert Settings(_env_file=None).egress_allowlist == ["a.lan", "b.lan"]
+
+    monkeypatch.setenv("EGRESS_ALLOWLIST", "")  # empty = default-deny
+    assert Settings(_env_file=None).egress_allowlist == []

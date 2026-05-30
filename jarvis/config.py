@@ -7,11 +7,12 @@ exposed as computed DSNs rather than letting callers assemble URLs by hand.
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import computed_field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Default/initial operational mode (the LIVE mode is persisted in DB; see core/modes.py).
 # The state machine: observe → approval_required → semi_autonomous, plus maintenance (freeze).
@@ -209,15 +210,19 @@ class Settings(BaseSettings):
 
     # Security primitives (5.5c) — egress allowlist for connectors/search/capture (default-deny).
     # Accepts a JSON list or a comma-separated string in env. Bare hosts; matched incl. subdomains.
-    egress_allowlist: list[str] = []
+    # NoDecode: stop pydantic-settings from JSON-parsing the env value first (it would reject a
+    # bare host like "searxng" before our validator runs) — the validator owns all parsing.
+    egress_allowlist: Annotated[list[str], NoDecode] = []
 
     @field_validator("egress_allowlist", mode="before")
     @classmethod
     def _split_csv(cls, v: object) -> object:
         if isinstance(v, str):
             s = v.strip()
-            if not s or s.startswith("["):  # empty or JSON — let pydantic handle it
-                return [] if not s else v
+            if not s:
+                return []
+            if s.startswith("["):  # JSON list form
+                return json.loads(s)
             return [h.strip().lower() for h in s.split(",") if h.strip()]
         return v
 

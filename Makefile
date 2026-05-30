@@ -45,11 +45,12 @@ health:
 test:
 	pytest -q
 
-## Build + (re)deploy the app containers (gateway + daemon + console) on THIS host's Docker.
-## Run on the box after `git clone` — plain `docker compose`, NOT the SSH context above.
+## Build + (re)deploy the app containers (gateway + daemon + console + searxng) on THIS host's
+## Docker. Run on the box after `git clone` — plain `docker compose`, NOT the SSH context above.
+## `search` profile brings up SearXNG so web search (weather, lookups) works out of the box.
 deploy:
-	docker compose --profile app up -d --build
+	docker compose --profile app --profile search up -d --build
 deploy-logs:
 	docker compose --profile app logs -f gateway daemon console
 deploy-down:
-	docker compose --profile app down
+	docker compose --profile app --profile search down

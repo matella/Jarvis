@@ -40,17 +40,16 @@ services:
       timeout: 3s
       retries: 10
 
-  # Phase 9 — local-first web search. After first start, enable JSON in the generated
-  # /etc/searxng/settings.yml (search.formats: [html, json]) so the SearchProvider works.
-  # Bound to the remote loopback only; reach via SSH tunnel + egress allowlist.
+  # Phase 9 — local-first web search. Internal to the compose network: the gateway/daemon reach
+  # it by service name (SEARXNG_URL=http://searxng:8080), so it needs no host port (avoids LAN
+  # exposure and port clashes with other homelab apps). After first start, enable JSON in the
+  # generated /etc/searxng/settings.yml (search.formats: [html, json]) so the SearchProvider works.
   searxng:
     image: searxng/searxng:latest
     container_name: jarvis-searxng
     restart: unless-stopped
     environment:
-      SEARXNG_BASE_URL: http://localhost:${SEARXNG_PORT:-8080}/
-    ports:
-      - "${BIND_HOST:-127.0.0.1}:${SEARXNG_PORT:-8080}:8080"
+      SEARXNG_BASE_URL: http://searxng:8080/
     volumes:
       - searxng-config:/etc/searxng
     profiles: ["search"]  # opt-in: `docker --context jarvis compose --profile search up -d`
@@ -76,6 +75,10 @@ services:
       MODEL_REASONING: ${MODEL_REASONING:-qwen3:1.7b}   # light tenant on the shared 8 GB GPU
       GATEWAY_TOKEN: ${GATEWAY_TOKEN:-}
       JARVIS_MODE: ${JARVIS_MODE:-observe}
+      # Local-first web search (weather, lookups). Reaches SearXNG by service name; the host
+      # must be egress-allowlisted (default-deny). Unset SEARXNG_URL to turn search off again.
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
+      EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-searxng}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # let the container reach Ollama on the host
     depends_on:
@@ -107,6 +110,8 @@ services:
       OLLAMA_PORT: "11434"
       MODEL_REASONING: ${MODEL_REASONING:-qwen3:1.7b}   # light tenant on the shared 8 GB GPU
       JARVIS_MODE: ${JARVIS_MODE:-observe}
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}   # routines/RAG may search too
+      EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-searxng}
       DOCKER_CONTEXT: default   # use the mounted socket, not the Mac's SSH 'jarvis' context
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock   # ingest/metrics/topology drive host Docker
