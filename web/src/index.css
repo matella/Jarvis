@@ -12,6 +12,16 @@
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
+/* Native app (Capacitor, edge-to-edge): the WebView draws under the status + gesture/nav bars and
+   the WebView frequently reports env(safe-area-inset-*) as 0, so guarantee a real floor that
+   clears them (and still respect a reported inset on devices that do expose it). */
+.cap-native .pt-safe {
+  padding-top: max(1.75rem, calc(env(safe-area-inset-top) + 0.5rem));
+}
+.cap-native .pb-safe {
+  padding-bottom: max(2.25rem, calc(env(safe-area-inset-bottom) + 1rem));
+}
+
 html,
 body,
 #root {

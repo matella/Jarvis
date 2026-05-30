@@ -11,6 +11,10 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 export function initNative(): void {
   if (!Capacitor.isNativePlatform()) return;
 
+  // Tag the root so CSS can reserve real clearance for the status bar + gesture/nav bar — the
+  // Android WebView is edge-to-edge (Android 15) and often reports env(safe-area-inset-*) as 0.
+  document.documentElement.classList.add("cap-native");
+
   StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
   StatusBar.setBackgroundColor({ color: "#04060a" }).catch(() => {});
   SplashScreen.hide().catch(() => {});
