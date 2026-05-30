@@ -12,7 +12,7 @@ OLLAMA_PORT ?= 11434
 
 DC = docker --context $(CONTEXT) compose
 
-.PHONY: context up down ps logs tunnel health test
+.PHONY: context up down ps logs tunnel health test deploy deploy-logs deploy-down
 
 ## Create/point the SSH docker context at the remote host.
 context:
@@ -44,3 +44,12 @@ health:
 
 test:
 	pytest -q
+
+## Build + (re)deploy the app containers (gateway + daemon + console) on THIS host's Docker.
+## Run on the box after `git clone` — plain `docker compose`, NOT the SSH context above.
+deploy:
+	docker compose --profile app up -d --build
+deploy-logs:
+	docker compose --profile app logs -f gateway daemon console
+deploy-down:
+	docker compose --profile app down

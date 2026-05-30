@@ -90,10 +90,12 @@ sudo ufw allow from 172.16.0.0/12 to any port 11434 proto tcp
 ```bash
 git clone <repo> jarvis && cd jarvis
 cp .env.example .env            # optional — defaults work; set GATEWAY_TOKEN / CONSOLE_PORT to taste
-docker compose --profile app up -d --build
+make deploy                     # = docker compose --profile app up -d --build (on THIS host)
 ```
 Open `http://<box-ip>:${CONSOLE_PORT:-8092}` (front it with nginx-proxy-manager + VPN like your
-other apps). Redeploy after changes: `git pull && docker compose --profile app up -d --build`.
+other apps). Redeploy after changes: `git pull && make deploy`; also `make deploy-logs` (tail) and
+`make deploy-down` (stop the app stack). These use the local Docker — the `make up`/`tunnel`/…
+targets are for driving the box *from another machine* over the SSH context.
 
 Notes: services are `restart: unless-stopped` (survive reboots, independent of any other machine).
 The `daemon` mounts `/var/run/docker.sock` (root-equivalent — trusted box only). `backup`'s off-box
