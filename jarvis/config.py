@@ -87,8 +87,13 @@ class Settings(BaseSettings):
     topology_interval_s: int = 300
     deploy_interval_s: int = 120
 
-    # Contextual notifications — webhook channel + notifier consumer.
-    notify_webhook_url: str = ""  # empty → log-only
+    # Contextual notifications — multi-channel (ntfy + generic webhook) + notifier consumer.
+    notify_webhook_url: str = ""  # generic JSON POST (Discord/Slack/Gotify relays); empty → off
+    # Self-hosted ntfy (local-first push to phone/desktop/watch). Reached internally by service
+    # name; subscribe the ntfy app to NTFY_BASE_URL/<topic> via your reverse proxy + VPN. Both
+    # url AND topic must be set for the ntfy channel to fire. Topic doubles as a shared secret.
+    ntfy_url: str = ""    # e.g. http://ntfy:80 (the publish endpoint, NOT the public base url)
+    ntfy_topic: str = ""  # e.g. jarvis-home-7f3a (pick something unguessable)
     notify_group: str = "jarvis:notifier"
     notify_cooldown_s: int = 300
 

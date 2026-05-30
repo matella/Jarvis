@@ -40,6 +40,26 @@ services:
       timeout: 3s
       retries: 10
 
+  # Self-hosted ntfy — local-first push notifications to phone / desktop / Wear OS. The
+  # gateway/daemon publish to it internally (NTFY_URL=http://ntfy:80); your devices SUBSCRIBE
+  # from outside via your reverse proxy + VPN, so it IS published on a host port for NPM to
+  # front (set NTFY_BASE_URL to that public https URL). Topic name doubles as a shared secret.
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: jarvis-ntfy
+    restart: unless-stopped
+    command: ["serve"]
+    environment:
+      NTFY_BASE_URL: ${NTFY_BASE_URL:-http://localhost}
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_CACHE_DURATION: "12h"
+    ports:
+      - "${NTFY_BIND:-0.0.0.0}:${NTFY_PORT:-8093}:80"
+    volumes:
+      - ntfy-cache:/var/cache/ntfy
+    profiles: ["app"]
+
   # Phase 9 — local-first web search. Internal to the compose network: the gateway/daemon reach
   # it by service name (SEARXNG_URL=http://searxng:8080), so it needs no host port (avoids LAN
   # exposure and port clashes with other homelab apps). After first start, enable JSON in the
@@ -79,6 +99,9 @@ services:
       # must be egress-allowlisted (default-deny). Unset SEARXNG_URL to turn search off again.
       SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
       EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-searxng}
+      # Push notifications via the self-hosted ntfy (set NTFY_TOPIC to enable; pick it unguessable).
+      NTFY_URL: ${NTFY_URL:-http://ntfy:80}
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # let the container reach Ollama on the host
     depends_on:
@@ -112,6 +135,8 @@ services:
       JARVIS_MODE: ${JARVIS_MODE:-observe}
       SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}   # routines/RAG may search too
       EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-searxng}
+      NTFY_URL: ${NTFY_URL:-http://ntfy:80}   # the daemon is the main notifier producer
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
       DOCKER_CONTEXT: default   # use the mounted socket, not the Mac's SSH 'jarvis' context
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock   # ingest/metrics/topology drive host Docker
@@ -143,3 +168,4 @@ volumes:
   postgres-data:
   redis-data:
   searxng-config:
+  ntfy-cache:

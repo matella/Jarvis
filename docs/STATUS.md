@@ -210,6 +210,20 @@ the entire backlog (#1–#11). Nothing left to code; only deploy-time external-s
   375px viewport: orb fills the screen, manifest/icon served, layout clean.
 - Latest: `pytest` 249/249, `ruff` clean (python); web `vitest` 17/17, `tsc`/`vite build` clean.
 
+## Everyday-AI roadmap (post-backlog) — in progress
+Goal: turn Jarvis from "a console I open" into "an assistant that knows me and reaches me".
+Order: **1) notifications keystone → 2) memory (session history + facts) → 3) mail/RSS connectors.**
+- **[1a DONE] ntfy push channel.** `notify/channel.py` is now a multi-channel fan-out (ntfy +
+  generic webhook; Web Push slots in next). Self-hosted `ntfy` compose service (app profile,
+  published for NPM). Config `ntfy_url`/`ntfy_topic`; gateway+daemon wired. Verified live: Jarvis
+  published to ntfy and read it back (prio/tags correct). **Operator setup to RECEIVE on devices:**
+  NPM proxy host → set `NTFY_BASE_URL`, choose `NTFY_TOPIC`, install the ntfy app + subscribe
+  (enable "instant delivery" for self-hosted). See `.env.example`.
+- **[1b TODO] PWA Web Push** — VAPID keys + push subscription store + SW push handler (3rd channel).
+- **[2 TODO] Memory** — restore session history across refresh (turns already persisted server-side;
+  client doesn't reload them) + a durable user-facts/profile layer injected into persona context.
+- **[3 TODO] Mail/RSS** — multi-account mail + feeds → summarized push (noise classifier gates buzz).
+
 ## Building the backlog — ALL DONE ✅
 1. Outcome verification · 2. auto-postmortems · 3. anomaly detection · 4. confidence/abstention ·
 5. time-travel diffs · 6. graceful degradation · 7. knowledge-base ingest · 8. cost-aware caching ·
