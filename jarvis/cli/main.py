@@ -32,6 +32,8 @@ inspect_app = typer.Typer(no_args_is_help=True, help="Inspect a single record")
 intents_app = typer.Typer(no_args_is_help=True, help="Propose / approve / execute intents")
 incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert incidents")
 replay_app = typer.Typer(no_args_is_help=True, help="Replay a decision")
+backup_app = typer.Typer(no_args_is_help=True, help="Backups + restore drill")
+snapshot_app = typer.Typer(no_args_is_help=True, help="State snapshots (compaction / DR)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -44,6 +46,8 @@ app.add_typer(inspect_app, name="inspect")
 app.add_typer(intents_app, name="intents")
 app.add_typer(incidents_app, name="incidents")
 app.add_typer(replay_app, name="replay")
+app.add_typer(backup_app, name="backup")
+app.add_typer(snapshot_app, name="snapshot")
 
 console = Console()
 
@@ -696,6 +700,57 @@ def run() -> None:
     from jarvis.core.supervisor import run as run_supervisor
 
     run_supervisor()
+
+
+@backup_app.command("run")
+def backup_run() -> None:
+    """Back up the DB now (off-box + a remote copy), pruning to retention."""
+    from jarvis.ops.backup import run_backup
+
+    info = run_backup()
+    console.print(f"backup [bold]{info['file']}[/bold]  {info['bytes']} bytes  → {info['offbox']}")
+
+
+@backup_app.command("verify")
+def backup_verify(
+    file: str | None = typer.Option(None, "--file", help="Specific dump (default: latest)"),
+) -> None:
+    """DR drill: restore a dump into a scratch DB and sanity-check it."""
+    from jarvis.ops.backup import verify_restore
+
+    report = verify_restore(file)
+    console.print(
+        f"[green]restore OK[/green]  {report['path']}  events={report['events']}  "
+        f"alembic={report['alembic_version']}"
+    )
+
+
+@snapshot_app.command("write")
+def snapshot_write() -> None:
+    """Write a state snapshot (compaction checkpoint)."""
+    from jarvis.state.snapshotter import write_snapshot
+
+    with db.connect(autocommit=True) as conn:
+        snap_id = write_snapshot(conn)
+    console.print(f"snapshot [bold]{snap_id}[/bold] written")
+
+
+@snapshot_app.command("rebuild")
+def snapshot_rebuild(
+    yes: bool = typer.Option(False, "--yes", help="Confirm (rebuild truncates + replays state)"),
+) -> None:
+    """DR: rebuild the state projection from the latest snapshot + replayed events."""
+    from jarvis.state.snapshotter import rebuild_state
+
+    if not yes:
+        console.print("[yellow]refusing without --yes[/yellow] (rebuild truncates state)")
+        raise typer.Exit(code=1)
+    with db.connect(autocommit=True) as conn:
+        result = rebuild_state(conn)
+    console.print(
+        f"rebuilt state: {result['restored_rows']} rows "
+        f"+ {result['replayed_events']} replayed events"
+    )
 
 
 def main() -> None:

@@ -5,8 +5,8 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Phase 5 — ambient reactor + mode machine + predictive observability** · *DONE (live-verified)*.
-Loop closed; autonomy governed by mode; now forecasts threshold crossings before they happen.
+**Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
+**5.5a Durability DONE** (live-verified). Next: 5.5b self-observability + audit.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -40,15 +40,22 @@ Loop closed; autonomy governed by mode; now forecasts threshold crossings before
   authors procedures (`jarvis playbook add/list`); the infra agent retrieves relevant playbooks
   by similarity and injects "Relevant playbooks" into its proposal context (stored in
   context_ref for explain). Activates the M1 memory pillar.
-- Latest: `pytest` 123/123, `ruff` clean. Migrations at head = 0009.
+- **5.5a Durability** (`ops/backup.py` + `state/snapshotter.py`): scheduled `pg_dump` via the
+  postgres container → off-box copy on the Mac + a remote copy, retention; **DR drill**
+  (`backup verify` restores into a scratch DB + sanity-checks); state **snapshots** as
+  fast-restore checkpoints + `rebuild` (replay after snapshot) — events never pruned. Two new
+  daemon workers (snapshot, backup). CLI `backup run/verify`, `snapshot write/rebuild`.
+- Latest: `pytest` 126/126, `ruff` clean. Migrations at head = 0009 (5.5a needs none).
 
 ## In progress
-- *(nothing)*
+- Conversational-orchestrator program, in order. **Next: 5.5b** (self-observability + audit;
+  migration 0010 `audit_log`), then 5.5c, 6a, 6b, 7, 8, 9, 10, scheduler (11), cross-cutting.
 
 ## Next step — do this first
-Last Phase-5 threads (per `docs/PLAN.md`): **auto-correlation** (incidents without a manual
-`correlate` — needs incident-dedup), **adaptive attention** (learn which alerts matter from
-approve/reject + execution history; tune notify/reactor). Or harden/observe. Pick.
+Build **5.5b** per `docs/superpowers/specs/2026-05-30-p55b-self-observability-audit-design.md`:
+`audit_log` table (0010) + actor attribution on approve/execute/mode-set; `jarvis self`
+(worker liveness, DLQ depth, inference latency, reachability) + `jarvis.health` events; `jarvis
+audit`. Then 5.5c.
 
 ## Open questions / blockers
 - *(none)*

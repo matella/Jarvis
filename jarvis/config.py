@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     code_chunk_lines: int = 60
     code_max_file_bytes: int = 200_000
 
+    # Durability — backups (pg_dump via the postgres container), off-box copy, snapshots.
+    postgres_container: str = "jarvis-postgres"
+    backup_offbox_dir: str = "backups"            # on this machine (off the DB host)
+    backup_remote_dir: str = "/home/matella/jarvis-backups"  # a copy on the remote box
+    backup_retention_count: int = 14
+    backup_interval_s: int = 86_400
+    snapshot_heartbeat_min: int = 60              # write a state snapshot at most this often…
+    snapshot_change_threshold: int = 1            # …and only if ≥ this many new events since last
+
     # `jarvis run` daemon — periodic collector cadences (ingest/consume/metrics self-loop).
     topology_interval_s: int = 300
     deploy_interval_s: int = 120

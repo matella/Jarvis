@@ -46,6 +46,8 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.ingest.predict import run_predictor
     from jarvis.ingest.topology import build_topology
     from jarvis.notify.notifier import run_notifier
+    from jarvis.ops.backup import run_backup
+    from jarvis.state.snapshotter import run_snapshotter
 
     s = get_settings()
     return [
@@ -55,8 +57,10 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("predict", run_predictor),
         ("notify", run_notifier),
         ("reactor", run_reactor),
+        ("snapshot", run_snapshotter),
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
+        ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
     ]
 
 
