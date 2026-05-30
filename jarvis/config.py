@@ -112,9 +112,11 @@ class Settings(BaseSettings):
     ollama_host: str = "127.0.0.1"
     ollama_port: int = 11434
 
-    # Model roles → Ollama tags. "Qwen 3.5 9B" (CLAUDE.md) has no literal tag; qwen3:8b is
-    # the 8 GB-fit stand-in. Override per-role in .env (e.g. MODEL_REASONING=llama3.2:latest).
-    model_reasoning: str = "qwen3:8b"
+    # Model roles → Ollama tags. Default reasoning model is qwen3:4b (~2.6 GB) — a light tenant on
+    # the shared 8 GB card (qwen3:8b at 6.6 GB crowds out other containers). Same family → the
+    # JSON-schema routing stays reliable. Override per-role in .env (MODEL_REASONING=qwen3:8b for
+    # more headroom, =qwen3:1.7b / llama3.2:latest for even lighter).
+    model_reasoning: str = "qwen3:4b"
     model_coder: str = "qwen2.5-coder:7b"
     model_embedding: str = "nomic-embed-text"
     keep_alive: str = "5m"

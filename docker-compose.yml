@@ -73,6 +73,7 @@ services:
       REDIS_HOST: redis
       OLLAMA_HOST: host.docker.internal
       OLLAMA_PORT: "11434"
+      MODEL_REASONING: ${MODEL_REASONING:-qwen3:4b}   # light tenant on the shared 8 GB GPU
       GATEWAY_TOKEN: ${GATEWAY_TOKEN:-}
       JARVIS_MODE: ${JARVIS_MODE:-observe}
     extra_hosts:
@@ -104,6 +105,7 @@ services:
       REDIS_HOST: redis
       OLLAMA_HOST: host.docker.internal
       OLLAMA_PORT: "11434"
+      MODEL_REASONING: ${MODEL_REASONING:-qwen3:4b}   # light tenant on the shared 8 GB GPU
       JARVIS_MODE: ${JARVIS_MODE:-observe}
       DOCKER_CONTEXT: default   # use the mounted socket, not the Mac's SSH 'jarvis' context
     volumes:
