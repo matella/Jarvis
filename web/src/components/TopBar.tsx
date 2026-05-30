@@ -1,6 +1,9 @@
-// The command bar: identity, live presence caption, link status, surface toggle.
+// The command bar: identity, live presence caption, link status, spoken-reply toggle, surface toggle.
+
+import { useState } from "react";
 
 import { orbVisual } from "../lib/presence";
+import { available as speakAvailable, cancel, setSpeakEnabled, speakEnabled } from "../lib/speak";
 import type { PresenceState } from "../lib/types";
 import type { ConnState } from "../lib/useConversation";
 
@@ -18,6 +21,13 @@ export function TopBar({
   onSurface: (s: Surface) => void;
 }) {
   const v = orbVisual(presence);
+  const [speaks, setSpeaks] = useState(speakEnabled());
+  const toggleSpeak = () => {
+    const next = !speaks;
+    setSpeaks(next);
+    setSpeakEnabled(next);
+    if (!next) cancel();
+  };
 
   return (
     <header className="relative z-10 flex flex-wrap items-center justify-between gap-y-2 border-b border-edge px-3 py-3 sm:px-5">
@@ -40,6 +50,16 @@ export function TopBar({
         >
           ◉ {conn}
         </span>
+
+        {speakAvailable() && (
+          <button
+            onClick={toggleSpeak}
+            title={speaks ? "Jarvis speaks replies (click to mute)" : "Replies muted (click to enable speech)"}
+            className={`text-sm transition ${speaks ? "text-teal" : "text-steel hover:text-ink"}`}
+          >
+            {speaks ? "🔊" : "🔇"}
+          </button>
+        )}
 
         <div className="flex border border-edge">
           {(["presence", "console", "insight"] as Surface[]).map((s) => (

@@ -10,6 +10,7 @@ import { DecisionInspector } from "./components/DecisionInspector";
 import { InsightMode, type InsightTab } from "./components/InsightMode";
 import { PresenceMode } from "./components/PresenceMode";
 import { TopBar, type Surface } from "./components/TopBar";
+import { speak } from "./lib/speak";
 import { useConversation } from "./lib/useConversation";
 import { useVoice } from "./lib/useVoice";
 
@@ -17,7 +18,12 @@ export default function App() {
   // Break the voice↔conversation cycle with a ref: the mic clip is sent via the (later) socket.
   const sendAudioRef = useRef<(b64: string) => void>(() => {});
   const voice = useVoice((b64) => sendAudioRef.current(b64));
-  const { turns, presence, conn, send, sendAudio } = useConversation({ onTts: voice.playTts });
+  // Spoken replies: prefer server TTS audio (Piper) if it ever arrives; otherwise the browser
+  // speaks the text on-device. Either way Jarvis talks when he answers.
+  const { turns, presence, conn, send, sendAudio } = useConversation({
+    onTts: voice.playTts,
+    onReply: (text) => speak(text),
+  });
   sendAudioRef.current = sendAudio;
 
   const [surface, setSurface] = useState<Surface>("presence");

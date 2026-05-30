@@ -20,9 +20,13 @@ interface VoiceMsg {
   detail?: string;
 }
 
-export function useConversation(opts: { onTts?: (wavBase64: string) => void } = {}) {
+export function useConversation(
+  opts: { onTts?: (wavBase64: string) => void; onReply?: (text: string) => void } = {},
+) {
   const onTtsRef = useRef(opts.onTts);
   onTtsRef.current = opts.onTts;
+  const onReplyRef = useRef(opts.onReply);
+  onReplyRef.current = opts.onReply;
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [presence, setPresence] = useState<PresenceState>("idle");
   const [conn, setConn] = useState<ConnState>("connecting");
@@ -79,6 +83,7 @@ export function useConversation(opts: { onTts?: (wavBase64: string) => void } = 
             confidence: r.confidence,
           },
         ]);
+        onReplyRef.current?.(r.message);
       }
     };
     ws.onclose = () => {
