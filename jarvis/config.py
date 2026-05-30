@@ -168,6 +168,11 @@ class Settings(BaseSettings):
             return [x.strip() for x in s.split(",") if x.strip()]
         return v
 
+    # Real-time search + capture (9) — local-first web RAG via SearXNG; screenshots via Playwright.
+    searxng_url: str = ""  # e.g. http://searxng.lan:8080 (host must be egress-allowlisted)
+    search_result_limit: int = 5
+    capture_timeout_s: int = 20
+
     # Orchestration + action safety (7) — bounds on a single plan and on action throughput.
     plan_max_steps: int = 12
     plan_max_entities: int = 5  # blast radius: distinct entities an action plan may touch

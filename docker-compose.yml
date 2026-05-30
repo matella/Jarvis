@@ -40,6 +40,22 @@ services:
       timeout: 3s
       retries: 10
 
+  # Phase 9 — local-first web search. After first start, enable JSON in the generated
+  # /etc/searxng/settings.yml (search.formats: [html, json]) so the SearchProvider works.
+  # Bound to the remote loopback only; reach via SSH tunnel + egress allowlist.
+  searxng:
+    image: searxng/searxng:latest
+    container_name: jarvis-searxng
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: http://localhost:${SEARXNG_PORT:-8080}/
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${SEARXNG_PORT:-8080}:8080"
+    volumes:
+      - searxng-config:/etc/searxng
+    profiles: ["search"]  # opt-in: `docker --context jarvis compose --profile search up -d`
+
 volumes:
   postgres-data:
   redis-data:
+  searxng-config:

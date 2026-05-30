@@ -6,9 +6,8 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**8 Connectors + webhooks DONE** (live-verified). Next: 9 search + capture.
-(6b UI follow-ups still pending: topology graph, metric charts, Cmd-K, Playwright.
- 8 follow-ups: live CalDAV calendar connector; live IMAP/SMTP + HA against real instances.)
+**9 Search + capture DONE** (unit-verified; live needs SearXNG container + Playwright). Next: 10 voice.
+(Deferred: 6b UI slices; 8 live CalDAV/IMAP/SMTP/HA; 9 live SearXNG deploy + `playwright install`.)
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -94,17 +93,23 @@
   `/inbound/<source>` HMAC-verified → mapped events (github.push / grafana.alert / webhook.received).
   Connector ingest as opt-in daemon workers (`CONNECTORS_ENABLED`). CLI `jarvis connectors
   list/poll`. Injection content can shape a proposal, never act (verified).
-- Latest: `pytest` 175/175, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0012 (8 needs none).
+- **9 Search + capture** (`search/` + docker-compose `searxng`): `SearchProvider` interface with
+  `SearxngProvider` (JSON API via egress guard; results sanitized + capped). Web RAG
+  (`search/rag.py`): retrieve (deterministic) → frame as untrusted data → ONE-shot synthesis with
+  `[n]` citations + `search.performed` event. Conversation agent gained a `search` route (current
+  external info → cited answer + sources table artifact). `search/capture.py`: Playwright
+  screenshot → `image` artifact, egress-allowlisted (lazy import). CLI `jarvis search/capture`.
+- Latest: `pytest` 179/179, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0012 (9 needs none).
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 9** (search + capture), then 10
-  (voice), scheduler (11), cross-cutting. Deferred: 6b UI slices (topology graph, charts, Cmd-K,
-  Playwright); 8 live wiring (CalDAV calendar; real IMAP/SMTP/HA instances).
+- Conversational-orchestrator program, in order. **Next: 10** (voice), then scheduler (11),
+  cross-cutting. Deferred: 6b UI slices (topology graph, charts, Cmd-K, Playwright E2E); 8 live
+  wiring (CalDAV; real IMAP/SMTP/HA); 9 live SearXNG (deploy + enable JSON) + `playwright install`.
 
 ## Next step — do this first
-Build **9** (search + capture) per its detailed spec in `docs/superpowers/specs/`. Self-hosted
-SearXNG behind a SearchProvider interface; web fetch + capture as artifacts; egress-allowlisted.
+Build **10** (voice) per its detailed spec in `docs/superpowers/specs/`. Whisper.cpp STT + Piper
+TTS (CPU), orb audio-reactivity (Web Audio AnalyserNode), push-to-talk in the console.
 
 ## Open questions / blockers
 - *(none)*

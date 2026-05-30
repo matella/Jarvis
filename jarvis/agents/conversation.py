@@ -76,6 +76,7 @@ class _Decision(BaseModel):
     reversible: bool = True
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     citations: list[Citation] = Field(default_factory=list)
+    query: str | None = None  # the search query when route == "search" (web RAG)
 
 
 def capability_summary() -> str:
@@ -115,8 +116,11 @@ def _build_prompt(ctx_prompt: str, memory: str, utterance: str) -> str:
         "- If the user asks you to DO or CHANGE something (restart/stop/start/redeploy a "
         "container, edit a file, etc.), set route=\"propose\", pick the matching intent_type "
         "from the capabilities, and fill target. Do NOT perform it — a human confirms first.\n"
-        "- Otherwise (a question, status request, explanation), set route=\"answer\" and put your "
-        "grounded reply in message; cite events/state you used.\n"
+        "- If the user asks about CURRENT external information (latest news, a CVE, today's "
+        "weather, 'look up …', 'search for …'), set route=\"search\" and put the search query in "
+        "query; the system will fetch + cite real results.\n"
+        "- Otherwise (a question about the homelab, status, explanation), set route=\"answer\" and "
+        "put your grounded reply in message; cite events/state you used.\n"
         'Example — user "restart nginx" → {"route":"propose","intent_type":'
         '"docker.restart_container","target":{"container":"nginx"},"summary":"restart nginx",'
         '"message":"I can restart nginx.","risk":"medium","reversible":true,"confidence":0.9}.',
@@ -127,9 +131,10 @@ def _build_prompt(ctx_prompt: str, memory: str, utterance: str) -> str:
     parts.append("Context:\n" + ctx_prompt)
     parts.append(f"User: {utterance}")
     parts.append(
-        'Output exactly one JSON object with keys: route ("answer" or "propose"), '
+        'Output exactly one JSON object with keys: route ("answer"|"propose"|"search"), '
         'message (string), and when route="propose": intent_type, target (object), summary, '
-        'risk ("low"|"medium"|"high"), reversible (bool), confidence (0..1). '
+        'risk ("low"|"medium"|"high"), reversible (bool), confidence (0..1); '
+        'when route="search": query (string). '
         'Optional: citations [{kind, ref, note}]. No prose outside the JSON.'
     )
     return "\n\n".join(parts)
@@ -140,7 +145,7 @@ def _build_prompt(ctx_prompt: str, memory: str, utterance: str) -> str:
 _DECISION_SCHEMA = {
     "type": "object",
     "properties": {
-        "route": {"type": "string", "enum": ["answer", "propose"]},
+        "route": {"type": "string", "enum": ["answer", "propose", "search"]},
         "message": {"type": "string"},
         "intent_type": {"type": "string"},
         "target": {"type": "object"},
@@ -148,6 +153,7 @@ _DECISION_SCHEMA = {
         "risk": {"type": "string", "enum": ["low", "medium", "high"]},
         "reversible": {"type": "boolean"},
         "confidence": {"type": "number"},
+        "query": {"type": "string"},
     },
     "required": ["route", "message"],
 }
@@ -232,6 +238,9 @@ def _reason(
         prompt, correlation_id=ids.new_id(ids.CORRELATION), context_ref=ctx.context_ref
     )
 
+    if decision.route == "search" and (decision.query or utterance):
+        return _search_answer(decision.query or utterance)
+
     if decision.route == "propose" and decision.intent_type in valid_intent_types():
         intent = _make_intent(decision, ctx.context_ref, session.actor)
         insert_intent(conn, intent)
@@ -248,6 +257,25 @@ def _reason(
     return TurnResult(
         route=TurnRoute.answer, message=decision.message or "(no response)",
         citations=decision.citations,
+    )
+
+
+def _search_answer(query: str) -> TurnResult:
+    """Web RAG: retrieve results, synthesize a cited answer, render the sources as an artifact."""
+    from jarvis.search.rag import answer_with_search
+
+    try:
+        message, results = answer_with_search(query)
+    except Exception as exc:  # noqa: BLE001 — search/egress failure degrades to a plain note
+        return TurnResult(route=TurnRoute.answer, message=f"Search is unavailable: {exc}")
+    citations = [Citation(kind="web", ref=r.url, note=r.title) for r in results]
+    sources = Artifact(
+        kind="table", title="Sources",
+        data={"columns": ["#", "title", "url"],
+              "rows": [[i + 1, r.title, r.url] for i, r in enumerate(results)]},
+    )
+    return TurnResult(
+        route=TurnRoute.answer, message=message, citations=citations, artifacts=[sources],
     )
 
 

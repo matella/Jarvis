@@ -880,6 +880,50 @@ def connectors_poll(name: str = typer.Argument(..., help="feeds|mail")) -> None:
     console.print(f"{name}: emitted [bold]{count}[/bold] events")
 
 
+@app.command()
+def search(
+    query: str,
+    raw: bool = typer.Option(False, help="Show raw results, skip synthesis"),
+) -> None:
+    """Web RAG search (SearXNG): cited answer, or --raw for the source list."""
+    from jarvis.search.rag import synthesize, web_search
+
+    try:
+        results = web_search(query)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]search failed[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    if not results:
+        console.print("[yellow]no results[/yellow]")
+        return
+    table = Table(title=f"sources ({len(results)})")
+    for col in ("#", "title", "url"):
+        table.add_column(col, overflow="fold")
+    for i, r in enumerate(results, 1):
+        table.add_row(str(i), r.title, r.url)
+    console.print(table)
+    if not raw:
+        console.print(f"\n[bold]{synthesize(query, results)}[/bold]")
+
+
+@app.command()
+def capture(url: str, out: str = typer.Option("capture.png", help="Output PNG path")) -> None:
+    """Screenshot a page (egress-allowlisted) → a PNG file."""
+    import base64
+
+    from jarvis.search.capture import screenshot
+
+    try:
+        result = screenshot(url)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]capture failed[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    png = base64.b64decode(result["url"].split(",", 1)[1])
+    with open(out, "wb") as fh:
+        fh.write(png)
+    console.print(f"captured [bold]{url}[/bold] → {out} ({len(png)} bytes)")
+
+
 @backup_app.command("run")
 def backup_run() -> None:
     """Back up the DB now (off-box + a remote copy), pruning to retention."""
