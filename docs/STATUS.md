@@ -120,19 +120,24 @@ capture (9) → voice + audio-reactive orb (10) → GPU scheduler (11).
   interval); daemon worker (`routines`, 12th supervisor worker) fires due routines, change-aware via
   last_run, suspended under maintenance → `routine.completed` event + notification. CLI `routine
   add/list/run`. Live: a briefing composed incidents + summarizer into a grounded digest.
-- Latest: `pytest` (running), `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0013.
+- **Cross-cutting B. Feedback + eval/replay harness** (`feedback.py` + `eval/` + migration 0014):
+  operator 👍/👎 on proposals/incidents → `feedback` rows + `feedback.recorded` events (gateway
+  `POST /feedback`, CLI `jarvis feedback`, console buttons on jarvis turns); `score()` aggregation
+  is the adaptive-attention seed. **Eval harness**: pure `compare()` (drift = type/target change,
+  NOT confidence wobble) + `replay_intent` re-runs a stored `context_ref` through the current model
+  + `run_suite`/`recent_proposer_intents`; CLI `jarvis eval` reports drift (regression gate on
+  model/agent change). Live: a replayed proposal flipped restart→investigate → flagged DRIFT.
+- Latest: `pytest` 205/205, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0014.
 
 ## In progress
-- **Cross-cutting tracks, in order:** A ✅ → **B** (feedback + eval/replay harness) → **C**
-  (observability ingest: Prometheus/Loki) → **D** (memory governance). The numbered program
-  (5.5a–11) is complete. Then optional 6b UI polish.
+- **Cross-cutting tracks, in order:** A ✅ B ✅ → **C** (observability ingest: Prometheus/Loki) →
+  **D** (memory governance). The numbered program (5.5a–11) is complete. Then optional 6b UI polish.
 
 ## Next step — do this first
-Build **cross-cutting B** (feedback loop + eval/replay harness) per
-`docs/superpowers/specs/2026-05-30-cross-cutting-tracks-design.md` §B: operator 👍/👎 → `feedback`
-events (adaptive-attention signal); `eval/` re-runs stored `context_ref`s through the current model
-and diffs against the recorded decision (drift gate on model/agent change).
+Build **cross-cutting C** (richer observability ingest) per the cross-cutting spec §C:
+`ingest/prometheus.py` (scrape targets → `metrics`) + `ingest/loki.py` (log spikes → events that
+correlation can use); egress-allowlisted, opt-in daemon workers.
 
 ## Open questions / blockers
 - *(none)*

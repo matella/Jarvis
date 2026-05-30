@@ -945,6 +945,53 @@ def routine_run(routine_id: str) -> None:
 
 
 @app.command()
+def feedback(
+    target_id: str,
+    up: bool = typer.Option(False, "--up", help="👍 (default 👎 if omitted)"),
+    target_type: str = typer.Option("intent", help="intent|incident|plan|routine"),
+    note: str = typer.Option("", help="Optional note"),
+) -> None:
+    """Rate a proposal/incident 👍/👎 (the adaptive-attention signal)."""
+    from jarvis import feedback as fb
+
+    with db.connect(autocommit=True) as conn:
+        try:
+            fb.record(conn, target_type=target_type, target_id=target_id,
+                      rating=1 if up else -1, actor="cli", note=note or None)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from exc
+        s = fb.score(conn, target_type=target_type, target_id=target_id)
+    console.print(f"recorded {'👍' if up else '👎'} on {target_type}:{target_id} (net score {s})")
+
+
+@app.command("eval")
+def eval_cmd(
+    limit: int = typer.Option(5, help="How many recent agent proposals to replay"),
+    intent_id: str = typer.Option(None, help="Replay a single intent instead"),
+) -> None:
+    """Replay stored decisions through the current model and report drift (regression gate)."""
+    from jarvis.eval.harness import recent_proposer_intents, run_suite
+
+    ids_to_run = [intent_id] if intent_id else recent_proposer_intents(limit)
+    if not ids_to_run:
+        console.print("[yellow]no replayable agent proposals found[/yellow]")
+        return
+    report = run_suite(ids_to_run)
+    title = f"eval — {report.drifted}/{report.total} drifted (rate {report.drift_rate})"
+    table = Table(title=title)
+    for col in ("intent_id", "orig→replayed", "type Δ", "target Δ", "conf Δ", "drift"):
+        table.add_column(col, overflow="fold")
+    for r in report.results:
+        table.add_row(
+            r.intent_id, f"{r.original_type}→{r.replayed_type}",
+            "yes" if r.type_changed else "—", "yes" if r.target_changed else "—",
+            f"{r.confidence_delta:+.2f}", "[red]DRIFT[/red]" if r.drift else "ok",
+        )
+    console.print(table)
+
+
+@app.command()
 def search(
     query: str,
     raw: bool = typer.Option(False, help="Show raw results, skip synthesis"),

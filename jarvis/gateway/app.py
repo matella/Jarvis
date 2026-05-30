@@ -93,6 +93,26 @@ def create_app() -> FastAPI:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    @app.post("/feedback")
+    def feedback(
+        body: dict[str, Any], principal: Principal = Depends(_principal)
+    ) -> dict[str, Any]:
+        """Record an operator 👍/👎 on a proposal/incident (adaptive-attention signal)."""
+        _require(principal, "chat")
+        from jarvis import feedback as fb
+
+        try:
+            with db.connect(autocommit=True) as conn:
+                fb.record(
+                    conn, target_type=str(body.get("target_type", "")),
+                    target_id=str(body.get("target_id", "")),
+                    rating=int(body.get("rating", 0)), actor=principal.actor,
+                    note=body.get("note"),
+                )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"recorded": True}
+
     @app.post("/inbound/{source}")
     async def inbound(source: str, request: Request) -> dict[str, Any]:
         """Signed push from GitHub/Grafana/etc → a verified, sanitized event on the spine."""

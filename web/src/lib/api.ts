@@ -33,6 +33,15 @@ export interface HealthSnapshot {
   degraded: boolean;
 }
 
+async function postJSON(path: string, body: unknown): Promise<boolean> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return res.ok;
+}
+
 export const api = {
   health: () => getJSON<HealthSnapshot>("/health"),
   events: (n = 20) => getJSON<Record<string, unknown>[]>(`/api/events?n=${n}`),
@@ -40,6 +49,8 @@ export const api = {
   incidents: (n = 20) => getJSON<Record<string, unknown>[]>(`/api/incidents?n=${n}`),
   intents: (n = 20) => getJSON<Record<string, unknown>[]>(`/api/intents?n=${n}`),
   metrics: (n = 50) => getJSON<Record<string, unknown>[]>(`/api/metrics?n=${n}`),
+  feedback: (targetType: string, targetId: string, rating: 1 | -1) =>
+    postJSON("/feedback", { target_type: targetType, target_id: targetId, rating }),
 };
 
 export function wsUrl(): string {

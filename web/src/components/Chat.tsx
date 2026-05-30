@@ -5,6 +5,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
+import { api } from "../lib/api";
 import type { ChatTurn, MicControl } from "../lib/types";
 import { ArtifactRenderer } from "./ArtifactRenderer";
 
@@ -14,6 +15,33 @@ const routeBadge: Record<string, { text: string; cls: string }> = {
   cancel: { text: "CANCELLED", cls: "text-steel border-steel/30" },
   answer: { text: "", cls: "" },
 };
+
+function Feedback({ intentId }: { intentId: string }) {
+  const [rated, setRated] = useState<1 | -1 | null>(null);
+  const rate = (r: 1 | -1) => {
+    setRated(r);
+    void api.feedback("intent", intentId, r);
+  };
+  return (
+    <div className="mt-1 flex gap-2 text-xs">
+      <button
+        onClick={() => rate(1)}
+        className={`transition ${rated === 1 ? "text-teal" : "text-steel hover:text-teal"}`}
+        title="Good call"
+      >
+        👍
+      </button>
+      <button
+        onClick={() => rate(-1)}
+        className={`transition ${rated === -1 ? "text-amber" : "text-steel hover:text-amber"}`}
+        title="Bad call"
+      >
+        👎
+      </button>
+      {rated && <span className="label">recorded</span>}
+    </div>
+  );
+}
 
 function Bubble({ turn, onQuick }: { turn: ChatTurn; onQuick: (t: string) => void }) {
   const mine = turn.role === "user";
@@ -70,6 +98,7 @@ function Bubble({ turn, onQuick }: { turn: ChatTurn; onQuick: (t: string) => voi
           </button>
         </div>
       )}
+      {!mine && turn.intentId && <Feedback intentId={turn.intentId} />}
     </motion.div>
   );
 }
