@@ -30,6 +30,36 @@ _SNIPPET_LEN = 280
 
 
 @dataclass(frozen=True)
+class MailAccount:
+    """One IMAP account. `*_secret` are SecretsProvider key names, not the secrets themselves."""
+
+    label: str
+    imap_host: str
+    imap_port: int
+    user_secret: str
+    pass_secret: str
+
+
+def _accounts() -> list[MailAccount]:
+    """Resolve configured accounts; fall back to the legacy single-account env if none listed."""
+    s = get_settings()
+    if s.mail_accounts:
+        out: list[MailAccount] = []
+        for a in s.mail_accounts:
+            out.append(MailAccount(
+                label=str(a.get("label") or a.get("imap_host", "mail")),
+                imap_host=str(a["imap_host"]),
+                imap_port=int(a.get("imap_port", 993)),
+                user_secret=str(a.get("user_secret", "MAIL_USERNAME")),
+                pass_secret=str(a.get("pass_secret", "MAIL_PASSWORD")),
+            ))
+        return out
+    if s.imap_host:  # backwards-compatible single account
+        return [MailAccount("default", s.imap_host, s.imap_port, "MAIL_USERNAME", "MAIL_PASSWORD")]
+    return []
+
+
+@dataclass(frozen=True)
 class MailHeader:
     uid: str
     sender: str
@@ -65,36 +95,45 @@ def parse_message(raw: bytes, *, uid: str) -> MailHeader:
     )
 
 
-def _emit(header: MailHeader) -> None:
+def _emit(header: MailHeader, *, account: str) -> None:
     emit_event(Event(
         type="mail.received", severity=Severity.info, source="mail",
-        entity_ref=f"mail:{header.uid}", occurred_at=utcnow(),
-        payload={"from": header.sender, "subject": header.subject, "snippet": header.snippet},
+        entity_ref=f"mail:{account}:{header.uid}", occurred_at=utcnow(),
+        payload={"account": account, "from": header.sender, "subject": header.subject,
+                 "snippet": header.snippet},
         correlation_id=ids.new_id(ids.CORRELATION),
     ))
 
 
-def poll_once() -> int:
-    """Fetch recent unseen messages over IMAP, emit sanitized events. Returns count emitted."""
+def _poll_account(acct: MailAccount, *, max_messages: int) -> int:
+    """Fetch one account's unseen messages, emit sanitized events. Returns count emitted."""
     import imaplib
 
-    s = get_settings()
-    if not s.imap_host:
-        return 0
     provider = get_provider()
-    user = provider.required("MAIL_USERNAME")
-    password = provider.required("MAIL_PASSWORD")
+    user = provider.required(acct.user_secret)
+    password = provider.required(acct.pass_secret)
     emitted = 0
-    with imaplib.IMAP4_SSL(s.imap_host, s.imap_port) as imap:
+    with imaplib.IMAP4_SSL(acct.imap_host, acct.imap_port) as imap:
         imap.login(user, password)
         imap.select("INBOX")
         _typ, data = imap.search(None, "UNSEEN")
-        uids = data[0].split()[: s.mail_max_messages]
-        for uid in uids:
+        for uid in data[0].split()[:max_messages]:
             _t, msg_data = imap.fetch(uid, "(RFC822)")
             raw = msg_data[0][1] if msg_data and msg_data[0] else b""
-            _emit(parse_message(raw, uid=uid.decode()))
+            _emit(parse_message(raw, uid=uid.decode()), account=acct.label)
             emitted += 1
+    return emitted
+
+
+def poll_once() -> int:
+    """Fetch unseen mail across every configured account, emit sanitized events. Returns count."""
+    s = get_settings()
+    emitted = 0
+    for acct in _accounts():
+        try:
+            emitted += _poll_account(acct, max_messages=s.mail_max_messages)
+        except Exception as exc:  # noqa: BLE001 — one bad account must not stall the others
+            print(f"[mail] account {acct.label!r} poll failed: {exc!r}", flush=True)
     return emitted
 
 

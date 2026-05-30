@@ -244,6 +244,14 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     mail_poll_interval_s: int = 300
     mail_max_messages: int = 20
+    # Multiple accounts: JSON list, each {label, imap_host, imap_port?, user_secret, pass_secret}
+    # where *_secret are SecretsProvider KEY NAMES (never the secret itself). Empty → fall back to
+    # the single imap_host + MAIL_USERNAME/MAIL_PASSWORD account above.
+    mail_accounts: list[dict] = []
+    # Triage (everyday-AI): summarize + classify inbound content (mail/feeds) and push only the
+    # important ones via the notifier. Its own spine consumer; one inference per item (BACKGROUND).
+    triage_enabled: bool = False
+    triage_min_importance: str = "high"  # push items at/above this — high | normal | low
     # Home Assistant (REST). Token: HA_TOKEN via SecretsProvider.
     ha_base_url: str = ""  # e.g. http://homeassistant.lan:8123
     # Inbound webhooks — per-source HMAC secret names resolved via SecretsProvider

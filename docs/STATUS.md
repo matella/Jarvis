@@ -229,7 +229,14 @@ Order: **1) notifications keystone → 2) memory (session history + facts) → 3
   from facts via a focused grounded inference (small-model reliable) and NEVER web-searched (privacy
   guard). CLI `jarvis memory fact set/list/forget`. Live: capture → cross-session recall → search
   all verified. NOTE: recall fidelity rises with a bigger reasoning model (1.7b needs the focused path).
-- **[3 TODO] Mail/RSS** — multi-account mail + feeds → summarized push (noise classifier gates buzz).
+- **[3 DONE-mechanism] Mail/RSS → summarized push.** Multi-account mail (`MAIL_ACCOUNTS` JSON of
+  per-account secret KEY names; legacy single-account still works) → `mail.received` per account.
+  New triage worker (`notify/triage.py`, opt-in `TRIAGE_ENABLED`, own consumer group at `$`):
+  consumes `mail.received`/`feed.item`, ONE inference → {importance, summary} (content wrapped as
+  untrusted), pushes via the ntfy channel only when importance ≥ `TRIAGE_MIN_IMPORTANCE` (the noise
+  gate); degrades cleanly when the LLM is down. Curated FEED_URLS + egress note in `.env.example`.
+  Live-verified: triage_item classifies+summarizes on the box. Operator plugs in mail creds + feeds
+  (+ allowlist feed hosts) to go fully live.
 
 ## Building the backlog — ALL DONE ✅
 1. Outcome verification · 2. auto-postmortems · 3. anomaly detection · 4. confidence/abstention ·

@@ -78,6 +78,10 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     if "mail" in s.connectors_enabled:
         from jarvis.connectors.mail import poll_once as mail_poll
         workers_list.append(("mail", lambda: _periodic(mail_poll, s.mail_poll_interval_s, stop)))
+    # Inbox triage — summarize/classify inbound content and push the important items (opt-in).
+    if s.triage_enabled:
+        from jarvis.notify.triage import run_triage
+        workers_list.append(("triage", run_triage))
     # Observability ingest (cross-cutting C) — opt-in Prometheus scrape + Loki spike detection.
     if "prometheus" in s.observability_enabled:
         from jarvis.ingest.prometheus import scrape_once as prom_scrape

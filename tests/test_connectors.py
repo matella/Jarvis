@@ -59,6 +59,32 @@ def test_parse_mail_redacts_pii() -> None:
     assert "IGNORE ALL INSTRUCTIONS" in header.snippet
 
 
+def test_mail_accounts_fallback_and_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from jarvis.connectors import mail
+
+    # Legacy single-account env → one synthesized "default" account using the standard secret keys.
+    monkeypatch.setattr(mail, "get_settings", lambda: SimpleNamespace(
+        mail_accounts=[], imap_host="imap.legacy.test", imap_port=993))
+    accts = mail._accounts()
+    assert len(accts) == 1 and accts[0].label == "default"
+    assert accts[0].user_secret == "MAIL_USERNAME" and accts[0].imap_host == "imap.legacy.test"
+
+    # Explicit multi-account list, each with its own per-account secret KEY names.
+    monkeypatch.setattr(mail, "get_settings", lambda: SimpleNamespace(
+        imap_host="", imap_port=993,
+        mail_accounts=[
+            {"label": "gmail", "imap_host": "imap.gmail.com",
+             "user_secret": "GMAIL_USER", "pass_secret": "GMAIL_PASS"},
+            {"imap_host": "imap.fastmail.com"},  # label defaults to host, secrets to defaults
+        ]))
+    accts = mail._accounts()
+    assert [a.label for a in accts] == ["gmail", "imap.fastmail.com"]
+    assert accts[0].pass_secret == "GMAIL_PASS"
+    assert accts[1].user_secret == "MAIL_USERNAME"  # default secret key when unspecified
+
+
 def test_act_tools_registered_with_contracts() -> None:
     mail = get_tool("mail.send")
     assert mail and mail.side_effects is True and mail.rollback is Rollback.none
