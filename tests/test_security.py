@@ -54,6 +54,22 @@ def test_egress_allowlist_and_subdomains(monkeypatch: pytest.MonkeyPatch) -> Non
     assert egress.check_url("https://api.example.com/search?q=1") == "api.example.com"
 
 
+def test_egress_rejects_non_http_schemes(monkeypatch: pytest.MonkeyPatch) -> None:
+    # allow the host, but file:///ftp:// must still be blocked (urllib would otherwise open them)
+    monkeypatch.setattr(egress, "get_settings", lambda: _settings(["example.com", "localhost"]))
+    for url in ("file:///etc/passwd", "ftp://example.com/x", "gopher://example.com"):
+        with pytest.raises(egress.EgressBlocked):
+            egress.check_url(url)
+
+
+def test_egress_redirect_handler_revalidates(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An allowlisted host that 302s to an internal address must be blocked at the redirect.
+    monkeypatch.setattr(egress, "get_settings", lambda: _settings(["example.com"]))
+    handler = egress._AllowlistRedirectHandler()
+    with pytest.raises(egress.EgressBlocked):
+        handler.redirect_request(None, None, 302, "Found", {}, "http://169.254.169.254/latest/meta")
+
+
 def test_secrets_required_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("JARVIS_TEST_SECRET", raising=False)
     provider = secrets.EnvSecretsProvider()

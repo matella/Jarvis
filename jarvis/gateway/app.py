@@ -305,13 +305,30 @@ async def _serve_ws(socket: WebSocket) -> None:
             if not utterance:
                 continue
             await _send_presence(socket, presence.THINKING)
-            # respond() is synchronous (DB + one inference); run it and stream the result.
-            with db.connect(autocommit=True) as conn:
-                result = convo.respond(conn, session, utterance)
-                await socket.send_json({"kind": "turn", "result": result.model_dump(mode="json")})
-                await _send_presence(socket, presence.SPEAKING)
-                await _speak(socket, result.message)
-                await _send_presence(socket, presence.baseline_presence(conn))
+            # respond() is synchronous (DB + one inference); run it and stream the result. A
+            # failure here (model unreachable, DB blip) must degrade to a spoken apology, NOT
+            # crash the socket — the deterministic spine keeps running regardless.
+            try:
+                with db.connect(autocommit=True) as conn:
+                    result = convo.respond(conn, session, utterance)
+                    await socket.send_json(
+                        {"kind": "turn", "result": result.model_dump(mode="json")}
+                    )
+                    await _send_presence(socket, presence.SPEAKING)
+                    await _speak(socket, result.message)
+                    await _send_presence(socket, presence.baseline_presence(conn))
+            except WebSocketDisconnect:
+                raise
+            except Exception as exc:  # noqa: BLE001 — degrade, don't drop the connection
+                await socket.send_json({
+                    "kind": "turn",
+                    "result": convo.TurnResult(
+                        route=convo.TurnRoute.answer,
+                        message=f"I hit a problem handling that ({type(exc).__name__}). "
+                                "The system is still running — try again in a moment.",
+                    ).model_dump(mode="json"),
+                })
+                await _send_presence(socket, presence.IDLE)
     except WebSocketDisconnect:
         return
 

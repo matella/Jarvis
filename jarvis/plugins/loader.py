@@ -114,6 +114,7 @@ def load_manifest(path: str) -> PluginManifest:
 def load_plugins(plugins_dir: str | None = None) -> list[str]:
     """Load + register all *.yaml plugins from the dir. Returns the registered capability names."""
     from jarvis.config import get_settings
+    from jarvis.tools.registry import ADVISORY_TYPES, get_tool
 
     plugins_dir = plugins_dir if plugins_dir is not None else get_settings().plugins_dir
     if not plugins_dir or not os.path.isdir(plugins_dir):
@@ -122,6 +123,10 @@ def load_plugins(plugins_dir: str | None = None) -> list[str]:
     for path in sorted(glob.glob(os.path.join(plugins_dir, "*.yaml"))):
         try:
             manifest = load_manifest(path)
+            # Defense-in-depth: a plugin must NEVER shadow a built-in (or advisory) capability —
+            # otherwise a stray manifest could replace docker.restart_container with an HTTP call.
+            if get_tool(manifest.name) is not None or manifest.name in ADVISORY_TYPES:
+                raise PluginError(f"{manifest.name!r} already registered — refusing to override")
             register(build_tool(manifest))
             loaded.append(manifest.name)
         except Exception as exc:  # noqa: BLE001 — a bad plugin manifest must not break startup

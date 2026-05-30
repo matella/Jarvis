@@ -37,16 +37,35 @@ def allowed(host: str) -> bool:
 
 
 def check_url(url: str) -> str:
-    """Validate a URL host against the allowlist; return it. Raises EgressBlocked if denied."""
-    host = _host_of(url)
+    """Validate a URL's scheme + host against the allowlist; return the host. Raises EgressBlocked.
+
+    Only http(s) is permitted (no file://, ftp://, gopher:// — which urllib would otherwise open).
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise EgressBlocked(f"egress scheme {parsed.scheme or '(none)'!r} not allowed: {url!r}")
+    host = (parsed.hostname or "").lower()
     if not allowed(host):
         raise EgressBlocked(f"egress to {host or url!r} is not allowlisted")
     return host
 
 
+class _AllowlistRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Re-validate every redirect target against the allowlist — closes the SSRF bypass where an
+    allowlisted host 302s to an internal address (localhost, 169.254.169.254, RFC-1918)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        check_url(newurl)  # raises EgressBlocked if the redirect leaves the allowlist
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_opener = urllib.request.build_opener(_AllowlistRedirectHandler)
+
+
 def guarded_request(url: str, *, timeout: float = 10.0, data: bytes | None = None,
                     headers: dict[str, str] | None = None):
-    """Open `url` only if its host is allowlisted. Connectors/search MUST use this, not urlopen."""
+    """Open `url` only if its host is allowlisted — including across redirects. Connectors/search
+    MUST use this, not urlopen."""
     check_url(url)
     req = urllib.request.Request(url, data=data, headers=headers or {})
-    return urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 — host allowlisted above
+    return _opener.open(req, timeout=timeout)  # noqa: S310 — scheme + host (incl. redirects) checked

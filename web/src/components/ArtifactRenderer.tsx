@@ -5,6 +5,20 @@
 
 import type { Artifact } from "../lib/types";
 
+// Guard URLs that become a src/href against `javascript:` / `data:text/html` injection. Artifact
+// URLs can originate in untrusted content (search results, future embeds), so only let through
+// the schemes that are safe in the given sink. Anything else → about:blank (renders nothing).
+function safeUrl(url: string, { allowData = false }: { allowData?: boolean } = {}): string {
+  try {
+    const u = new URL(url, window.location.href);
+    if (u.protocol === "http:" || u.protocol === "https:") return u.href;
+    if (allowData && u.protocol === "data:") return u.href; // images only, never iframe src
+    return "about:blank";
+  } catch {
+    return "about:blank";
+  }
+}
+
 function MiniMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
   return (
@@ -120,15 +134,24 @@ function Body({ artifact }: { artifact: Artifact }) {
       return (
         <iframe
           title={artifact.title}
-          src={d.url}
+          src={safeUrl(d.url)}
           className="h-[420px] w-full rounded border border-teal/10 bg-black"
-          sandbox="allow-scripts allow-same-origin allow-forms"
+          // NOT allow-same-origin: combined with allow-scripts it lets sandboxed (possibly
+          // untrusted) content remove its own sandbox. Scripts/forms only.
+          sandbox="allow-scripts allow-forms allow-popups"
+          referrerPolicy="no-referrer"
         />
       );
     }
     case "image": {
       const d = artifact.data as { url: string; alt?: string };
-      return <img src={d.url} alt={d.alt ?? artifact.title} className="max-h-[420px] rounded" />;
+      return (
+        <img
+          src={safeUrl(d.url, { allowData: true })}
+          alt={d.alt ?? artifact.title}
+          className="max-h-[420px] rounded"
+        />
+      );
     }
     default:
       return (

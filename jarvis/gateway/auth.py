@@ -7,6 +7,7 @@ for a single-user homelab, never for exposure. Scopes gate reads (`read`) vs cha
 
 from __future__ import annotations
 
+import hmac
 from dataclasses import dataclass
 
 from jarvis.config import get_settings
@@ -35,6 +36,6 @@ def authenticate(authorization: str | None) -> Principal:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise AuthError("missing bearer token")
     token = authorization.split(" ", 1)[1].strip()
-    if token != s.gateway_token:
+    if not hmac.compare_digest(token, s.gateway_token):  # constant-time — no token-guessing oracle
         raise AuthError("invalid token")
     return Principal(actor=s.gateway_actor, scopes=ALL_SCOPES)
