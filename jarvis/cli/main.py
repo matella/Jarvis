@@ -35,6 +35,7 @@ replay_app = typer.Typer(no_args_is_help=True, help="Replay a decision")
 backup_app = typer.Typer(no_args_is_help=True, help="Backups + restore drill")
 snapshot_app = typer.Typer(no_args_is_help=True, help="State snapshots (compaction / DR)")
 plan_app = typer.Typer(no_args_is_help=True, help="Multi-step plans (planner + executor)")
+connectors_app = typer.Typer(no_args_is_help=True, help="External connectors (read + act)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -50,6 +51,7 @@ app.add_typer(replay_app, name="replay")
 app.add_typer(backup_app, name="backup")
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(plan_app, name="plan")
+app.add_typer(connectors_app, name="connectors")
 
 console = Console()
 
@@ -848,6 +850,34 @@ def plan_show(n: int = typer.Option(10, "-n", "--number")) -> None:
     for p in plans:
         table.add_row(p.plan_id, p.status.value, str(len(p.steps)), p.goal, _short(p.created_at))
     console.print(table)
+
+
+@connectors_app.command("list")
+def connectors_list() -> None:
+    """Show registered connectors (read) and connector act-Tools (gated)."""
+    import jarvis.connectors  # noqa: F401 — register act-Tools + connectors
+    from jarvis.connectors.base import connectors as read_connectors
+    from jarvis.tools.registry import capabilities
+
+    s = get_settings()
+    console.print(f"enabled: [bold]{', '.join(s.connectors_enabled) or '(none)'}[/bold]")
+    console.print(f"read connectors: {', '.join(read_connectors()) or '(none)'}")
+    act = [c for c in capabilities() if c.split(".", 1)[0] in {"mail", "ha", "calendar"}]
+    console.print(f"act-Tools: {', '.join(act) or '(none)'}")
+
+
+@connectors_app.command("poll")
+def connectors_poll(name: str = typer.Argument(..., help="feeds|mail")) -> None:
+    """Run one ingest pass for a connector now."""
+    import jarvis.connectors  # noqa: F401
+    from jarvis.connectors.base import get_connector
+
+    connector = get_connector(name)
+    if connector is None:
+        console.print(f"[red]unknown connector[/red] {name}")
+        raise typer.Exit(code=1)
+    count = connector.ingest(once=True)
+    console.print(f"{name}: emitted [bold]{count}[/bold] events")
 
 
 @backup_app.command("run")

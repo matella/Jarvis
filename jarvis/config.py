@@ -139,6 +139,35 @@ class Settings(BaseSettings):
             return [h.strip().lower() for h in s.split(",") if h.strip()]
         return v
 
+    # Connectors (8) — external integrations behind the boundary (read → events, act → gated Tools).
+    # Enabled connectors run as periodic ingest workers. Secrets via SecretsProvider, never here.
+    connectors_enabled: list[str] = []  # e.g. ["feeds", "mail"]
+    feed_urls: list[str] = []  # RSS/Atom URLs (hosts must be egress-allowlisted)
+    feed_poll_interval_s: int = 900
+    feed_max_items: int = 20
+    # Mail (IMAP read + SMTP send). Creds: MAIL_USERNAME / MAIL_PASSWORD via SecretsProvider.
+    imap_host: str = ""
+    imap_port: int = 993
+    smtp_host: str = ""
+    smtp_port: int = 587
+    mail_poll_interval_s: int = 300
+    mail_max_messages: int = 20
+    # Home Assistant (REST). Token: HA_TOKEN via SecretsProvider.
+    ha_base_url: str = ""  # e.g. http://homeassistant.lan:8123
+    # Inbound webhooks — per-source HMAC secret names resolved via SecretsProvider
+    # (e.g. WEBHOOK_SECRET_GITHUB). Empty signature config → that source is rejected.
+    webhook_require_signature: bool = True
+
+    @field_validator("connectors_enabled", "feed_urls", mode="before")
+    @classmethod
+    def _split_list_csv(cls, v: object) -> object:
+        if isinstance(v, str):
+            s = v.strip()
+            if not s or s.startswith("["):
+                return [] if not s else v
+            return [x.strip() for x in s.split(",") if x.strip()]
+        return v
+
     # Orchestration + action safety (7) — bounds on a single plan and on action throughput.
     plan_max_steps: int = 12
     plan_max_entities: int = 5  # blast radius: distinct entities an action plan may touch

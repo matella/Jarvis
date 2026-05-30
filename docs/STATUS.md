@@ -6,8 +6,9 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**7 Orchestration + action safety DONE** (live-verified). Next: 8 connectors + webhooks.
-(6b UI follow-ups still pending: topology graph, metric charts, Cmd-K, Playwright.)
+**8 Connectors + webhooks DONE** (live-verified). Next: 9 search + capture.
+(6b UI follow-ups still pending: topology graph, metric charts, Cmd-K, Playwright.
+ 8 follow-ups: live CalDAV calendar connector; live IMAP/SMTP + HA against real instances.)
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -86,18 +87,24 @@
   later failure (tool contract gained `preview` for simulation + `revert`); reversible
   (rollback=automatic) actions are low-risk so semi_autonomous auto-runs them. CLI `jarvis plan
   make "<goal>" [--run|--simulate]`, `plan run/show`.
-- Latest: `pytest` 165/165, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0012.
+- **8 Connectors + webhooks** (`connectors/` + `gateway/webhooks.py`): read connectors emit
+  sanitized events (`feeds` RSS/Atom → `feed.item`; `mail` IMAP → `mail.received`); act-Tools are
+  gated like everything else (`mail.send` SMTP, `ha.set_state` HA REST with automatic rollback) —
+  creds via SecretsProvider, outbound via egress allowlist. Inbound webhooks: gateway
+  `/inbound/<source>` HMAC-verified → mapped events (github.push / grafana.alert / webhook.received).
+  Connector ingest as opt-in daemon workers (`CONNECTORS_ENABLED`). CLI `jarvis connectors
+  list/poll`. Injection content can shape a proposal, never act (verified).
+- Latest: `pytest` 175/175, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0012 (8 needs none).
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 8** (connectors + webhooks),
-  then 9, 10, scheduler (11), cross-cutting. 6b UI follow-up slices (deferred): topology graph
-  (react-flow), metric charts (trend overlay), decision inspector, Cmd-K palette, approvals queue,
-  Playwright E2E.
+- Conversational-orchestrator program, in order. **Next: 9** (search + capture), then 10
+  (voice), scheduler (11), cross-cutting. Deferred: 6b UI slices (topology graph, charts, Cmd-K,
+  Playwright); 8 live wiring (CalDAV calendar; real IMAP/SMTP/HA instances).
 
 ## Next step — do this first
-Build **8** (connectors + webhooks) per its detailed spec in `docs/superpowers/specs/`. It uses
-5.5c's egress allowlist + secrets, and reads + acts via gated intents.
+Build **9** (search + capture) per its detailed spec in `docs/superpowers/specs/`. Self-hosted
+SearXNG behind a SearchProvider interface; web fetch + capture as artifacts; egress-allowlisted.
 
 ## Open questions / blockers
 - *(none)*

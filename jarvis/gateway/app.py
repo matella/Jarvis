@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 
+import jarvis.connectors  # noqa: F401 — registers connector act-Tools (mail.send, ha.set_state)
 from jarvis import db
 from jarvis.agents import conversation as convo
 from jarvis.conversation.store import start_conversation
@@ -91,6 +92,27 @@ def create_app() -> FastAPI:
                 (min(n, 500),),
             ).fetchall()
         return [dict(r) for r in rows]
+
+    @app.post("/inbound/{source}")
+    async def inbound(source: str, request: Request) -> dict[str, Any]:
+        """Signed push from GitHub/Grafana/etc → a verified, sanitized event on the spine."""
+        import json
+
+        from jarvis.events.stream import emit_event
+        from jarvis.gateway import webhooks
+
+        body = await request.body()
+        try:
+            webhooks.verify(source, body, dict(request.headers))
+        except webhooks.WebhookUnverified as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        try:
+            payload = json.loads(body or b"{}")
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="invalid JSON") from exc
+        event = webhooks.to_event(source, payload if isinstance(payload, dict) else {})
+        emit_event(event)
+        return {"accepted": True, "event_type": event.type, "event_id": event.id}
 
     @app.websocket("/ws")
     async def ws(socket: WebSocket) -> None:

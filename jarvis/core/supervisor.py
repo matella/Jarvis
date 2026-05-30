@@ -50,7 +50,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.state.snapshotter import run_snapshotter
 
     s = get_settings()
-    return [
+    workers_list: list[tuple[str, Callable[[], None]]] = [
         ("ingest", run_ingester),
         ("consume", run_forever),
         ("metrics", run_poller),
@@ -63,6 +63,14 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
     ]
+    # Connectors (8) run as periodic ingest workers only when enabled in config.
+    if "feeds" in s.connectors_enabled:
+        from jarvis.connectors.feeds import poll_once as feeds_poll
+        workers_list.append(("feeds", lambda: _periodic(feeds_poll, s.feed_poll_interval_s, stop)))
+    if "mail" in s.connectors_enabled:
+        from jarvis.connectors.mail import poll_once as mail_poll
+        workers_list.append(("mail", lambda: _periodic(mail_poll, s.mail_poll_interval_s, stop)))
+    return workers_list
 
 
 def run() -> None:
