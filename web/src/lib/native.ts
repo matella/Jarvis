@@ -5,7 +5,6 @@
 
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { Keyboard } from "@capacitor/keyboard";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 
@@ -16,13 +15,8 @@ export function initNative(): void {
   StatusBar.setBackgroundColor({ color: "#04060a" }).catch(() => {});
   SplashScreen.hide().catch(() => {});
 
-  // Reflect the soft keyboard height into a CSS var so the composer can sit above it.
-  Keyboard.addListener("keyboardWillShow", (info) => {
-    document.documentElement.style.setProperty("--kb", `${info.keyboardHeight}px`);
-  });
-  Keyboard.addListener("keyboardWillHide", () => {
-    document.documentElement.style.setProperty("--kb", "0px");
-  });
+  // The soft keyboard is handled by Capacitor's default WebView resize — no manual padding needed
+  // (adding it caused a double-counted gap above the composer).
 
   // Android hardware back: go back in history, or exit the app at the root.
   App.addListener("backButton", ({ canGoBack }) => {

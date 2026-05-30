@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "../lib/api";
+import { primeSpeech } from "../lib/speak";
 import type { ChatTurn, MicControl } from "../lib/types";
 import { ArtifactRenderer } from "./ArtifactRenderer";
 
@@ -133,6 +134,7 @@ export function Chat({
 
   const submit = () => {
     if (!draft.trim()) return;
+    primeSpeech(); // unlock spoken replies inside this user gesture (mobile requirement)
     onSend(draft);
     setDraft("");
   };
@@ -183,7 +185,10 @@ export function Chat({
         />
         {mic && (
           <button
-            onClick={() => (mic.recording ? mic.stop() : mic.start())}
+            onClick={() => {
+              primeSpeech(); // unlock spoken replies (gesture)
+              return mic.recording ? mic.stop() : mic.start();
+            }}
             title={mic.recording ? "Stop & send" : "Hold to talk"}
             className={`flex h-7 w-7 items-center justify-center rounded-full border transition ${
               mic.recording

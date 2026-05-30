@@ -4,12 +4,19 @@
 // like the same entity shifting mood, not a hard cut.
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { Component, type ReactNode, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { audioLevel } from "../lib/audioLevel";
 import { orbVisual } from "../lib/presence";
 import type { PresenceState } from "../lib/types";
+
+// Sphere tessellation — lower on phones (smaller GPUs). Smooth enough for the noise displacement
+// at a fraction of the triangle count of the old detail=64.
+const ORB_DETAIL =
+  typeof window !== "undefined" && Math.min(window.screen?.width ?? 9999, window.screen?.height ?? 9999) < 820
+    ? 16
+    : 28;
 
 const vertex = /* glsl */ `
   uniform float uTime;
@@ -102,7 +109,8 @@ function OrbMesh({ state }: { state: PresenceState }) {
   return (
     <group ref={group}>
       <mesh>
-        <icosahedronGeometry args={[1.35, 64]} />
+        {/* detail 64 (~80k tris) crashed the GPU on mobile; ORB_DETAIL is plenty smooth + safe. */}
+        <icosahedronGeometry args={[1.35, ORB_DETAIL]} />
         <shaderMaterial
           ref={mat}
           uniforms={uniforms}
@@ -158,17 +166,53 @@ function SonarRings({ state }: { state: PresenceState }) {
   );
 }
 
+// If WebGL throws (context loss, unsupported driver), fall back to a CSS orb instead of letting
+// the whole presence view blank out or crash.
+class OrbBoundary extends Component<{ state: PresenceState; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) return <CssOrb state={this.props.state} />;
+    return this.props.children;
+  }
+}
+
+function CssOrb({ state }: { state: PresenceState }) {
+  const v = orbVisual(state);
+  return (
+    <div className="grid h-full w-full place-items-center">
+      <div
+        className="aspect-square w-2/3 animate-pulse rounded-full blur-md"
+        style={{ background: `radial-gradient(circle at 50% 40%, ${v.accent}, ${v.color} 70%)` }}
+      />
+    </div>
+  );
+}
+
 export function Orb({ state }: { state: PresenceState }) {
   return (
-    <Canvas
-      camera={{ position: [0, 0, 4.2], fov: 42 }}
-      gl={{ antialias: true, alpha: true }}
-      dpr={[1, 2]}
-      style={{ width: "100%", height: "100%" }}
-    >
-      <ambientLight intensity={0.5} />
-      <OrbMesh state={state} />
-      <SonarRings state={state} />
-    </Canvas>
+    <OrbBoundary state={state}>
+      <Canvas
+        camera={{ position: [0, 0, 4.2], fov: 42 }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "low-power", // phones throttle the high-perf GPU path; avoid OOM/crashes
+          failIfMajorPerformanceCaveat: false,
+        }}
+        dpr={[1, 1.5]} // 2x on a retina phone is a lot of pixels for a full-screen shader
+        style={{ width: "100%", height: "100%" }}
+        onCreated={({ gl }) => {
+          // Don't let a lost context become an unrecoverable browser crash; let it restore.
+          gl.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
+        }}
+      >
+        <ambientLight intensity={0.5} />
+        <OrbMesh state={state} />
+        <SonarRings state={state} />
+      </Canvas>
+    </OrbBoundary>
   );
 }

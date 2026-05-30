@@ -2,17 +2,14 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
-:root {
-  color-scheme: dark;
-  --kb: 0px; /* soft-keyboard height, set by the native shell (lib/native.ts) */
-}
-
-/* Notch / gesture-bar safe areas for the native app + notched phones (viewport-fit=cover). */
+/* Notch / gesture-bar safe areas for the native app + notched phones (viewport-fit=cover).
+   We do NOT add the keyboard height here: Capacitor resizes the WebView for the soft keyboard,
+   so adding it again would push the composer up by a second keyboard-height (empty gap). */
 .pt-safe {
   padding-top: max(0.75rem, env(safe-area-inset-top));
 }
 .pb-safe {
-  padding-bottom: max(0.75rem, calc(env(safe-area-inset-bottom) + var(--kb)));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 html,

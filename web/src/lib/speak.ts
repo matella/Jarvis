@@ -24,6 +24,24 @@ export function cancel(): void {
   setAudioLevel(0);
 }
 
+// Mobile webviews only allow speech AFTER it's been unlocked inside a user gesture. Replies arrive
+// over the WebSocket (not a gesture), so we prime synthesis once on the first user action (send/
+// tap) by speaking a silent utterance — then later speak() calls from message handlers work.
+let primed = false;
+
+export function primeSpeech(): void {
+  if (primed || !available()) return;
+  primed = true;
+  try {
+    window.speechSynthesis.getVoices(); // nudge async voice loading
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* best-effort unlock */
+  }
+}
+
 let pulseRaf: number | null = null;
 
 function startPulse(): void {
@@ -46,6 +64,7 @@ function stopPulse(): void {
 export function speak(text: string): void {
   if (!available() || !speakEnabled() || !text.trim()) return;
   window.speechSynthesis.cancel(); // interrupt any prior utterance
+  window.speechSynthesis.resume(); // Android can leave synthesis paused; nudge it
   const u = new SpeechSynthesisUtterance(text);
   u.rate = 1.0;
   u.pitch = 1.0;
