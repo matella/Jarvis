@@ -136,6 +136,21 @@ class Settings(BaseSettings):
     # Confidence + abstention (backlog) — below this confidence, the agent abstains rather than act.
     abstain_confidence_floor: float = 0.45
 
+    # Knowledge-base ingest (backlog) — index runbooks/notes/wiki (prose) into memory (kind="kb").
+    kb_paths: list[str] = []  # remote dirs/files (over remote_ssh)
+    kb_chunk_lines: int = 40
+    kb_max_file_bytes: int = 200_000
+
+    @field_validator("kb_paths", mode="before")
+    @classmethod
+    def _split_kb_csv(cls, v: object) -> object:
+        if isinstance(v, str):
+            s = v.strip()
+            if not s or s.startswith("["):
+                return [] if not s else v
+            return [x.strip() for x in s.split(",") if x.strip()]
+        return v
+
     # Statistical anomaly detection (backlog) — flag a metric unusual *for itself* (z-score).
     anomaly_z_threshold: float = 3.5
     anomaly_min_samples: int = 20

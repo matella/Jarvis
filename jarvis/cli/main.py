@@ -40,6 +40,7 @@ connectors_app = typer.Typer(no_args_is_help=True, help="External connectors (re
 routine_app = typer.Typer(no_args_is_help=True, help="Scheduled routines (proactive briefings)")
 obs_app = typer.Typer(no_args_is_help=True, help="Observability ingest (Prometheus + Loki)")
 memory_app = typer.Typer(no_args_is_help=True, help="Memory governance (list/forget/consolidate)")
+kb_app = typer.Typer(no_args_is_help=True, help="Knowledge base (index runbooks/docs into memory)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -59,6 +60,7 @@ app.add_typer(connectors_app, name="connectors")
 app.add_typer(routine_app, name="routine")
 app.add_typer(obs_app, name="obs")
 app.add_typer(memory_app, name="memory")
+app.add_typer(kb_app, name="kb")
 
 console = Console()
 
@@ -1043,6 +1045,28 @@ def feedback(
             raise typer.Exit(code=1) from exc
         s = fb.score(conn, target_type=target_type, target_id=target_id)
     console.print(f"recorded {'👍' if up else '👎'} on {target_type}:{target_id} (net score {s})")
+
+
+@kb_app.command("index")
+def kb_index(path: str = typer.Argument(None, help="Remote dir/file (default: KB_PATHS)")) -> None:
+    """Index runbooks/notes/docs (markdown/text) over SSH into memory (kind=kb)."""
+    from jarvis.ingest.kb import index_kb
+
+    n = index_kb(paths=[path] if path else None)
+    console.print(f"indexed [bold]{n}[/bold] doc chunks into memory")
+
+
+@kb_app.command("search")
+def kb_search(query: str, k: int = typer.Option(5, "-k")) -> None:
+    """Retrieve KB chunks relevant to a query."""
+    from jarvis.ingest.kb import search_kb
+
+    hits = search_kb(query, k=k)
+    if not hits:
+        console.print("[yellow]no KB matches[/yellow]")
+        return
+    for i, h in enumerate(hits, 1):
+        console.print(f"[teal]{i}.[/teal] {h[:300]}")
 
 
 @app.command("deferred")

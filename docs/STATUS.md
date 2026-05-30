@@ -179,16 +179,23 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   failed replays bump attempts + stay queued. CLI `jarvis deferred [--drain]`.
 - Latest: `pytest` 232/232, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
 
+- **Backlog #7 Knowledge-base ingest** (`ingest/kb.py`): indexes runbooks/notes/wiki (markdown/text
+  over SSH, reusing the P3 code-indexer's read/chunk helpers) into `memory` as kind="kb" —
+  sanitized + embedded, so the conversation agent's existing vector retrieval grounds answers in
+  your docs (no new retrieval path). CLI `jarvis kb index/search`. (Live needs a docs dir with
+  markdown; remote homelab path has none, so it no-ops cleanly.)
+- Latest: `pytest` 235/235, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+
 ## Building the backlog (recommended order, one per commit)
 1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. anomaly detection ✅ · 4. confidence/
-abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation ✅ · 7. knowledge-base ingest ·
+abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation ✅ · 7. knowledge-base ingest ✅ ·
 8. cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
 (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
 
 ## Next step — do this first
-Build backlog **#7 knowledge-base ingest**: index operator runbooks/notes/wiki (markdown/text over
-SSH) into memory (kind="kb") so the agent grounds answers in docs — extends the P3 code-intel
-indexer to prose; egress/secret-safe.
+Build backlog **#8 cost-aware model strategy**: model tiering (a tiny/fast tag for routing + simple
+Q&A vs the big model for hard reasoning) + an inference/embedding cache (hash prompt+model → cached
+response) to cut swaps and latency; builds on the GPU scheduler.
 
 ## Open questions / blockers
 - *(none)*
