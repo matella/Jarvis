@@ -71,6 +71,16 @@ def process_batch(
                     and should_react(event)
                     and state.allow(event.entity_ref, time.monotonic())
                 ):
+                    from jarvis.core.degrade import defer, reasoning_available
+
+                    # Graceful degradation: if the LLM is down, defer the proposal (the drain
+                    # worker replays it) instead of crashing the reaction.
+                    if not reasoning_available():
+                        with db.connect(autocommit=True) as conn:
+                            defer(conn, "infra_propose", {"entity": event.entity_ref})
+                        print(f"[reactor] reasoning down — deferred {event.entity_ref}", flush=True)
+                        r.xack(stream, group, msg_id)
+                        continue
                     intent = propose_intent(event.entity_ref)
                     reacted += 1
                     print(

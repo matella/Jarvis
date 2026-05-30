@@ -37,6 +37,7 @@ def _periodic(fn: Callable[[], object], interval_s: int, stop: threading.Event) 
 
 def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     """The collectors the daemon supervises. Exposed (and import-only) for testing."""
+    from jarvis.core.degrade import run_degrade
     from jarvis.core.reactor import run_reactor
     from jarvis.events.consumer import run_forever
     from jarvis.ingest.anomaly import run_anomaly
@@ -65,6 +66,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("routines", run_routine_scheduler),
         ("verify", run_verifier),
         ("anomaly", run_anomaly),
+        ("degrade", run_degrade),
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),

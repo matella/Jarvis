@@ -1045,6 +1045,30 @@ def feedback(
     console.print(f"recorded {'👍' if up else '👎'} on {target_type}:{target_id} (net score {s})")
 
 
+@app.command("deferred")
+def deferred_cmd(
+    drain: bool = typer.Option(False, "--drain", help="Replay deferred reasoning now (if LLM up)"),
+) -> None:
+    """Reasoning deferred while the LLM was down (graceful degradation). --drain to replay."""
+    from jarvis.core.degrade import _default_handlers, pending, reasoning_available
+    from jarvis.core.degrade import drain as drain_fn
+
+    if drain:
+        with db.connect(autocommit=True) as conn:
+            n = drain_fn(conn, _default_handlers())
+        up = "up" if reasoning_available() else "down"
+        console.print(f"replayed [bold]{n}[/bold] (reasoning {up})")
+        return
+    with db.connect() as conn:
+        rows = pending(conn)
+    table = Table(title=f"deferred reasoning ({len(rows)})")
+    for col in ("id", "kind", "payload", "attempts"):
+        table.add_column(col, overflow="fold")
+    for r in rows:
+        table.add_row(r["id"], r["kind"], str(r["payload"]), str(r["attempts"]))
+    console.print(table)
+
+
 @app.command("state-at")
 def state_at_cmd(ago: str = typer.Argument(..., help="How far back, e.g. 12h, 30m, 2d")) -> None:
     """Reconstruct the state projection as it stood `ago` ago (time-travel over the event log)."""

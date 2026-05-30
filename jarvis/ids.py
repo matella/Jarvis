@@ -26,6 +26,7 @@ CONVERSATION = "conv"
 PLAN = "plan"
 ROUTINE = "rtn"
 VERIFICATION = "vrf"
+DEFERRAL = "dfr"
 
 
 def new_id(prefix: str) -> str:

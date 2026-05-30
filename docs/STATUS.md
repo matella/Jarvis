@@ -172,18 +172,23 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   container events up to a timestamp through the SAME projection logic (in-memory) to reconstruct
   point-in-time state; `diff(t1,t2)` → added/removed/status-changed. CLI `jarvis state-at <ago>` +
   `jarvis diff <since> [--until]`. Live: reconstructed state 1h ago + diff over 24h.
-- Latest: `pytest` 229/229, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+- **Backlog #6 Graceful degradation** (`core/degrade.py` + migration 0016 `deferrals`): when the
+  LLM is unreachable, the deterministic spine keeps running and reasoning is *deferred* (queued) +
+  `reasoning.deferred` event, not crashed. `reasoning_available()` gates; reactor defers its
+  proposal when the model is down; a `degrade` worker (15th) drains deferrals once it's back;
+  failed replays bump attempts + stay queued. CLI `jarvis deferred [--drain]`.
+- Latest: `pytest` 232/232, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
 
 ## Building the backlog (recommended order, one per commit)
 1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. anomaly detection ✅ · 4. confidence/
-abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation · 7. knowledge-base ingest · 8.
-cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
+abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation ✅ · 7. knowledge-base ingest ·
+8. cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
 (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
 
 ## Next step — do this first
-Build backlog **#5 time-travel / temporal diffs**: point-in-time state reconstruction from the
-append-only event log + "what changed since X?" (replay events up to a timestamp → state snapshot;
-diff two points). CLI `jarvis state at <ts>` / `jarvis diff <t1> <t2>`.
+Build backlog **#7 knowledge-base ingest**: index operator runbooks/notes/wiki (markdown/text over
+SSH) into memory (kind="kb") so the agent grounds answers in docs — extends the P3 code-intel
+indexer to prose; egress/secret-safe.
 
 ## Open questions / blockers
 - *(none)*
