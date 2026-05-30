@@ -13,7 +13,6 @@ import json
 from jarvis import db, ids
 from jarvis.config import get_settings
 from jarvis.core.context_store import save_context
-from jarvis.models import router
 from jarvis.orchestration.models import Plan, PlanStatus, PlanStep, StepKind
 from jarvis.orchestration.repository import insert_plan
 from jarvis.tools.registry import ADVISORY_TYPES, capabilities
@@ -124,8 +123,14 @@ def execution_order(steps: list[PlanStep]) -> list[PlanStep]:
 
 
 def _decide(goal: str, *, correlation_id: str, context_ref: str) -> list[PlanStep]:
-    resp = router.chat(
+    from jarvis.models.scheduler import Priority
+    from jarvis.models.scheduler import chat as sched_chat
+
+    # Plan priority: below interactive chat, above background — won't block someone typing.
+    resp = sched_chat(
         "reasoning", [{"role": "user", "content": _prompt(goal)}],
+        priority=Priority.PLAN, budget_key=f"plan:{correlation_id}",
+        budget_limit=get_settings().sched_plan_token_budget,
         correlation_id=correlation_id, context_ref=context_ref, format=_PLAN_SCHEMA,
     )
     raw = str(resp["message"]["content"])

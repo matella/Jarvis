@@ -24,7 +24,6 @@ from jarvis.events.models import Event, Severity, utcnow
 from jarvis.events.stream import emit_event
 from jarvis.intents.models import Intent, IntentReasoning, Risk
 from jarvis.intents.repository import insert_intent
-from jarvis.models import router
 from jarvis.tools.registry import ADVISORY_TYPES, get_tool, valid_intent_types
 
 _WINDOW_HOURS = 24
@@ -161,9 +160,14 @@ _DECISION_SCHEMA = {
 
 def _decide(prompt: str, *, correlation_id: str, context_ref: str) -> _Decision:
     """One inference → validated decision. Isolated so tests can monkeypatch the model."""
-    resp = router.chat(
+    from jarvis.models.scheduler import Priority
+    from jarvis.models.scheduler import chat as sched_chat
+
+    # Interactive: a human is waiting, so this preempts plan steps and background work in the queue.
+    resp = sched_chat(
         "reasoning",
         [{"role": "user", "content": prompt}],
+        priority=Priority.INTERACTIVE,
         correlation_id=correlation_id, context_ref=context_ref, format=_DECISION_SCHEMA,
     )
     raw = str(resp["message"]["content"])

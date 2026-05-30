@@ -112,8 +112,13 @@ def propose_intent(entity: str, *, store: MemoryStore | None = None) -> Intent:
             model=settings.model_reasoning, params=params,
         )
 
-        resp = router.chat(
+        from jarvis.models.scheduler import Priority
+        from jarvis.models.scheduler import chat as sched_chat
+
+        # Background: the ambient reactor's proposals yield to anything a human is waiting on.
+        resp = sched_chat(
             "reasoning", _messages(prompt),
+            priority=Priority.BACKGROUND,
             correlation_id=correlation_id, context_ref=ctx.context_ref, format="json",
         )
         proposal = _parse(str(resp["message"]["content"]))

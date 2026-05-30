@@ -58,8 +58,11 @@ def test_turnresult_serializes() -> None:
 
 def test_decide_falls_back_to_answer_on_garbage(monkeypatch) -> None:
     # A non-JSON model reply degrades to a plain answer rather than crashing the turn.
+    # _decide now goes through the scheduler → router.chat; patch the underlying router call.
+    from jarvis.models import router
+
     monkeypatch.setattr(
-        convo.router, "chat",
+        router, "chat",
         lambda *a, **k: {"message": {"content": "not json at all"}},
     )
     d = convo._decide("p", correlation_id="corr_x", context_ref="ctx_x")

@@ -5,10 +5,12 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**10 Voice + orb audio-reactivity DONE** (mic UI live-verified; STT/TTS need local binaries). Next:
-11 GPU scheduler — the last program milestone.
-(Deferred: 6b UI slices; 8 live CalDAV/IMAP/SMTP/HA; 9 live SearXNG/Playwright; 10 whisper/piper.)
+**Conversational-orchestrator program — ALL 11 milestones COMPLETE** (5.5a–11). 🎉
+The full arc is built, tested, committed: hardening (5.5a/b/c) → conversational backend + React
+orb console (6a/6b) → orchestration + action safety (7) → connectors + webhooks (8) → search +
+capture (9) → voice + audio-reactive orb (10) → GPU scheduler (11).
+(Deferred deploy-time wiring only: 6b UI slices; 8 live CalDAV/IMAP/SMTP/HA; 9 live SearXNG/
+ Playwright; 10 whisper.cpp/Piper binaries.)
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -107,18 +109,24 @@
   Frontend: mic capture + TTS playback via Web Audio `AnalyserNode` → shared `audioLevel` → the
   **orb blooms with the actual voice** (mic while listening, TTS while speaking); mic button in the
   composer. Voice adds no reasoning — pure transport; actions still gated + audited.
-- Latest: `pytest` 187/187, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0012 (10 needs none).
+- **11 GPU scheduler** (`models/scheduler.py`): a priority queue in front of the one resident
+  model generalizes the bare `Semaphore(1)`. `Priority` interactive(chat/voice) > plan > background
+  (reactor/summaries); `select()` is pure (priority then FIFO, but prefers the resident model when
+  the `SwapLimiter` is at its per-minute cap so we don't thrash); `BudgetLedger` enforces per-key
+  token caps (a runaway routine can't starve the GPU). `inference.scheduled` events carry wait-time
+  + queue-depth. Wired: conversation + RAG → INTERACTIVE, planner → PLAN, infra agent → BACKGROUND.
+- Latest: `pytest` 194/194, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0012 (11 needs none).
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 11** (GPU scheduler — last milestone),
-  then cross-cutting. Deferred: 6b UI slices (topology graph, charts, Cmd-K, Playwright E2E); 8
-  live wiring (CalDAV; real IMAP/SMTP/HA); 9 live SearXNG + `playwright install`; 10 whisper.cpp/
-  Piper/OpenWakeWord binaries + mic hardware for full live STT↔TTS.
+- **Program complete.** Remaining work is deferred deploy-time wiring + optional 6b UI polish
+  (topology graph, metric charts, decision inspector, Cmd-K, Playwright E2E) and cross-cutting
+  tracks — none blocking. The cognition loop + full conversational orchestrator are live.
 
 ## Next step — do this first
-Build **11** (GPU scheduler) per its detailed spec in `docs/superpowers/specs/`. Promotes the
-one-resident-model telemetry into a real scheduler (queue + policy over Ollama load/unload).
+Optional: stand up the deferred external services (SearXNG container + JSON; whisper.cpp/Piper;
+real mail/HA/CalDAV instances) to light up the live connector/search/voice paths end-to-end, or
+build the remaining 6b UI panels (topology graph, metric charts, decision inspector, Cmd-K).
 
 ## Open questions / blockers
 - *(none)*

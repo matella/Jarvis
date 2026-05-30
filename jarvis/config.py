@@ -168,6 +168,11 @@ class Settings(BaseSettings):
             return [x.strip() for x in s.split(",") if x.strip()]
         return v
 
+    # GPU scheduler (11) — priority queue in front of the one-resident model.
+    sched_max_swaps_per_min: int = 8  # don't thrash the 8 GB card swapping models
+    sched_session_token_budget: int = 0  # per-chat-session cap (0 = unlimited)
+    sched_plan_token_budget: int = 0  # per-plan cap (0 = unlimited)
+
     # Voice (10) — local/CPU transport over the conversation pipeline. Binaries are external.
     voice_enabled: bool = False
     whisper_bin: str = "whisper-cli"  # whisper.cpp CLI
