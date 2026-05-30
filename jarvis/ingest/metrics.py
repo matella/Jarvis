@@ -9,6 +9,7 @@ recovery (CLAUDE.md: resist low-signal events).
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -21,6 +22,17 @@ from jarvis.events.stream import emit_event
 from jarvis.ingest.metrics_store import insert_samples, prune_older_than
 
 Sample = tuple[str, str, dict[str, Any]]  # (entity, kind, sample)
+
+
+def _host_cores() -> int:
+    """CPU count for host-relative normalization (config override, else autodetect)."""
+    return get_settings().host_cpu_cores or os.cpu_count() or 1
+
+
+def host_relative_cpu(cpuperc: float, cores: int) -> float:
+    """`docker stats` CPUPerc is per-core (100% = one full core); divide by cores → % of the host,
+    so it matches a host-overall view (e.g. Beszel) and the cpu_high threshold is meaningful."""
+    return round(cpuperc / max(cores, 1), 1)
 
 _GPU_QUERY = "index,name,utilization.gpu,memory.used,memory.total,temperature.gpu"
 _UNITS = {
@@ -75,10 +87,12 @@ def sample_docker_stats(context: str) -> list[Sample]:
         if not name or name == "--":  # docker emits "--" for transient/unnamed containers
             continue
         used, limit = _parse_mem_usage(raw.get("MemUsage"))
+        cpu_core = _parse_pct(raw.get("CPUPerc"))  # docker's per-core %, can exceed 100
         samples.append((
             f"container:{name}", "container",
             {
-                "cpu_pct": _parse_pct(raw.get("CPUPerc")),
+                "cpu_pct": host_relative_cpu(cpu_core, _host_cores()),  # % of the WHOLE host
+                "cpu_pct_core": cpu_core,                              # raw per-core % (reference)
                 "mem_pct": _parse_pct(raw.get("MemPerc")),
                 "mem_used_bytes": used,
                 "mem_limit_bytes": limit,

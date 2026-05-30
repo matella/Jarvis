@@ -53,8 +53,9 @@ class Settings(BaseSettings):
     # Metrics ingest — poll cadence, retention, and signal thresholds (percent).
     metrics_poll_interval_s: int = 30
     metrics_retention_hours: int = 24
-    cpu_high_pct: float = 85.0
+    cpu_high_pct: float = 85.0  # vs HOST-relative cpu_pct (docker's per-core % ÷ cores)
     mem_high_pct: float = 90.0
+    host_cpu_cores: int = 0  # 0 = autodetect; set if the daemon container miscounts host cores
     gpu_util_high_pct: float = 90.0
     gpu_mem_high_pct: float = 90.0
 

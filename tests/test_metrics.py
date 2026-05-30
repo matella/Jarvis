@@ -6,6 +6,7 @@ from jarvis.ingest.metrics import (
     _parse_bytes,
     _parse_mem_usage,
     _parse_pct,
+    host_relative_cpu,
 )
 
 
@@ -14,6 +15,14 @@ def test_parse_pct() -> None:
     assert _parse_pct("0.00%") == 0.0
     assert _parse_pct("--") == 0.0
     assert _parse_pct(None) == 0.0
+
+
+def test_host_relative_cpu_normalizes_per_core() -> None:
+    # docker's 75% (≈ 0.75 of one core) on an 8-core host ≈ 9.4% of the whole host
+    assert host_relative_cpu(75.2, 8) == 9.4
+    assert host_relative_cpu(800.0, 8) == 100.0   # all 8 cores pegged = 100% host
+    assert host_relative_cpu(50.0, 1) == 50.0     # single-core host: unchanged
+    assert host_relative_cpu(10.0, 0) == 10.0     # guards against div-by-zero
 
 
 def test_parse_bytes_binary_and_decimal() -> None:
