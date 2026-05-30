@@ -1,0 +1,52 @@
+// Shared types mirroring the 6a gateway contracts (TurnResult, presence, artifacts).
+
+export type PresenceState =
+  | "idle"
+  | "listening"
+  | "thinking"
+  | "speaking"
+  | "alert"
+  | "frozen";
+
+export type TurnRoute = "answer" | "propose" | "confirm" | "cancel";
+
+export interface Citation {
+  kind: string;
+  ref: string;
+  note?: string;
+}
+
+// View artifacts the conversation agent may emit; the app renders by `kind`.
+export type Artifact =
+  | { kind: "markdown"; title: string; data: { text: string } }
+  | { kind: "table"; title: string; data: { columns: string[]; rows: (string | number)[][] } }
+  | { kind: "status_grid"; title: string; data: { items: { label: string; status: string }[] } }
+  | { kind: "embed"; title: string; data: { url: string } }
+  | { kind: "image"; title: string; data: { url: string; alt?: string } }
+  | { kind: string; title: string; data: Record<string, unknown> };
+
+export interface TurnResult {
+  route: TurnRoute;
+  message: string;
+  artifacts: Artifact[];
+  citations: Citation[];
+  intent_id: string | null;
+  presence: string;
+}
+
+// Messages over the /ws channel (gateway → client).
+export type ServerEvent =
+  | { kind: "ready"; conversation_id: string }
+  | { kind: "presence"; state: PresenceState }
+  | { kind: "turn"; result: TurnResult };
+
+export interface ChatTurn {
+  id: string;
+  role: "user" | "jarvis";
+  text: string;
+  route?: TurnRoute;
+  artifacts?: Artifact[];
+  citations?: Citation[];
+  intentId?: string | null;
+  pending?: boolean;
+}

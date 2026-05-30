@@ -6,7 +6,8 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**6a Conversational backend/gateway DONE** (live-verified). Next: 6b React console + presence orb.
+**6b React console + presence orb — foundation DONE** (live-verified in browser). Next: 7
+orchestration + action safety. (6b follow-ups: topology graph, metric charts, Cmd-K, Playwright.)
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -66,15 +67,26 @@
   → approve+execute via the M4 gate, audited as `user:<actor>`. Presence states
   idle|listening|thinking|speaking|alert|frozen from spine state. Schema-constrained decoding
   (Ollama JSON-schema `format`) makes routing reliable on qwen3:8b.
-- Latest: `pytest` 149/149, `ruff` clean. Migrations at head = 0011.
+- **6b React console + presence orb** (`web/` — Vite + React + TS + Tailwind, outside the python
+  package): two surfaces over the 6a gateway — immersive **presence mode** (WebGL orb centerpiece)
+  and **console/HUD** (live System/State/Incidents/Intent panels + compact orb). The **orb** is
+  react-three-fiber with a custom simplex-noise/fresnel shader; color/turbulence/glow/sonar-rings
+  are a pure `orbVisual(state)` map over presence (idle/listening/thinking/speaking/alert/frozen).
+  WS client (auto-reconnect) + token auth; artifact renderers (markdown/table/status_grid/embed/
+  image); confirm-to-act buttons send "yes"/"no" (UI never executes — the gateway gates). Cinematic
+  command-deck aesthetic (Chakra Petch + IBM Plex Mono, teal/amber/steel). `npm run dev` (Vite
+  proxies /api,/ws,/health → gateway). Vitest: 9 component tests (orb state machine + renderers).
+- Latest: `pytest` 149/149, `ruff` clean (python); web `vitest` 9/9, `tsc` clean, `vite build` ok.
+  Migrations at head = 0011.
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 6b** (React console + presence orb),
-  then 7, 8, 9, 10, scheduler (11), cross-cutting.
+- Conversational-orchestrator program, in order. **Next: 7** (orchestration + action safety),
+  then 8, 9, 10, scheduler (11), cross-cutting. 6b follow-up slices (deferred): topology graph
+  (react-flow), metric charts (trend overlay), decision inspector, Cmd-K palette, approvals queue,
+  Playwright E2E.
 
 ## Next step — do this first
-Build **6b** (React console + audio-reactive presence orb) per its detailed spec in
-`docs/superpowers/specs/`. It consumes 6a's `/ws` (turns + presence) and REST reads.
+Build **7** (orchestration + action safety) per its detailed spec in `docs/superpowers/specs/`.
 
 ## Open questions / blockers
 - *(none)*
