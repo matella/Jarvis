@@ -110,6 +110,14 @@ def run_selfcheck(*, once: bool = False) -> None:
         elif not h["degraded"] and was_degraded:
             emit_event(_health_event(Severity.info, h))
             was_degraded = False
+        # Governance nudge: surface piled-up unapproved proposals (best-effort).
+        try:
+            from jarvis.core.governance import nudge_if_needed
+
+            with db.connect() as conn:
+                nudge_if_needed(conn)
+        except Exception:  # noqa: BLE001 — a nudge must never disrupt self-checks
+            pass
         if once:
             return
         time.sleep(interval)

@@ -316,6 +316,20 @@ def intents_reject(intent_id: str) -> None:
         _print_intent(result)
 
 
+@intents_app.command("preview")
+def intents_preview(intent_id: str) -> None:
+    """Show what an intent WOULD change before approving (universal preview/diff)."""
+    from jarvis.core.governance import preview_intent
+
+    with db.connect() as conn:
+        try:
+            result = preview_intent(conn, intent_id)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from exc
+    console.print(JSON(__import__("json").dumps(result, default=str)))
+
+
 @intents_app.command("execute")
 def intents_execute(intent_id: str) -> None:
     """Execute an intent through the approval + mode gate (dry-run under observe)."""

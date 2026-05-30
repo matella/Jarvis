@@ -189,18 +189,23 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   chat (would replay stale non-deterministic decisions) and NOT model-tiering (a 2nd model = swaps
   costlier than they save on one 8 GB GPU; the scheduler's swap limiter is the lever). CLI `jarvis
   cache`. Live: same text embedded twice → 1 hit, inference skipped.
-- Latest: `pytest` 239/239, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+- **Backlog #9 Governance polish** (`core/governance.py`): **freeze windows** — autonomous actions
+  (reactor auto-exec + plan executor) held during configured `FREEZE_WINDOWS` (pure `is_frozen_now`,
+  wraps midnight); **universal preview** — `docker.restart_container` gained `preview`, `jarvis
+  intents preview <id>` shows what any intent would change; **proactive nudges** — selfcheck emits
+  `governance.nudge` when proposals pile past threshold. Live: previewed a real restart intent.
+- Latest: `pytest` 243/243, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
 
 ## Building the backlog (recommended order, one per commit)
 1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. anomaly detection ✅ · 4. confidence/
 abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation ✅ · 7. knowledge-base ingest ✅ ·
-8. cost-aware caching ✅ · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
+8. cost-aware caching ✅ · 9. governance polish ✅ · 10. plugin SDK/MCP · 11. mobile PWA.
 (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
 
 ## Next step — do this first
-Build backlog **#9 governance polish**: change windows / freeze schedules (deny actions outside an
-allowed window), a universal per-action preview/diff (via the tool contract's `preview`), and
-proactive nudges ("N unapproved intents").
+Build backlog **#10 plugin SDK / MCP**: formalize the tool contract into a small plugin SDK
+(register external capability-scoped tools from a manifest, gated like everything else) + optionally
+speak MCP to reach external tool servers.
 
 ## Open questions / blockers
 - *(none)*

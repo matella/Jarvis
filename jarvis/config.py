@@ -140,6 +140,20 @@ class Settings(BaseSettings):
     embedding_cache_enabled: bool = True
     embedding_cache_size: int = 2048
 
+    # Governance polish (backlog) — freeze windows (autonomous actions denied) + approval nudges.
+    freeze_windows: list[str] = []  # e.g. ["09:00-17:00"] (UTC); autonomous actions denied within
+    nudge_pending_threshold: int = 5
+
+    @field_validator("freeze_windows", mode="before")
+    @classmethod
+    def _split_freeze_csv(cls, v: object) -> object:
+        if isinstance(v, str):
+            s = v.strip()
+            if not s or s.startswith("["):
+                return [] if not s else v
+            return [x.strip() for x in s.split(",") if x.strip()]
+        return v
+
     # Knowledge-base ingest (backlog) — index runbooks/notes/wiki (prose) into memory (kind="kb").
     kb_paths: list[str] = []  # remote dirs/files (over remote_ssh)
     kb_chunk_lines: int = 40

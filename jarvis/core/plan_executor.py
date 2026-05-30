@@ -85,6 +85,14 @@ def _run_action(conn: Any, step: PlanStep, plan: Plan, *, simulate: bool) -> boo
         step.detail = str(preview) if preview is not None else "would run (no preview)"
         return False
 
+    from jarvis.core.governance import frozen_now
+
+    # Governance: an autonomous change during a freeze window is held, not run.
+    if frozen_now():
+        step.status = StepStatus.skipped
+        step.outcome = "frozen_window"
+        return False
+
     intent = _make_intent(step, plan.correlation_id)
     insert_intent(conn, intent)
     step.intent_id = intent.intent_id

@@ -59,6 +59,12 @@ def _restart_inspect(target: dict[str, Any]) -> dict[str, Any]:
     return {"status": proc.stdout.strip() or "unknown"}
 
 
+def _restart_preview(target: dict[str, Any]) -> dict[str, Any]:
+    """What a restart would do — current status + the action — touching nothing."""
+    name = _require_container(target)
+    return {"action": "restart", "container": name, "current": _restart_inspect(target)}
+
+
 def _restart_run(target: dict[str, Any], *, timeout_s: int) -> dict[str, Any]:
     name = _require_container(target)
     subprocess.run(
@@ -80,6 +86,7 @@ register(
         rollback=Rollback.none,
         run=_restart_run,
         inspect=_restart_inspect,
+        preview=_restart_preview,
     )
 )
 

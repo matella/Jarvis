@@ -91,6 +91,11 @@ def process_batch(
                     # semi_autonomous: the gate auto-runs it if low-risk+reversible, else holds
                     # for approval — the mode policy decides, not the reactor.
                     if mode is Mode.semi_autonomous:
+                        from jarvis.core.governance import frozen_now
+                        if frozen_now():
+                            print("[reactor] held — freeze window active", flush=True)
+                            r.xack(stream, group, msg_id)
+                            continue
                         from jarvis.audit.log import record
                         with db.connect(autocommit=True) as conn:
                             try:
