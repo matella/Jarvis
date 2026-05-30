@@ -37,6 +37,7 @@ snapshot_app = typer.Typer(no_args_is_help=True, help="State snapshots (compacti
 plan_app = typer.Typer(no_args_is_help=True, help="Multi-step plans (planner + executor)")
 connectors_app = typer.Typer(no_args_is_help=True, help="External connectors (read + act)")
 routine_app = typer.Typer(no_args_is_help=True, help="Scheduled routines (proactive briefings)")
+obs_app = typer.Typer(no_args_is_help=True, help="Observability ingest (Prometheus + Loki)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -54,6 +55,7 @@ app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(plan_app, name="plan")
 app.add_typer(connectors_app, name="connectors")
 app.add_typer(routine_app, name="routine")
+app.add_typer(obs_app, name="obs")
 
 console = Console()
 
@@ -942,6 +944,24 @@ def routine_run(routine_id: str) -> None:
         raise typer.Exit(code=1)
     text = run_routine(routine, notify=False)
     console.print(f"[bold]{routine.name}[/bold]:\n{text}")
+
+
+@obs_app.command("prometheus")
+def obs_prometheus() -> None:
+    """Run one Prometheus scrape now (samples configured PromQL into `metrics`)."""
+    from jarvis.ingest.prometheus import scrape_once
+
+    count = scrape_once()
+    console.print(f"prometheus: sampled [bold]{count}[/bold] series")
+
+
+@obs_app.command("loki")
+def obs_loki() -> None:
+    """Run one Loki scan now (emits a log.spike event per over-threshold query)."""
+    from jarvis.ingest.loki import scan_once
+
+    spikes = scan_once()
+    console.print(f"loki: [bold]{spikes}[/bold] spike event(s)")
 
 
 @app.command()

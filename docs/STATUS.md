@@ -127,17 +127,22 @@ capture (9) → voice + audio-reactive orb (10) → GPU scheduler (11).
   NOT confidence wobble) + `replay_intent` re-runs a stored `context_ref` through the current model
   + `run_suite`/`recent_proposer_intents`; CLI `jarvis eval` reports drift (regression gate on
   model/agent change). Live: a replayed proposal flipped restart→investigate → flagged DRIFT.
-- Latest: `pytest` 205/205, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0014.
+- **Cross-cutting C. Observability ingest** (`ingest/prometheus.py` + `ingest/loki.py`): Prometheus
+  PromQL instant queries sampled into `metrics` (kind="prometheus", reusing `insert_samples`) so the
+  existing trend/correlation machinery uses real exporter data; Loki LogQL count queries → a
+  `log.spike` event (severity warning) the correlator can fold into incidents. Pure parsers, egress-
+  guarded fetch, opt-in daemon workers (`OBSERVABILITY_ENABLED`), CLI `jarvis obs prometheus/loki`.
+- Latest: `pytest` 210/210, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0014 (C needs none).
 
 ## In progress
-- **Cross-cutting tracks, in order:** A ✅ B ✅ → **C** (observability ingest: Prometheus/Loki) →
-  **D** (memory governance). The numbered program (5.5a–11) is complete. Then optional 6b UI polish.
+- **Cross-cutting tracks, in order:** A ✅ B ✅ C ✅ → **D** (memory governance). The numbered
+  program (5.5a–11) is complete. Then optional 6b UI polish.
 
 ## Next step — do this first
-Build **cross-cutting C** (richer observability ingest) per the cross-cutting spec §C:
-`ingest/prometheus.py` (scrape targets → `metrics`) + `ingest/loki.py` (log spikes → events that
-correlation can use); egress-allowlisted, opt-in daemon workers.
+Build **cross-cutting D** (memory governance) per the cross-cutting spec §D: list / forget /
+consolidate memories + summaries + playbooks (CLI + console); consolidation compacts old episodic
+summaries into a higher-level one.
 
 ## Open questions / blockers
 - *(none)*

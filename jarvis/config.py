@@ -128,6 +128,28 @@ class Settings(BaseSettings):
     # Scheduled routines (cross-cutting A) — proactive briefings. `at` times are interpreted UTC.
     routine_tick_s: int = 60
 
+    # Observability ingest (cross-cutting C) — Prometheus scrape + Loki log-spike detection.
+    # Hosts must be egress-allowlisted. Enable workers via OBSERVABILITY_ENABLED=prometheus,loki.
+    observability_enabled: list[str] = []
+    prometheus_url: str = ""  # e.g. http://prometheus.lan:9090
+    prometheus_queries: list[str] = []  # PromQL instant queries to sample into `metrics`
+    loki_url: str = ""  # e.g. http://loki.lan:3100
+    loki_queries: list[str] = []  # LogQL count queries; a spike → a log.spike event
+    loki_spike_threshold: int = 50
+    observability_interval_s: int = 60
+
+    @field_validator(
+        "observability_enabled", "prometheus_queries", "loki_queries", mode="before"
+    )
+    @classmethod
+    def _split_obs_csv(cls, v: object) -> object:
+        if isinstance(v, str):
+            s = v.strip()
+            if not s or s.startswith("["):
+                return [] if not s else v
+            return [x.strip() for x in s.split(",") if x.strip()]
+        return v
+
     # Security primitives (5.5c) — egress allowlist for connectors/search/capture (default-deny).
     # Accepts a JSON list or a comma-separated string in env. Bare hosts; matched incl. subdomains.
     egress_allowlist: list[str] = []
