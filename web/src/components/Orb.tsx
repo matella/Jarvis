@@ -7,6 +7,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
+import { audioLevel } from "../lib/audioLevel";
 import { orbVisual } from "../lib/presence";
 import type { PresenceState } from "../lib/types";
 
@@ -88,9 +89,11 @@ function OrbMesh({ state }: { state: PresenceState }) {
   useFrame((_, dt) => {
     const v = orbVisual(state);
     const u = uniforms;
-    u.uTime.value += dt * v.speed;
-    u.uTurbulence.value = lerp(u.uTurbulence.value, v.turbulence, 0.06);
-    u.uIntensity.value = lerp(u.uIntensity.value, v.intensity, 0.06);
+    // Audio-reactivity (P10): live mic/TTS amplitude blooms the surface and glow — the orb's voice.
+    const amp = audioLevel.value;
+    u.uTime.value += dt * (v.speed + amp * 2.5);
+    u.uTurbulence.value = lerp(u.uTurbulence.value, v.turbulence + amp * 0.55, 0.18);
+    u.uIntensity.value = lerp(u.uIntensity.value, v.intensity + amp * 0.9, 0.18);
     (u.uColor.value as THREE.Color).lerp(new THREE.Color(v.color), 0.05);
     (u.uAccent.value as THREE.Color).lerp(new THREE.Color(v.accent), 0.05);
     if (group.current) group.current.rotation.y += dt * 0.12 * v.speed;

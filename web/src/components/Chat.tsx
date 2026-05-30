@@ -5,7 +5,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
-import type { ChatTurn } from "../lib/types";
+import type { ChatTurn, MicControl } from "../lib/types";
 import { ArtifactRenderer } from "./ArtifactRenderer";
 
 const routeBadge: Record<string, { text: string; cls: string }> = {
@@ -78,10 +78,12 @@ export function Chat({
   turns,
   onSend,
   disabled,
+  mic,
 }: {
   turns: ChatTurn[];
   onSend: (text: string) => void;
   disabled?: boolean;
+  mic?: MicControl;
 }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -128,6 +130,19 @@ export function Chat({
           placeholder={disabled ? "reconnecting…" : "Speak to Jarvis"}
           className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint disabled:opacity-50"
         />
+        {mic && (
+          <button
+            onClick={() => (mic.recording ? mic.stop() : mic.start())}
+            title={mic.recording ? "Stop & send" : "Hold to talk"}
+            className={`flex h-7 w-7 items-center justify-center rounded-full border transition ${
+              mic.recording
+                ? "border-amber/60 bg-amber/15 text-amber animate-pulse"
+                : "border-teal/40 text-teal hover:bg-teal/10"
+            }`}
+          >
+            {mic.recording ? "■" : "🎙"}
+          </button>
+        )}
         <button
           onClick={submit}
           disabled={disabled}

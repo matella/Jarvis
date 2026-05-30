@@ -4,7 +4,7 @@
 import { motion } from "framer-motion";
 
 import { orbVisual } from "../lib/presence";
-import type { ChatTurn, PresenceState } from "../lib/types";
+import type { ChatTurn, MicControl, PresenceState } from "../lib/types";
 import { Chat } from "./Chat";
 import { Orb } from "./Orb";
 
@@ -13,11 +13,13 @@ export function PresenceMode({
   turns,
   onSend,
   disabled,
+  mic,
 }: {
   presence: PresenceState;
   turns: ChatTurn[];
   onSend: (t: string) => void;
   disabled?: boolean;
+  mic?: MicControl;
 }) {
   const v = orbVisual(presence);
   return (
@@ -42,7 +44,7 @@ export function PresenceMode({
         </motion.div>
       </div>
       <div className="mx-auto h-[34vh] w-full max-w-3xl">
-        <Chat turns={turns} onSend={onSend} disabled={disabled} />
+        <Chat turns={turns} onSend={onSend} disabled={disabled} mic={mic} />
       </div>
     </div>
   );

@@ -6,8 +6,9 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**9 Search + capture DONE** (unit-verified; live needs SearXNG container + Playwright). Next: 10 voice.
-(Deferred: 6b UI slices; 8 live CalDAV/IMAP/SMTP/HA; 9 live SearXNG deploy + `playwright install`.)
+**10 Voice + orb audio-reactivity DONE** (mic UI live-verified; STT/TTS need local binaries). Next:
+11 GPU scheduler — the last program milestone.
+(Deferred: 6b UI slices; 8 live CalDAV/IMAP/SMTP/HA; 9 live SearXNG/Playwright; 10 whisper/piper.)
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -99,17 +100,25 @@
   `[n]` citations + `search.performed` event. Conversation agent gained a `search` route (current
   external info → cited answer + sources table artifact). `search/capture.py`: Playwright
   screenshot → `image` artifact, egress-allowlisted (lazy import). CLI `jarvis search/capture`.
-- Latest: `pytest` 179/179, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0012 (9 needs none).
+- **10 Voice + orb audio-reactivity** (`voice/` + gateway audio path + `web/` audio): STT
+  (`voice/stt.py`, Whisper.cpp wrapper) + TTS (`voice/tts.py`, Piper) + wake gate (`voice/wake.py`,
+  pure state machine — no buffering before wake). Gateway `/ws` now accepts `{kind:"audio"}` → STT
+  → the SAME `conversation.respond` path → TTS audio back; graceful degrade when binaries absent.
+  Frontend: mic capture + TTS playback via Web Audio `AnalyserNode` → shared `audioLevel` → the
+  **orb blooms with the actual voice** (mic while listening, TTS while speaking); mic button in the
+  composer. Voice adds no reasoning — pure transport; actions still gated + audited.
+- Latest: `pytest` 187/187, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0012 (10 needs none).
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 10** (voice), then scheduler (11),
-  cross-cutting. Deferred: 6b UI slices (topology graph, charts, Cmd-K, Playwright E2E); 8 live
-  wiring (CalDAV; real IMAP/SMTP/HA); 9 live SearXNG (deploy + enable JSON) + `playwright install`.
+- Conversational-orchestrator program, in order. **Next: 11** (GPU scheduler — last milestone),
+  then cross-cutting. Deferred: 6b UI slices (topology graph, charts, Cmd-K, Playwright E2E); 8
+  live wiring (CalDAV; real IMAP/SMTP/HA); 9 live SearXNG + `playwright install`; 10 whisper.cpp/
+  Piper/OpenWakeWord binaries + mic hardware for full live STT↔TTS.
 
 ## Next step — do this first
-Build **10** (voice) per its detailed spec in `docs/superpowers/specs/`. Whisper.cpp STT + Piper
-TTS (CPU), orb audio-reactivity (Web Audio AnalyserNode), push-to-talk in the console.
+Build **11** (GPU scheduler) per its detailed spec in `docs/superpowers/specs/`. Promotes the
+one-resident-model telemetry into a real scheduler (queue + policy over Ollama load/unload).
 
 ## Open questions / blockers
 - *(none)*

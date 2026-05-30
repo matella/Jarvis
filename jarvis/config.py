@@ -168,6 +168,15 @@ class Settings(BaseSettings):
             return [x.strip() for x in s.split(",") if x.strip()]
         return v
 
+    # Voice (10) — local/CPU transport over the conversation pipeline. Binaries are external.
+    voice_enabled: bool = False
+    whisper_bin: str = "whisper-cli"  # whisper.cpp CLI
+    whisper_model: str = ""  # path to a ggml model; empty → STT unavailable
+    piper_bin: str = "piper"
+    piper_voice: str = ""  # path to a Piper .onnx voice; empty → TTS unavailable
+    wake_word_enabled: bool = False
+    wake_silence_ms: int = 1500  # stop buffering after this much trailing silence
+
     # Real-time search + capture (9) — local-first web RAG via SearXNG; screenshots via Playwright.
     searxng_url: str = ""  # e.g. http://searxng.lan:8080 (host must be egress-allowlisted)
     search_result_limit: int = 5

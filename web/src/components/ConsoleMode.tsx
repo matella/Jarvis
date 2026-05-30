@@ -1,7 +1,7 @@
 // Console / HUD surface — situational dashboards alongside the conversation, with a compact orb
 // keeping presence visible. Panels are read-only; the chat column is where gated actions originate.
 
-import type { ChatTurn, PresenceState } from "../lib/types";
+import type { ChatTurn, MicControl, PresenceState } from "../lib/types";
 import { Chat } from "./Chat";
 import { Orb } from "./Orb";
 import { HealthPanel, IncidentsPanel, IntentsPanel, StatePanel } from "./Panels";
@@ -11,11 +11,13 @@ export function ConsoleMode({
   turns,
   onSend,
   disabled,
+  mic,
 }: {
   presence: PresenceState;
   turns: ChatTurn[];
   onSend: (t: string) => void;
   disabled?: boolean;
+  mic?: MicControl;
 }) {
   return (
     <div className="relative z-10 grid h-full grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_minmax(0,1fr)_300px]">
@@ -32,7 +34,7 @@ export function ConsoleMode({
 
       {/* center: conversation */}
       <div className="bracket panel flex min-h-0 flex-col p-4">
-        <Chat turns={turns} onSend={onSend} disabled={disabled} />
+        <Chat turns={turns} onSend={onSend} disabled={disabled} mic={mic} />
       </div>
 
       {/* right rail */}

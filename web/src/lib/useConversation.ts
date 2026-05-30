@@ -13,7 +13,16 @@ export type ConnState = "connecting" | "open" | "closed";
 let turnSeq = 0;
 const nextId = () => `t${++turnSeq}`;
 
-export function useConversation() {
+interface VoiceMsg {
+  kind: "transcript" | "tts" | "stt_error";
+  text?: string;
+  wav?: string;
+  detail?: string;
+}
+
+export function useConversation(opts: { onTts?: (wavBase64: string) => void } = {}) {
+  const onTtsRef = useRef(opts.onTts);
+  onTtsRef.current = opts.onTts;
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [presence, setPresence] = useState<PresenceState>("idle");
   const [conn, setConn] = useState<ConnState>("connecting");
@@ -32,9 +41,9 @@ export function useConversation() {
       setConn("open");
     };
     ws.onmessage = (ev) => {
-      let msg: ServerEvent;
+      let msg: ServerEvent | VoiceMsg;
       try {
-        msg = JSON.parse(ev.data) as ServerEvent;
+        msg = JSON.parse(ev.data) as ServerEvent | VoiceMsg;
       } catch {
         return;
       }
@@ -42,6 +51,19 @@ export function useConversation() {
         setConversationId(msg.conversation_id);
       } else if (msg.kind === "presence") {
         if (isPresenceState(msg.state)) setPresence(msg.state);
+      } else if (msg.kind === "transcript") {
+        if (msg.text) {
+          const text = msg.text;
+          setTurns((prev) => [...prev, { id: nextId(), role: "user", text }]);
+        }
+      } else if (msg.kind === "tts") {
+        if (msg.wav) onTtsRef.current?.(msg.wav);
+      } else if (msg.kind === "stt_error") {
+        const detail = msg.detail ?? "unavailable";
+        setTurns((prev) => [
+          ...prev,
+          { id: nextId(), role: "jarvis", text: `Voice error: ${detail}` },
+        ]);
       } else if (msg.kind === "turn") {
         const r = msg.result;
         setTurns((prev) => [
@@ -84,5 +106,11 @@ export function useConversation() {
     ws.send(JSON.stringify({ text: trimmed }));
   }, []);
 
-  return { turns, presence, conn, conversationId, send };
+  const sendAudio = useCallback((wavBase64: string) => {
+    const ws = socketRef.current;
+    if (!wavBase64 || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ kind: "audio", wav: wavBase64 }));
+  }, []);
+
+  return { turns, presence, conn, conversationId, send, sendAudio };
 }

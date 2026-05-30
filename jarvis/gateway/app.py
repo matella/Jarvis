@@ -149,7 +149,13 @@ async def _serve_ws(socket: WebSocket) -> None:
     try:
         while True:
             msg = await socket.receive_json()
-            utterance = (msg or {}).get("text", "").strip()
+            # Voice transport: audio in → STT → the SAME conversation path; TTS audio back out.
+            if (msg or {}).get("kind") == "audio":
+                utterance = await _transcribe(socket, msg.get("wav", ""))
+                if not utterance:
+                    continue
+            else:
+                utterance = (msg or {}).get("text", "").strip()
             if not utterance:
                 continue
             await _send_presence(socket, presence.THINKING)
@@ -158,9 +164,41 @@ async def _serve_ws(socket: WebSocket) -> None:
                 result = convo.respond(conn, session, utterance)
                 await socket.send_json({"kind": "turn", "result": result.model_dump(mode="json")})
                 await _send_presence(socket, presence.SPEAKING)
+                await _speak(socket, result.message)
                 await _send_presence(socket, presence.baseline_presence(conn))
     except WebSocketDisconnect:
         return
+
+
+async def _transcribe(socket: WebSocket, wav_b64: str) -> str:
+    """Decode + STT an inbound audio message; echo the transcript so the UI can show it."""
+    import base64
+
+    from jarvis.voice import stt
+
+    await _send_presence(socket, presence.LISTENING)
+    try:
+        text = stt.transcribe(base64.b64decode(wav_b64))
+    except Exception as exc:  # noqa: BLE001 — STT unavailable/failed degrades gracefully
+        await socket.send_json({"kind": "stt_error", "detail": str(exc)})
+        return ""
+    await socket.send_json({"kind": "transcript", "text": text})
+    return text.strip()
+
+
+async def _speak(socket: WebSocket, text: str) -> None:
+    """Synthesize the reply to audio and stream it (the orb's AnalyserNode reacts to it)."""
+    import base64
+
+    from jarvis.voice import tts
+
+    if not tts.available() or not text:
+        return
+    try:
+        wav = tts.synthesize(text)
+    except Exception:  # noqa: BLE001 — TTS is best-effort; the text turn already went out
+        return
+    await socket.send_json({"kind": "tts", "wav": base64.b64encode(wav).decode()})
 
 
 app = create_app()

@@ -40,6 +40,12 @@ export type ServerEvent =
   | { kind: "presence"; state: PresenceState }
   | { kind: "turn"; result: TurnResult };
 
+export interface MicControl {
+  recording: boolean;
+  start: () => Promise<void>;
+  stop: () => void;
+}
+
 export interface ChatTurn {
   id: string;
   role: "user" | "jarvis";
