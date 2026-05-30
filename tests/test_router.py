@@ -37,6 +37,37 @@ def test_chat_emits_loaded_and_completed(monkeypatch) -> None:
     assert completed.payload["eval_count"] == 5
 
 
+def test_chat_prepends_persona_system_prompt(monkeypatch) -> None:
+    seen = {}
+    monkeypatch.setattr(router, "_emit", lambda e: None)
+    monkeypatch.setattr(oclient, "ps", lambda: [])
+    monkeypatch.setattr(oclient, "unload", lambda m: None)
+    monkeypatch.setattr(
+        oclient, "chat",
+        lambda model, messages, **k: seen.update(messages=messages)
+        or {"message": {"content": "ok"}},
+    )
+    router.chat("reasoning", [{"role": "user", "content": "yo"}])
+    msgs = seen["messages"]
+    assert msgs[0]["role"] == "system" and "Jarvis" in msgs[0]["content"]  # persona injected
+    assert msgs[1] == {"role": "user", "content": "yo"}
+
+
+def test_chat_keeps_caller_system_message(monkeypatch) -> None:
+    seen = {}
+    monkeypatch.setattr(router, "_emit", lambda e: None)
+    monkeypatch.setattr(oclient, "ps", lambda: [])
+    monkeypatch.setattr(oclient, "unload", lambda m: None)
+    monkeypatch.setattr(
+        oclient, "chat",
+        lambda model, messages, **k: seen.update(messages=messages)
+        or {"message": {"content": "ok"}},
+    )
+    supplied = [{"role": "system", "content": "custom"}, {"role": "user", "content": "yo"}]
+    router.chat("reasoning", supplied)
+    assert seen["messages"] == supplied  # not double-prepended
+
+
 def test_chat_does_not_reemit_loaded_when_resident(monkeypatch) -> None:
     events = []
     model = router.model_for_role("reasoning")

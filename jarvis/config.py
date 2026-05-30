@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     model_reasoning: str = "qwen3:1.7b"
     model_coder: str = "qwen2.5-coder:7b"
     model_embedding: str = "nomic-embed-text"
+    # Shared agent identity (system prompt). Empty → built-in Jarvis identity (agents/persona.py);
+    # the live capability list is always appended. Set SYSTEM_PROMPT to customize tone/identity.
+    system_prompt: str = ""
     keep_alive: str = "5m"
     inference_context: int = 8192
 

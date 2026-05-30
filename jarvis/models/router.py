@@ -64,6 +64,21 @@ def _swap_to(model: str, role: str, correlation_id: str) -> set[str]:
     return before
 
 
+def _with_persona(messages: list[dict]) -> list[dict]:
+    """Prepend the shared Jarvis system prompt so every agent reasons under the same identity/rules.
+
+    Skipped if the caller already supplied a system message. Best-effort — never breaks inference.
+    """
+    if messages and messages[0].get("role") == "system":
+        return messages
+    try:
+        from jarvis.agents.persona import system_prompt
+
+        return [{"role": "system", "content": system_prompt()}, *messages]
+    except Exception:  # noqa: BLE001 — persona is enrichment, not a hard dependency
+        return messages
+
+
 def chat(
     role: str,
     messages: list[dict],
@@ -75,6 +90,7 @@ def chat(
     s = get_settings()
     model = model_for_role(role)
     correlation_id = correlation_id or ids.new_id(ids.CORRELATION)
+    messages = _with_persona(messages)
     with _INFERENCE_SEM:
         before = _swap_to(model, role, correlation_id)
         start = time.monotonic()
