@@ -1133,6 +1133,19 @@ def diff_cmd(
         console.print("changed: —")
 
 
+@app.command("cache")
+def cache_cmd() -> None:
+    """Show the embedding cache stats (cost-aware caching)."""
+    from jarvis.models.cache import enabled, get_cache
+
+    s = get_cache().stats()
+    console.print(
+        f"embedding cache [{'on' if enabled() else 'off'}]: "
+        f"size {s['size']}/{s['capacity']} · hits {s['hits']} · misses {s['misses']} · "
+        f"hit-rate {s['hit_rate']}"
+    )
+
+
 @app.command("anomaly")
 def anomaly_cmd() -> None:
     """Scan metrics for self-anomalies (z-score over each metric's own history) once."""

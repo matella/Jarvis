@@ -122,6 +122,15 @@ def embed_many(
 
 def embed(text: str, *, role: str = "embedding", correlation_id: str | None = None) -> list[float]:
     model = model_for_role(role)
+    # Cost-aware (#8): embeddings are deterministic — a cache hit skips inference entirely.
+    from jarvis.models.cache import enabled as cache_enabled
+    from jarvis.models.cache import get_cache
+
+    cache = get_cache() if cache_enabled() else None
+    if cache is not None:
+        hit = cache.get(model, text)
+        if hit is not None:
+            return hit
     correlation_id = correlation_id or ids.new_id(ids.CORRELATION)
     with _INFERENCE_SEM:
         before = _swap_to(model, role, correlation_id)
@@ -136,4 +145,6 @@ def embed(text: str, *, role: str = "embedding", correlation_id: str | None = No
                 duration_ms=duration_ms, dims=len(vector),
             )
         )
+    if cache is not None:
+        cache.put(model, text, vector)
     return vector

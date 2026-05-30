@@ -136,6 +136,10 @@ class Settings(BaseSettings):
     # Confidence + abstention (backlog) — below this confidence, the agent abstains rather than act.
     abstain_confidence_floor: float = 0.45
 
+    # Cost-aware caching (backlog) — embeddings are deterministic, so cache them (avoid recompute).
+    embedding_cache_enabled: bool = True
+    embedding_cache_size: int = 2048
+
     # Knowledge-base ingest (backlog) — index runbooks/notes/wiki (prose) into memory (kind="kb").
     kb_paths: list[str] = []  # remote dirs/files (over remote_ssh)
     kb_chunk_lines: int = 40

@@ -184,18 +184,23 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   sanitized + embedded, so the conversation agent's existing vector retrieval grounds answers in
   your docs (no new retrieval path). CLI `jarvis kb index/search`. (Live needs a docs dir with
   markdown; remote homelab path has none, so it no-ops cleanly.)
-- Latest: `pytest` 235/235, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+- **Backlog #8 Cost-aware caching** (`models/cache.py`): bounded LRU embedding cache (deterministic
+  (model,text) → vector) wired into `router.embed` — a hit skips inference. Deliberately NOT caching
+  chat (would replay stale non-deterministic decisions) and NOT model-tiering (a 2nd model = swaps
+  costlier than they save on one 8 GB GPU; the scheduler's swap limiter is the lever). CLI `jarvis
+  cache`. Live: same text embedded twice → 1 hit, inference skipped.
+- Latest: `pytest` 239/239, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
 
 ## Building the backlog (recommended order, one per commit)
 1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. anomaly detection ✅ · 4. confidence/
 abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation ✅ · 7. knowledge-base ingest ✅ ·
-8. cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
+8. cost-aware caching ✅ · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
 (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
 
 ## Next step — do this first
-Build backlog **#8 cost-aware model strategy**: model tiering (a tiny/fast tag for routing + simple
-Q&A vs the big model for hard reasoning) + an inference/embedding cache (hash prompt+model → cached
-response) to cut swaps and latency; builds on the GPU scheduler.
+Build backlog **#9 governance polish**: change windows / freeze schedules (deny actions outside an
+allowed window), a universal per-action preview/diff (via the tool contract's `preview`), and
+proactive nudges ("N unapproved intents").
 
 ## Open questions / blockers
 - *(none)*
