@@ -16,6 +16,7 @@ from rich.table import Table
 
 from jarvis import db
 from jarvis.config import get_settings
+from jarvis.events.models import utcnow
 from jarvis.events.repository import get_event
 from jarvis.events.stream import get_redis
 
@@ -1042,6 +1043,46 @@ def feedback(
             raise typer.Exit(code=1) from exc
         s = fb.score(conn, target_type=target_type, target_id=target_id)
     console.print(f"recorded {'👍' if up else '👎'} on {target_type}:{target_id} (net score {s})")
+
+
+@app.command("state-at")
+def state_at_cmd(ago: str = typer.Argument(..., help="How far back, e.g. 12h, 30m, 2d")) -> None:
+    """Reconstruct the state projection as it stood `ago` ago (time-travel over the event log)."""
+    from jarvis.state.timetravel import state_at
+
+    ts = utcnow() - _parse_duration(ago)
+    with db.connect() as conn:
+        snap = state_at(conn, ts)
+    table = Table(title=f"state as of {_short(ts)} ({len(snap)} entities)")
+    for col in ("entity", "status", "last_action"):
+        table.add_column(col, overflow="fold")
+    for entity in sorted(snap):
+        row = snap[entity]
+        table.add_row(entity, row.get("status") or "", str(row["attrs"].get("last_action", "")))
+    console.print(table)
+
+
+@app.command("diff")
+def diff_cmd(
+    since: str = typer.Argument(..., help="Start point, e.g. 24h"),
+    until: str = typer.Option("0m", help="End point (default: now)"),
+) -> None:
+    """What changed between two points in time (added/removed/status changes)."""
+    from jarvis.state.timetravel import diff
+
+    now = utcnow()
+    t1, t2 = now - _parse_duration(since), now - _parse_duration(until)
+    with db.connect() as conn:
+        d = diff(conn, t1, t2)
+    console.print(f"[teal]added[/teal]: {', '.join(d['added']) or '—'}")
+    console.print(f"[red]removed[/red]: {', '.join(d['removed']) or '—'}")
+    if d["changed"]:
+        console.print("[amber]changed[/amber]:")
+        for entity, ch in d["changed"].items():
+            a, b = ch["status"]
+            console.print(f"  {entity}: {a} → {b}")
+    else:
+        console.print("changed: —")
 
 
 @app.command("anomaly")

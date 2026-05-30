@@ -168,11 +168,15 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   floor)`; a propose decision below `abstain_confidence_floor` (0.45) returns route=`abstain` with
   NO intent created ("not confident enough (NN%) to act"). `TurnResult.confidence` surfaced; web
   shows a confidence chip + ABSTAINED badge. Live: a 20%-confidence propose abstained, no intent.
-- Latest: `pytest` 226/226, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+- **Backlog #5 Time-travel / temporal diffs** (`state/timetravel.py`): `state_at(ts)` replays
+  container events up to a timestamp through the SAME projection logic (in-memory) to reconstruct
+  point-in-time state; `diff(t1,t2)` → added/removed/status-changed. CLI `jarvis state-at <ago>` +
+  `jarvis diff <since> [--until]`. Live: reconstructed state 1h ago + diff over 24h.
+- Latest: `pytest` 229/229, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
 
 ## Building the backlog (recommended order, one per commit)
 1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. anomaly detection ✅ · 4. confidence/
-abstention ✅ · 5. time-travel diffs · 6. graceful degradation · 7. knowledge-base ingest · 8.
+abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation · 7. knowledge-base ingest · 8.
 cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
 (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
 
