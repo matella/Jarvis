@@ -133,6 +133,13 @@ class Settings(BaseSettings):
     verify_window_min: int = 30
     verify_interval_s: int = 120
 
+    # Statistical anomaly detection (backlog) — flag a metric unusual *for itself* (z-score).
+    anomaly_z_threshold: float = 3.5
+    anomaly_min_samples: int = 20
+    anomaly_history: int = 120  # rolling-history samples per entity/metric
+    anomaly_interval_s: int = 90
+    anomaly_cooldown_s: int = 900  # debounce repeat alerts per entity+metric
+
     # Observability ingest (cross-cutting C) — Prometheus scrape + Loki log-spike detection.
     # Hosts must be egress-allowlisted. Enable workers via OBSERVABILITY_ENABLED=prometheus,loki.
     observability_enabled: list[str] = []

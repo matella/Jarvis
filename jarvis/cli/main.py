@@ -1044,6 +1044,14 @@ def feedback(
     console.print(f"recorded {'👍' if up else '👎'} on {target_type}:{target_id} (net score {s})")
 
 
+@app.command("anomaly")
+def anomaly_cmd() -> None:
+    """Scan metrics for self-anomalies (z-score over each metric's own history) once."""
+    from jarvis.ingest.anomaly import scan_once
+
+    console.print(f"flagged [bold]{scan_once()}[/bold] metric anomaly(ies)")
+
+
 @app.command("postmortem")
 def postmortem_cmd(
     incident_id: str,

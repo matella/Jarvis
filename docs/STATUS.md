@@ -158,17 +158,22 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
 - Latest: `pytest` 219/219, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
   Migrations at head = 0015 (#2 needs none).
 
+- **Backlog #3 Statistical anomaly detection** (`ingest/anomaly.py`): robust z-score (median/MAD)
+  of each container metric's latest sample vs its own rolling history → `metric.anomaly` event
+  (warning, debounced per entity+metric) — catches what fixed thresholds (P2) + linear trends (P5)
+  miss. Pure `zscore`/`is_anomaly`; always-on `anomaly` worker (14th); CLI `jarvis anomaly`.
+  Live: flagged 5 real anomalies against the homelab's metric history.
+
 ## Building the backlog (recommended order, one per commit)
-1. Outcome verification ✅ · 2. auto-postmortems → learned playbooks ✅ · 3. statistical anomaly
-detection · 4. confidence/abstention · 5. time-travel diffs · 6. graceful degradation · 7.
-knowledge-base ingest · 8. cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP ·
-11. mobile PWA. (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node,
-OS sandboxing.) Numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish all complete.
+1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. statistical anomaly detection ✅ ·
+4. confidence/abstention · 5. time-travel diffs · 6. graceful degradation · 7. knowledge-base
+ingest · 8. cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA.
+(Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
+Numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish all complete.
 
 ## Next step — do this first
-Build backlog **#3 statistical anomaly detection**: flag a metric behaving unusually *for itself*
-(rolling mean/stdev z-score over `metrics` history) → an `anomaly.detected` event the correlator
-can use — beyond fixed thresholds/trends.
+Build backlog **#4 confidence + abstention**: surface decision certainty and let the conversation/
+infra agents say "not enough signal" (abstain) instead of guessing on low confidence.
 
 ## Open questions / blockers
 - *(none)*

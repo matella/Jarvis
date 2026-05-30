@@ -39,6 +39,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     """The collectors the daemon supervises. Exposed (and import-only) for testing."""
     from jarvis.core.reactor import run_reactor
     from jarvis.events.consumer import run_forever
+    from jarvis.ingest.anomaly import run_anomaly
     from jarvis.ingest.deploy import detect_deployments
     from jarvis.ingest.docker_events import run_ingester
     from jarvis.ingest.metrics import run_poller
@@ -63,6 +64,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("selfcheck", run_selfcheck),
         ("routines", run_routine_scheduler),
         ("verify", run_verifier),
+        ("anomaly", run_anomaly),
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
