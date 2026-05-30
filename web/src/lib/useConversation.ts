@@ -46,9 +46,26 @@ export function useConversation(
   const [presence, setPresence] = useState<PresenceState>("idle");
   const [conn, setConn] = useState<ConnState>("connecting");
   const [conversationId, setConversationIdState] = useState<string | null>(null);
+  // `awaiting` = we sent something and are waiting for Jarvis's reply (drives the thinking
+  // indicator). A safety timeout clears it so a dropped reply (e.g. mobile network blip mid-
+  // inference) never leaves the UI stuck "thinking" forever.
+  const [awaiting, setAwaiting] = useState(false);
+  const awaitTimer = useRef<number | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const aliveRef = useRef(true);
+
+  const stopAwait = useCallback(() => {
+    if (awaitTimer.current != null) window.clearTimeout(awaitTimer.current);
+    awaitTimer.current = null;
+    setAwaiting(false);
+  }, []);
+
+  const startAwait = useCallback(() => {
+    setAwaiting(true);
+    if (awaitTimer.current != null) window.clearTimeout(awaitTimer.current);
+    awaitTimer.current = window.setTimeout(() => setAwaiting(false), 120_000);
+  }, []);
 
   const connect = useCallback(() => {
     setConn("connecting");
@@ -88,6 +105,7 @@ export function useConversation(
           { id: nextId(), role: "jarvis", text: `Voice error: ${detail}` },
         ]);
       } else if (msg.kind === "turn") {
+        stopAwait(); // reply arrived → stop the thinking indicator
         const r = msg.result;
         setTurns((prev) => [
           ...prev,
@@ -107,12 +125,13 @@ export function useConversation(
     };
     ws.onclose = () => {
       setConn("closed");
+      stopAwait(); // a dropped socket cancels any in-flight wait so the indicator clears
       if (!aliveRef.current) return;
       const delay = Math.min(8000, 600 * 2 ** retryRef.current++);
       window.setTimeout(connect, delay);
     };
     ws.onerror = () => ws.close();
-  }, []);
+  }, [stopAwait]);
 
   useEffect(() => {
     aliveRef.current = true;
@@ -129,21 +148,24 @@ export function useConversation(
     if (!trimmed || !ws || ws.readyState !== WebSocket.OPEN) return;
     setTurns((prev) => [...prev, { id: nextId(), role: "user", text: trimmed }]);
     ws.send(JSON.stringify({ text: trimmed }));
-  }, []);
+    startAwait();
+  }, [startAwait]);
 
   const sendAudio = useCallback((wavBase64: string) => {
     const ws = socketRef.current;
     if (!wavBase64 || !ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ kind: "audio", wav: wavBase64 }));
-  }, []);
+    startAwait();
+  }, [startAwait]);
 
   // Start a blank thread: forget the stored id, clear the transcript, reconnect (no ?cid).
   const newConversation = useCallback(() => {
     setConversationId("");
     setConversationIdState(null);
     setTurns([]);
+    stopAwait();
     socketRef.current?.close(); // onclose auto-reconnects without a cid → fresh conversation
-  }, []);
+  }, [stopAwait]);
 
-  return { turns, presence, conn, conversationId, send, sendAudio, newConversation };
+  return { turns, presence, conn, conversationId, send, sendAudio, newConversation, awaiting };
 }

@@ -34,12 +34,17 @@ export function ConnectionSettings({ onClose }: { onClose: () => void }) {
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://jarvis.your-tailnet.ts.net  (blank = same origin)"
+          placeholder="https://jarvis.your-domain  (the URL you open the web console at)"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          className="mb-4 w-full border border-edge bg-black/40 px-3 py-2 text-sm text-ink outline-none focus:border-teal"
+          className="mb-1 w-full border border-edge bg-black/40 px-3 py-2 text-sm text-ink outline-none focus:border-teal"
         />
+        <p className="mb-4 text-[11px] leading-relaxed text-steel">
+          Use the same HTTPS domain that serves the web console (it proxies /ws + /api to the
+          gateway). Must be https, and the proxy needs WebSocket support enabled. Blank = same
+          origin (web console only).
+        </p>
 
         <label className="label mb-1 block">Token (optional)</label>
         <input

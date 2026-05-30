@@ -114,18 +114,22 @@ export function Chat({
   onSend,
   disabled,
   mic,
+  showTranscript = true,
+  thinking = false,
 }: {
   turns: ChatTurn[];
   onSend: (text: string) => void;
   disabled?: boolean;
   mic?: MicControl;
+  showTranscript?: boolean; // false in Presence mode — orb-only, answers live in Console
+  thinking?: boolean; // show the "Jarvis is thinking…" indicator above the composer
 }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [turns.length]);
+    if (showTranscript) endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns.length, showTranscript]);
 
   const submit = () => {
     if (!draft.trim()) return;
@@ -134,27 +138,39 @@ export function Chat({
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-2">
-        <AnimatePresence initial={false}>
-          {turns.map((t) => (
-            <Bubble key={t.id} turn={t} onQuick={onSend} />
-          ))}
-        </AnimatePresence>
-        {turns.length === 0 && (
-          <div className="grid h-full place-items-center px-2 text-center">
-            <div className="max-w-xs">
-              <div className="label mb-2">Channel open</div>
-              <p className="text-sm text-steel">
-                Ask about the spine, or request an action — "restart nginx", "what's degraded?",
-                "show recent incidents". Actions are proposed and gated; you confirm before
-                anything runs.
-              </p>
+    <div className="flex h-full flex-col justify-end">
+      {showTranscript && (
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-2">
+          <AnimatePresence initial={false}>
+            {turns.map((t) => (
+              <Bubble key={t.id} turn={t} onQuick={onSend} />
+            ))}
+          </AnimatePresence>
+          {turns.length === 0 && (
+            <div className="grid h-full place-items-center px-2 text-center">
+              <div className="max-w-xs">
+                <div className="label mb-2">Channel open</div>
+                <p className="text-sm text-steel">
+                  Ask about the spine, or request an action — "restart nginx", "what's degraded?",
+                  "show recent incidents". Actions are proposed and gated; you confirm before
+                  anything runs.
+                </p>
+              </div>
             </div>
-          </div>
-        )}
-        <div ref={endRef} />
-      </div>
+          )}
+          <div ref={endRef} />
+        </div>
+      )}
+      {thinking && (
+        <div className="mb-1 flex items-center gap-2 px-1 text-teal/80">
+          <span className="flex gap-1">
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal [animation-delay:-0.3s]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal [animation-delay:-0.15s]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal" />
+          </span>
+          <span className="label !text-teal/80">Jarvis is thinking…</span>
+        </div>
+      )}
       <div className="pb-safe mt-3 flex items-center gap-2 border-t border-edge pt-3">
         <span className="text-teal/60">›</span>
         <input

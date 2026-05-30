@@ -12,12 +12,14 @@ export function ConsoleMode({
   onSend,
   disabled,
   mic,
+  thinking,
 }: {
   presence: PresenceState;
   turns: ChatTurn[];
   onSend: (t: string) => void;
   disabled?: boolean;
   mic?: MicControl;
+  thinking?: boolean;
 }) {
   return (
     <div className="relative z-10 grid h-full grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_minmax(0,1fr)_300px]">
@@ -34,7 +36,7 @@ export function ConsoleMode({
 
       {/* center: conversation */}
       <div className="bracket panel flex min-h-0 flex-col p-4">
-        <Chat turns={turns} onSend={onSend} disabled={disabled} mic={mic} />
+        <Chat turns={turns} onSend={onSend} disabled={disabled} mic={mic} thinking={thinking} />
       </div>
 
       {/* right rail */}

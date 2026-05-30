@@ -21,11 +21,13 @@ export default function App() {
   const voice = useVoice((b64) => sendAudioRef.current(b64));
   // Spoken replies: prefer server TTS audio (Piper) if it ever arrives; otherwise the browser
   // speaks the text on-device. Either way Jarvis talks when he answers.
-  const { turns, presence, conn, send, sendAudio, newConversation } = useConversation({
+  const { turns, presence, conn, send, sendAudio, newConversation, awaiting } = useConversation({
     onTts: voice.playTts,
     onReply: (text) => speak(text),
   });
   sendAudioRef.current = sendAudio;
+  // Thinking = we're waiting for a reply, or the spine reports a processing presence.
+  const thinking = awaiting || presence === "thinking" || presence === "listening";
 
   const [surface, setSurface] = useState<Surface>("presence");
   const [insightTab, setInsightTab] = useState<InsightTab>("topology");
@@ -64,12 +66,13 @@ export default function App() {
       <main className="relative min-h-0 flex-1">
         {surface === "presence" && (
           <PresenceMode
-            presence={presence} turns={turns} onSend={send} disabled={disabled} mic={mic}
+            presence={presence} onSend={send} disabled={disabled} mic={mic} thinking={thinking}
           />
         )}
         {surface === "console" && (
           <ConsoleMode
             presence={presence} turns={turns} onSend={send} disabled={disabled} mic={mic}
+            thinking={thinking}
           />
         )}
         {surface === "insight" && (
