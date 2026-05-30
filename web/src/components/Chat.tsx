@@ -142,10 +142,10 @@ export function Chat({
           ))}
         </AnimatePresence>
         {turns.length === 0 && (
-          <div className="grid h-full place-items-center text-center">
-            <div>
+          <div className="grid h-full place-items-center px-2 text-center">
+            <div className="max-w-xs">
               <div className="label mb-2">Channel open</div>
-              <p className="max-w-sm text-sm text-steel">
+              <p className="text-sm text-steel">
                 Ask about the spine, or request an action — "restart nginx", "what's degraded?",
                 "show recent incidents". Actions are proposed and gated; you confirm before
                 anything runs.

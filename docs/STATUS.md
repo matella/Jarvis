@@ -5,13 +5,15 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Program (5.5a–11) + ALL cross-cutting tracks (A–D) COMPLETE.** 🎉
-Numbered arc: hardening (5.5a/b/c) → conversational backend + React orb console (6a/6b) →
-orchestration + action safety (7) → connectors + webhooks (8) → search + capture (9) → voice +
-audio-reactive orb (10) → GPU scheduler (11). Cross-cutting: A scheduled routines · B feedback +
-eval/replay harness · C observability ingest (Prometheus/Loki) · D memory governance.
-(Deferred deploy-time wiring only: 6b UI slices; 8 live CalDAV/IMAP/SMTP/HA; 9 live SearXNG/
- Playwright; 10 whisper.cpp/Piper; C live Prometheus/Loki.)
+**EVERYTHING BUILT** 🎉 — numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish +
+the entire backlog (#1–#11). Nothing left to code; only deploy-time external-service wiring remains.
+- Numbered: hardening (5.5a/b/c) → conversational backend + React orb console (6a/6b) →
+  orchestration + action safety (7) → connectors + webhooks (8) → search + capture (9) → voice +
+  audio-reactive orb (10) → GPU scheduler (11).
+- Cross-cutting: A routines · B feedback + eval/replay · C observability ingest · D memory governance.
+- Backlog: outcome verification · auto-postmortems · anomaly detection · confidence/abstention ·
+  time-travel diffs · graceful degradation · KB ingest · cost-aware caching · governance polish ·
+  plugin SDK · mobile PWA.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -201,15 +203,23 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   `PLUGINS_DIR` empty = none. MCP would bridge onto this same path. Boundary unchanged.
 - Latest: `pytest` 249/249, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
 
-## Building the backlog (recommended order, one per commit)
-1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. anomaly detection ✅ · 4. confidence/
-abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation ✅ · 7. knowledge-base ingest ✅ ·
-8. cost-aware caching ✅ · 9. governance polish ✅ · 10. plugin SDK/MCP ✅ · 11. mobile PWA.
-(Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
+- **Backlog #11 Mobile PWA** (`web/public/` + index.html + main.tsx): installable web app manifest
+  (standalone, theme color, SVG orb icon), an offline-shell service worker (network-first navigation
+  → cached shell; never caches /api or /ws), SW registered in production only, and responsive tweaks
+  (top bar wraps, presence chat padded + safe-area, empty-state fits a phone). Live-verified on a
+  375px viewport: orb fills the screen, manifest/icon served, layout clean.
+- Latest: `pytest` 249/249, `ruff` clean (python); web `vitest` 17/17, `tsc`/`vite build` clean.
+
+## Building the backlog — ALL DONE ✅
+1. Outcome verification · 2. auto-postmortems · 3. anomaly detection · 4. confidence/abstention ·
+5. time-travel diffs · 6. graceful degradation · 7. knowledge-base ingest · 8. cost-aware caching ·
+9. governance polish · 10. plugin SDK/MCP · 11. mobile PWA — all built, tested, committed.
+(Deferred-as-premature, NOT built by design: knowledge graph, multi-user, multi-node, OS sandboxing.)
 
 ## Next step — do this first
-Build backlog **#11 mobile PWA** (last): make the React console installable + responsive — web app
-manifest + service worker (offline shell) + responsive layout for the orb/chat on a phone.
+**Everything in the program + cross-cutting + backlog is built.** Only deploy-time wiring remains
+(stand up SearXNG/Prometheus/Loki/whisper/Piper/mail/HA; `npx playwright install` for E2E). Or seed
+a deferred-as-premature item once reality justifies it (a 2nd box → multi-node; etc.).
 
 ## Open questions / blockers
 - *(none)*

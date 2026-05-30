@@ -43,7 +43,7 @@ export function PresenceMode({
           {v.caption}
         </motion.div>
       </div>
-      <div className="mx-auto h-[34vh] w-full max-w-3xl">
+      <div className="mx-auto h-[34vh] w-full max-w-3xl px-4 pb-[env(safe-area-inset-bottom)]">
         <Chat turns={turns} onSend={onSend} disabled={disabled} mic={mic} />
       </div>
     </div>

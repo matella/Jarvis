@@ -31,7 +31,7 @@ export function TopBar({
   };
 
   return (
-    <header className="relative z-10 flex items-center justify-between border-b border-edge px-5 py-3">
+    <header className="relative z-10 flex flex-wrap items-center justify-between gap-y-2 border-b border-edge px-3 py-3 sm:px-5">
       <div className="flex items-baseline gap-3">
         <span className="font-display text-lg font-700 tracking-[0.3em] text-ink">JARVIS</span>
         <span className="label hidden sm:inline">Operational Intelligence</span>
