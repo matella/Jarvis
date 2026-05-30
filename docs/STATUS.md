@@ -255,6 +255,13 @@ Order: **1) notifications keystone → 2) memory (session history + facts) → 3
   Build verified (tsc/vite/vitest 17, `cap add android` + sync OK); APK build is the operator's
   Android-Studio step.
 - Model: operator moving `MODEL_REASONING` → `qwen3:4b` (lifts recall/triage/extraction fidelity).
+- **[security review DONE]** Full-codebase pass fixed: SSRF via redirect/scheme bypass in the egress
+  guard (HIGH — redirects now re-validated, http(s)-only), timing-unsafe gateway token compare
+  (→ hmac.compare_digest), plugins able to shadow built-in capabilities (load_plugins refuses
+  name collisions), WS chat crashing on inference/DB error (now degrades), latent embed-iframe XSS +
+  unsafe sandbox (scheme-guarded URLs, dropped allow-same-origin). Reviewed clean: SQL (parameterized),
+  SSH (shlex.quote+path validation), webhook HMAC, the execution gate, markdown (React-escaped),
+  query caps, div-by-zero guards. SSRF guards verified live on the box.
 
 ## Building the backlog — ALL DONE ✅
 1. Outcome verification · 2. auto-postmortems · 3. anomaly detection · 4. confidence/abstention ·
