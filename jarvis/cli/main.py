@@ -36,6 +36,7 @@ backup_app = typer.Typer(no_args_is_help=True, help="Backups + restore drill")
 snapshot_app = typer.Typer(no_args_is_help=True, help="State snapshots (compaction / DR)")
 plan_app = typer.Typer(no_args_is_help=True, help="Multi-step plans (planner + executor)")
 connectors_app = typer.Typer(no_args_is_help=True, help="External connectors (read + act)")
+routine_app = typer.Typer(no_args_is_help=True, help="Scheduled routines (proactive briefings)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -52,6 +53,7 @@ app.add_typer(backup_app, name="backup")
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(plan_app, name="plan")
 app.add_typer(connectors_app, name="connectors")
+app.add_typer(routine_app, name="routine")
 
 console = Console()
 
@@ -878,6 +880,68 @@ def connectors_poll(name: str = typer.Argument(..., help="feeds|mail")) -> None:
         raise typer.Exit(code=1)
     count = connector.ingest(once=True)
     console.print(f"{name}: emitted [bold]{count}[/bold] events")
+
+
+@routine_app.command("add")
+def routine_add(
+    name: str,
+    daily: str = typer.Option(None, help="Daily at HH:MM (UTC), e.g. 07:30"),
+    every: int = typer.Option(None, help="Interval seconds (alternative to --daily)"),
+    action: str = typer.Option("briefing", help="briefing|summary|search"),
+    hours: int = typer.Option(12, help="Window for briefing/summary"),
+    query: str = typer.Option("", help="Query for the search action"),
+) -> None:
+    """Add a scheduled routine (proactive briefing/summary/search)."""
+    from jarvis.routines.models import Action, Routine, Schedule
+    from jarvis.routines.repository import insert_routine
+
+    if daily:
+        schedule = Schedule(kind="daily", at=daily)
+    elif every:
+        schedule = Schedule(kind="interval", seconds=every)
+    else:
+        raise typer.BadParameter("provide --daily HH:MM or --every SECONDS")
+    routine = Routine(
+        name=name, schedule=schedule,
+        action=Action(kind=action, hours=hours, query=query),
+    )
+    with db.connect(autocommit=True) as conn:
+        insert_routine(conn, routine)
+    console.print(f"added routine [bold]{routine.name}[/bold] ({routine.id})")
+
+
+@routine_app.command("list")
+def routine_list() -> None:
+    """List configured routines."""
+    from jarvis.routines.repository import list_routines
+
+    with db.connect() as conn:
+        routines = list_routines(conn)
+    table = Table(title=f"routines ({len(routines)})")
+    for col in ("id", "name", "schedule", "action", "enabled", "last_run"):
+        table.add_column(col, overflow="fold")
+    for r in routines:
+        sched = r.schedule.at if r.schedule.kind.value == "daily" else f"{r.schedule.seconds}s"
+        table.add_row(
+            r.id, r.name, f"{r.schedule.kind.value} {sched}", r.action.kind.value,
+            str(r.enabled), _short(r.last_run) if r.last_run else "—",
+        )
+    console.print(table)
+
+
+@routine_app.command("run")
+def routine_run(routine_id: str) -> None:
+    """Run a routine now (ignores schedule)."""
+    from jarvis.routines.repository import get_routine
+    from jarvis.routines.scheduler import run_routine
+
+    with db.connect() as conn:
+        routine = get_routine(conn, routine_id)
+    if routine is None:
+        console.print(f"[red]no routine[/red] {routine_id}")
+        raise typer.Exit(code=1)
+    text = run_routine(routine, notify=False)
+    console.print(f"[bold]{routine.name}[/bold]:\n{text}")
 
 
 @app.command()

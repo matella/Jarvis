@@ -125,6 +125,9 @@ class Settings(BaseSettings):
     def ollama_url(self) -> str:
         return f"http://{self.ollama_host}:{self.ollama_port}"
 
+    # Scheduled routines (cross-cutting A) — proactive briefings. `at` times are interpreted UTC.
+    routine_tick_s: int = 60
+
     # Security primitives (5.5c) — egress allowlist for connectors/search/capture (default-deny).
     # Accepts a JSON list or a comma-separated string in env. Bare hosts; matched incl. subdomains.
     egress_allowlist: list[str] = []

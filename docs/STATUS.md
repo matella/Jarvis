@@ -115,18 +115,24 @@ capture (9) → voice + audio-reactive orb (10) → GPU scheduler (11).
   the `SwapLimiter` is at its per-minute cap so we don't thrash); `BudgetLedger` enforces per-key
   token caps (a runaway routine can't starve the GPU). `inference.scheduled` events carry wait-time
   + queue-depth. Wired: conversation + RAG → INTERACTIVE, planner → PLAN, infra agent → BACKGROUND.
-- Latest: `pytest` 194/194, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0012 (11 needs none).
+- **Cross-cutting A. Scheduled routines** (`routines/` + migration 0013): cron-ish proactive
+  briefings over existing capabilities (summary/briefing/search); pure `is_due` (daily-at /
+  interval); daemon worker (`routines`, 12th supervisor worker) fires due routines, change-aware via
+  last_run, suspended under maintenance → `routine.completed` event + notification. CLI `routine
+  add/list/run`. Live: a briefing composed incidents + summarizer into a grounded digest.
+- Latest: `pytest` (running), `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0013.
 
 ## In progress
-- **Program complete.** Remaining work is deferred deploy-time wiring + optional 6b UI polish
-  (topology graph, metric charts, decision inspector, Cmd-K, Playwright E2E) and cross-cutting
-  tracks — none blocking. The cognition loop + full conversational orchestrator are live.
+- **Cross-cutting tracks, in order:** A ✅ → **B** (feedback + eval/replay harness) → **C**
+  (observability ingest: Prometheus/Loki) → **D** (memory governance). The numbered program
+  (5.5a–11) is complete. Then optional 6b UI polish.
 
 ## Next step — do this first
-Optional: stand up the deferred external services (SearXNG container + JSON; whisper.cpp/Piper;
-real mail/HA/CalDAV instances) to light up the live connector/search/voice paths end-to-end, or
-build the remaining 6b UI panels (topology graph, metric charts, decision inspector, Cmd-K).
+Build **cross-cutting B** (feedback loop + eval/replay harness) per
+`docs/superpowers/specs/2026-05-30-cross-cutting-tracks-design.md` §B: operator 👍/👎 → `feedback`
+events (adaptive-attention signal); `eval/` re-runs stored `context_ref`s through the current model
+and diffs against the recorded decision (drift gate on model/agent change).
 
 ## Open questions / blockers
 - *(none)*

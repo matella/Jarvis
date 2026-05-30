@@ -24,6 +24,7 @@ CORRELATION = "corr"
 CONTEXT = "ctx"
 CONVERSATION = "conv"
 PLAN = "plan"
+ROUTINE = "rtn"
 
 
 def new_id(prefix: str) -> str:
