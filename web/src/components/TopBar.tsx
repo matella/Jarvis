@@ -7,7 +7,7 @@ import { orbVisual } from "../lib/presence";
 import type { PresenceState } from "../lib/types";
 import type { ConnState } from "../lib/useConversation";
 
-export type Surface = "presence" | "console";
+export type Surface = "presence" | "console" | "insight";
 
 export function TopBar({
   presence,
@@ -73,7 +73,7 @@ export function TopBar({
         )}
 
         <div className="flex border border-edge">
-          {(["presence", "console"] as Surface[]).map((s) => (
+          {(["presence", "console", "insight"] as Surface[]).map((s) => (
             <button
               key={s}
               onClick={() => onSurface(s)}

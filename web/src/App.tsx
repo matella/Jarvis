@@ -1,10 +1,13 @@
-// App shell: one conversation channel feeding both surfaces; a toggle swaps the view without
-// dropping the WebSocket or the transcript. Voice (P10) is wired here: the mic records → /ws audio,
-// TTS replies play back, and both drive the orb's audio-reactivity. Atmosphere layers live here too.
+// App shell: one conversation channel feeding three surfaces (presence / console / insight); a
+// toggle swaps the view without dropping the WebSocket or transcript. Voice (P10) drives the orb's
+// audio-reactivity. Cmd-K palette + decision-inspector modal are global. Atmosphere layers here.
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
+import { CommandPalette, useCommandPalette, type Command } from "./components/CommandPalette";
 import { ConsoleMode } from "./components/ConsoleMode";
+import { DecisionInspector } from "./components/DecisionInspector";
+import { InsightMode, type InsightTab } from "./components/InsightMode";
 import { PresenceMode } from "./components/PresenceMode";
 import { TopBar, type Surface } from "./components/TopBar";
 import { useConversation } from "./lib/useConversation";
@@ -18,23 +21,53 @@ export default function App() {
   sendAudioRef.current = sendAudio;
 
   const [surface, setSurface] = useState<Surface>("presence");
+  const [insightTab, setInsightTab] = useState<InsightTab>("topology");
+  const [inspecting, setInspecting] = useState<string | null>(null);
+  const palette = useCommandPalette();
+
   const disabled = conn !== "open";
   const mic = { recording: voice.recording, start: voice.startMic, stop: voice.stopMic };
+
+  const goInsight = (tab: InsightTab) => {
+    setInsightTab(tab);
+    setSurface("insight");
+  };
+  const commands = useMemo<Command[]>(
+    () => [
+      { id: "presence", label: "Go to Presence", hint: "orb", run: () => setSurface("presence") },
+      { id: "console", label: "Go to Console", hint: "HUD", run: () => setSurface("console") },
+      { id: "topology", label: "Insight · Topology graph", run: () => goInsight("topology") },
+      { id: "metrics", label: "Insight · Metric charts", run: () => goInsight("metrics") },
+      { id: "approvals", label: "Insight · Approvals queue", run: () => goInsight("approvals") },
+      { id: "mic", label: voice.recording ? "Stop mic" : "Start mic (talk)",
+        run: () => (voice.recording ? voice.stopMic() : void voice.startMic()) },
+    ],
+    [voice.recording], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   return (
     <div className="atmosphere grain scanlines relative flex h-full flex-col bg-void">
       <TopBar presence={presence} conn={conn} surface={surface} onSurface={setSurface} />
       <main className="relative min-h-0 flex-1">
-        {surface === "presence" ? (
+        {surface === "presence" && (
           <PresenceMode
             presence={presence} turns={turns} onSend={send} disabled={disabled} mic={mic}
           />
-        ) : (
+        )}
+        {surface === "console" && (
           <ConsoleMode
             presence={presence} turns={turns} onSend={send} disabled={disabled} mic={mic}
           />
         )}
+        {surface === "insight" && (
+          <InsightMode tab={insightTab} onTab={setInsightTab} onInspect={setInspecting} />
+        )}
       </main>
+
+      <CommandPalette open={palette.open} setOpen={palette.setOpen} commands={commands} />
+      {inspecting && (
+        <DecisionInspector intentId={inspecting} onClose={() => setInspecting(null)} />
+      )}
     </div>
   );
 }

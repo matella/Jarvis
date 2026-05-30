@@ -93,6 +93,72 @@ def create_app() -> FastAPI:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    @app.get("/api/topology")
+    def topology(principal: Principal = Depends(_principal)) -> dict[str, Any]:
+        """Service-dependency graph: distinct nodes + typed edges."""
+        _require(principal, "read")
+        from jarvis.ingest.topology import all_edges
+
+        with db.connect() as conn:
+            edges = all_edges(conn)
+        nodes = sorted({e[0] for e in edges} | {e[1] for e in edges})
+        return {
+            "nodes": nodes,
+            "edges": [{"src": s, "dst": d, "relation": r} for s, d, r in edges],
+        }
+
+    @app.get("/api/intent/{intent_id}")
+    def intent_detail(
+        intent_id: str, principal: Principal = Depends(_principal)
+    ) -> dict[str, Any]:
+        """Full decision record: the intent, its executions, the causal trace, and its context."""
+        _require(principal, "read")
+        from jarvis.core.context_store import get_context
+        from jarvis.intents.repository import get_executions_for_intent, get_intent
+
+        with db.connect() as conn:
+            intent = get_intent(conn, intent_id)
+            if intent is None:
+                raise HTTPException(status_code=404, detail="no such intent")
+            executions = get_executions_for_intent(conn, intent_id)
+            trace = _trace_rows(conn, intent.correlation_id)
+            ctx = get_context(conn, intent.context_ref) if intent.context_ref else None
+        return {
+            "intent": intent.model_dump(mode="json"),
+            "executions": [e.model_dump(mode="json") for e in executions],
+            "trace": trace,
+            "context": ({"prompt": ctx.prompt, "model": ctx.model} if ctx else None),
+        }
+
+    @app.post("/api/intent/{intent_id}/{decision}")
+    def intent_decide(
+        intent_id: str, decision: str, principal: Principal = Depends(_principal)
+    ) -> dict[str, Any]:
+        """Approve+execute or reject an intent from the approvals queue (gated + audited)."""
+        _require(principal, "chat")
+        from jarvis.audit.log import record
+        from jarvis.intents import service
+
+        if decision not in ("approve", "reject"):
+            raise HTTPException(status_code=400, detail="decision must be approve|reject")
+        actor = f"user:{principal.actor}"
+        with db.connect(autocommit=True) as conn:
+            try:
+                if decision == "reject":
+                    service.reject(conn, intent_id)
+                    record(conn, actor=actor, action="intent.reject", target=intent_id)
+                    return {"status": "rejected"}
+                service.approve(conn, intent_id)
+                record(conn, actor=actor, action="intent.approve", target=intent_id)
+                execution = service.execute(conn, intent_id)
+                record(conn, actor=actor, action="intent.execute", target=intent_id,
+                       outcome=execution.outcome.value)
+                return {"status": "executed", "outcome": execution.outcome.value}
+            except service.IntentNotFound as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            except (service.ApprovalRequired, service.ModeBlocked) as exc:
+                return {"status": "gated", "detail": str(exc)}
+
     @app.get("/api/memory")
     def memory(
         kind: str | None = None, n: int = 30, principal: Principal = Depends(_principal)
@@ -149,6 +215,27 @@ def create_app() -> FastAPI:
         await _serve_ws(socket)
 
     return app
+
+
+def _trace_rows(conn: Any, correlation_id: str) -> list[dict]:
+    """The full causal chain (events + intents + executions) for a correlation id, id-sorted."""
+    specs = (
+        ("event", "events", "id", "type", "severity"),
+        ("intent", "intents", "intent_id", "type", "status"),
+        ("execution", "executions", "exec_id", "outcome", "failure_class"),
+    )
+    rows: list[dict] = []
+    for kind, table, id_col, type_col, detail_col in specs:
+        sql = (
+            f"SELECT {id_col} AS id, {type_col} AS type, {detail_col} AS detail, causation_id "
+            f"FROM {table} WHERE correlation_id = %s"
+        )
+        for r in conn.execute(sql, (correlation_id,)).fetchall():
+            rows.append({"record_kind": kind, "id": r["id"], "type": str(r["type"]),
+                         "detail": str(r["detail"]) if r["detail"] is not None else "",
+                         "causation_id": r["causation_id"]})
+    rows.sort(key=lambda r: r["id"])  # ULID ids sort chronologically
+    return rows
 
 
 async def _send_presence(socket: WebSocket, state: str) -> None:

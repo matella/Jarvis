@@ -33,13 +33,34 @@ export interface HealthSnapshot {
   degraded: boolean;
 }
 
-async function postJSON(path: string, body: unknown): Promise<boolean> {
+async function postJSON<T = { ok: boolean }>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
-  return res.ok;
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return (await res.json().catch(() => ({}))) as T;
+}
+
+export interface Topology {
+  nodes: string[];
+  edges: { src: string; dst: string; relation: string }[];
+}
+
+export interface TraceRow {
+  record_kind: string;
+  id: string;
+  type: string;
+  detail: string;
+  causation_id: string | null;
+}
+
+export interface IntentDetail {
+  intent: Record<string, unknown>;
+  executions: Record<string, unknown>[];
+  trace: TraceRow[];
+  context: { prompt: string; model: string } | null;
 }
 
 export const api = {
@@ -49,6 +70,12 @@ export const api = {
   incidents: (n = 20) => getJSON<Record<string, unknown>[]>(`/api/incidents?n=${n}`),
   intents: (n = 20) => getJSON<Record<string, unknown>[]>(`/api/intents?n=${n}`),
   metrics: (n = 50) => getJSON<Record<string, unknown>[]>(`/api/metrics?n=${n}`),
+  topology: () => getJSON<Topology>("/api/topology"),
+  intentDetail: (id: string) => getJSON<IntentDetail>(`/api/intent/${id}`),
+  decideIntent: (id: string, decision: "approve" | "reject") =>
+    postJSON<{ status: string; outcome?: string; detail?: string }>(
+      `/api/intent/${id}/${decision}`, {},
+    ),
   feedback: (targetType: string, targetId: string, rating: 1 | -1) =>
     postJSON("/feedback", { target_type: targetType, target_id: targetId, rating }),
 };

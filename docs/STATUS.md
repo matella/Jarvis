@@ -138,13 +138,21 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   newest — into ONE higher-level summary via one inference → `memory.consolidated`; same compaction
   idea as snapshots, applied to semantic memory). `playbooks.delete_playbook`. CLI `jarvis memory
   list/forget/consolidate` + `playbook forget`; gateway `GET /api/memory`.
-- Latest: `pytest` 212/212, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0014 (D needs none).
+- **6b UI polish slices** (`web/` Insight surface + Cmd-K + inspector): new **Insight** surface
+  (3rd TopBar toggle) with tabs — **Topology** graph (hand-rolled SVG ring layout, typed edges,
+  live state tint), **Metrics** charts (per-container CPU/MEM sparklines + threshold overlay),
+  **Approvals** queue (proposed intents → approve→gated-execute / reject inline). **Decision
+  inspector** modal (intent + causal trace + explain context). **Cmd-K** command palette (global).
+  New gateway reads: `/api/topology`, `/api/intent/{id}` (detail+trace+context),
+  `POST /api/intent/{id}/approve|reject` (gated + audited). Pure viz helpers unit-tested; Playwright
+  E2E harness (`web/e2e/`, run after `npx playwright install chromium`).
+- Latest: `pytest` 212/212, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+  Migrations at head = 0014.
 
 ## In progress
-- **Everything in the program + cross-cutting tracks (A–D) is built.** Only optional 6b UI polish
-  remains (topology graph, metric charts, decision inspector, Cmd-K, Playwright E2E) plus deploy-
-  time external-service wiring. Nothing blocking.
+- **Everything is built**: numbered program (5.5a–11) + cross-cutting tracks (A–D) + 6b UI polish.
+  Only deploy-time external-service wiring remains (SearXNG/Prometheus/Loki/whisper/Piper/mail/HA)
+  + running the Playwright E2E once browsers are installed. Nothing blocking; nothing left to code.
 
 ## Next step — do this first
 Optional only: 6b UI polish slices, or stand up deferred external services (SearXNG/Prometheus/
