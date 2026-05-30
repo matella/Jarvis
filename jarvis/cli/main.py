@@ -38,6 +38,7 @@ plan_app = typer.Typer(no_args_is_help=True, help="Multi-step plans (planner + e
 connectors_app = typer.Typer(no_args_is_help=True, help="External connectors (read + act)")
 routine_app = typer.Typer(no_args_is_help=True, help="Scheduled routines (proactive briefings)")
 obs_app = typer.Typer(no_args_is_help=True, help="Observability ingest (Prometheus + Loki)")
+memory_app = typer.Typer(no_args_is_help=True, help="Memory governance (list/forget/consolidate)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -56,6 +57,7 @@ app.add_typer(plan_app, name="plan")
 app.add_typer(connectors_app, name="connectors")
 app.add_typer(routine_app, name="routine")
 app.add_typer(obs_app, name="obs")
+app.add_typer(memory_app, name="memory")
 
 console = Console()
 
@@ -663,6 +665,16 @@ def playbook_list() -> None:
     console.print(table)
 
 
+@playbook_app.command("forget")
+def playbook_forget(playbook_id: str) -> None:
+    """Forget (delete) a playbook by id (memory governance)."""
+    from jarvis.playbooks.repository import delete_playbook
+
+    with db.connect(autocommit=True) as conn:
+        ok = delete_playbook(conn, playbook_id)
+    console.print(f"{'forgot' if ok else 'no such playbook'}: {playbook_id}")
+
+
 @app.command()
 def predict() -> None:
     """Project metric trends toward thresholds; report anything forecast to cross soon."""
@@ -944,6 +956,53 @@ def routine_run(routine_id: str) -> None:
         raise typer.Exit(code=1)
     text = run_routine(routine, notify=False)
     console.print(f"[bold]{routine.name}[/bold]:\n{text}")
+
+
+@memory_app.command("list")
+def memory_list(
+    kind: str = typer.Option(None, help="Filter by kind (e.g. summary)"),
+    n: int = typer.Option(20, "-n", "--number"),
+) -> None:
+    """List stored memories/summaries."""
+    from jarvis.memory.governance import list_memories
+
+    with db.connect() as conn:
+        rows = list_memories(conn, kind=kind, limit=n)
+    table = Table(title=f"memory ({len(rows)})")
+    for col in ("id", "kind", "content", "ts"):
+        table.add_column(col, overflow="fold")
+    for r in rows:
+        content = str(r["content"])
+        table.add_row(r["id"], r["kind"], content[:120] + ("…" if len(content) > 120 else ""),
+                      _short(r["ts"]))
+    console.print(table)
+
+
+@memory_app.command("forget")
+def memory_forget(memory_id: str) -> None:
+    """Forget (delete) a memory by id."""
+    from jarvis.memory.governance import forget
+
+    with db.connect(autocommit=True) as conn:
+        ok = forget(conn, memory_id)
+    console.print(f"{'forgot' if ok else 'no such memory'}: {memory_id}")
+
+
+@memory_app.command("consolidate")
+def memory_consolidate(
+    kind: str = typer.Option("summary", help="Which kind to consolidate"),
+    keep: int = typer.Option(5, help="Keep this many newest; compact the rest"),
+) -> None:
+    """Compact older memories of a kind into one higher-level summary."""
+    from jarvis.memory.governance import consolidate
+
+    with db.connect(autocommit=True) as conn:
+        report = consolidate(conn, kind=kind, keep_recent=keep)
+    if not report["consolidated"]:
+        console.print("[yellow]nothing to consolidate[/yellow] (need ≥2 older records)")
+        return
+    console.print(f"consolidated [bold]{report['consolidated']}[/bold] → {report['new_id']}")
+    console.print(f"\n[bold]{report['summary']}[/bold]")
 
 
 @obs_app.command("prometheus")

@@ -5,12 +5,13 @@
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
 ## Current milestone
-**Conversational-orchestrator program — ALL 11 milestones COMPLETE** (5.5a–11). 🎉
-The full arc is built, tested, committed: hardening (5.5a/b/c) → conversational backend + React
-orb console (6a/6b) → orchestration + action safety (7) → connectors + webhooks (8) → search +
-capture (9) → voice + audio-reactive orb (10) → GPU scheduler (11).
+**Program (5.5a–11) + ALL cross-cutting tracks (A–D) COMPLETE.** 🎉
+Numbered arc: hardening (5.5a/b/c) → conversational backend + React orb console (6a/6b) →
+orchestration + action safety (7) → connectors + webhooks (8) → search + capture (9) → voice +
+audio-reactive orb (10) → GPU scheduler (11). Cross-cutting: A scheduled routines · B feedback +
+eval/replay harness · C observability ingest (Prometheus/Loki) · D memory governance.
 (Deferred deploy-time wiring only: 6b UI slices; 8 live CalDAV/IMAP/SMTP/HA; 9 live SearXNG/
- Playwright; 10 whisper.cpp/Piper binaries.)
+ Playwright; 10 whisper.cpp/Piper; C live Prometheus/Loki.)
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -132,17 +133,22 @@ capture (9) → voice + audio-reactive orb (10) → GPU scheduler (11).
   existing trend/correlation machinery uses real exporter data; Loki LogQL count queries → a
   `log.spike` event (severity warning) the correlator can fold into incidents. Pure parsers, egress-
   guarded fetch, opt-in daemon workers (`OBSERVABILITY_ENABLED`), CLI `jarvis obs prometheus/loki`.
-- Latest: `pytest` 210/210, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
-  Migrations at head = 0014 (C needs none).
+- **Cross-cutting D. Memory governance** (`memory/governance.py`): `list_memories` / `forget`
+  (→ `memory.forgotten` event) / `consolidate` (compact older `kind` memories — all but the N
+  newest — into ONE higher-level summary via one inference → `memory.consolidated`; same compaction
+  idea as snapshots, applied to semantic memory). `playbooks.delete_playbook`. CLI `jarvis memory
+  list/forget/consolidate` + `playbook forget`; gateway `GET /api/memory`.
+- Latest: `pytest` 212/212, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0014 (D needs none).
 
 ## In progress
-- **Cross-cutting tracks, in order:** A ✅ B ✅ C ✅ → **D** (memory governance). The numbered
-  program (5.5a–11) is complete. Then optional 6b UI polish.
+- **Everything in the program + cross-cutting tracks (A–D) is built.** Only optional 6b UI polish
+  remains (topology graph, metric charts, decision inspector, Cmd-K, Playwright E2E) plus deploy-
+  time external-service wiring. Nothing blocking.
 
 ## Next step — do this first
-Build **cross-cutting D** (memory governance) per the cross-cutting spec §D: list / forget /
-consolidate memories + summaries + playbooks (CLI + console); consolidation compacts old episodic
-summaries into a higher-level one.
+Optional only: 6b UI polish slices, or stand up deferred external services (SearXNG/Prometheus/
+Loki/whisper/Piper/mail/HA) to light up the live paths end-to-end.
 
 ## Open questions / blockers
 - *(none)*

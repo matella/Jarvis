@@ -28,6 +28,11 @@ def list_playbooks(conn: psycopg.Connection, limit: int = 50) -> list[Playbook]:
     return [Playbook(**row) for row in rows]
 
 
+def delete_playbook(conn: psycopg.Connection, playbook_id: str) -> bool:
+    """Forget a playbook (memory governance). Returns True if a row was removed."""
+    return conn.execute("DELETE FROM playbooks WHERE id = %s", (playbook_id,)).rowcount > 0
+
+
 def search_playbooks(
     conn: psycopg.Connection, query_vec: list[float], k: int = 2
 ) -> list[tuple[Playbook, float]]:

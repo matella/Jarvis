@@ -12,9 +12,12 @@ has rules worth lazy-loading — created with the module, not in advance.
 | `playbooks/` | Operator-authored procedural memory (pgvector); grounds agent proposals | `repository.py` | P5 |
 | `state/` | Postgres state models + the event→state **projector**, snapshots | `projector.py` | M2 |
 | `migrations/` (repo root) | Alembic versioned schema migrations (runner-only, raw SQL) | `versions/0001_initial_schema.py` | M1 |
-| `memory/` | `MemoryStore` interface + pgvector implementation | `store.py` | M1 |
+| `memory/` | `MemoryStore` (pgvector) + **governance** (list/forget/consolidate) | `store.py`, `governance.py` | M1, X-D |
 | `events/` | Redis Streams producers/consumers, event schemas, DLQ handling | `consumer.py` | M2 |
-| `ingest/` | Docker events → stream (M2); metrics poller (P2); topology builder (P2); code indexer → `code_chunks` (P3) | `docker_events.py`, `metrics.py`, `topology.py`, `code_index.py` | M2, P2, P3 |
+| `ingest/` | Docker events (M2); metrics (P2); topology (P2); code indexer (P3); predict (P5); **Prometheus scrape + Loki spikes** (cross-cut C) | `docker_events.py`, `metrics.py`, `prometheus.py`, `loki.py` | M2–P5, X-C |
+| `routines/` | Scheduled proactive briefings (cron-ish over existing capabilities) | `scheduler.py` | X-A |
+| `eval/` | Replay-based regression harness (re-run stored contexts, flag decision drift) | `harness.py` | X-B |
+| `feedback.py` | Operator 👍/👎 → feedback rows + events (adaptive-attention signal) | `feedback.py` | X-B |
 | `cli/` | Terminal client + introspection (`tail`, `inspect`, `trace`, `explain`, `replay`) | `main.py` | M2, M4 |
 | `models/` | Ollama client, model-router policy, inference semaphore + timing events; **GPU scheduler** (priority queue, swap limiter, budgets) | `router.py`, `scheduler.py` | M3, P11 |
 | `core/` | Orchestrator: assembly (M3), context store (M4), journal (P2), supervisor + ambient reactor + mode state machine (P5); **planner + plan_executor + policies** (P7) | `assembly.py`, `reactor.py`, `modes.py`, `planner.py`, `plan_executor.py` | M3–P7 |

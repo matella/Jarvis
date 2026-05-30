@@ -93,6 +93,16 @@ def create_app() -> FastAPI:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    @app.get("/api/memory")
+    def memory(
+        kind: str | None = None, n: int = 30, principal: Principal = Depends(_principal)
+    ) -> list[dict]:
+        _require(principal, "read")
+        from jarvis.memory.governance import list_memories
+
+        with db.connect() as conn:
+            return [dict(r) for r in list_memories(conn, kind=kind, limit=min(n, 200))]
+
     @app.post("/feedback")
     def feedback(
         body: dict[str, Any], principal: Principal = Depends(_principal)
