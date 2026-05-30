@@ -64,7 +64,9 @@ export function useConversation(
   const startAwait = useCallback(() => {
     setAwaiting(true);
     if (awaitTimer.current != null) window.clearTimeout(awaitTimer.current);
-    awaitTimer.current = window.setTimeout(() => setAwaiting(false), 120_000);
+    // Longer than the server's inference ceiling (150s) so the reply/timeout-notice always lands
+    // before the client gives up — the user never sees the indicator vanish with no message.
+    awaitTimer.current = window.setTimeout(() => setAwaiting(false), 180_000);
   }, []);
 
   const connect = useCallback(() => {

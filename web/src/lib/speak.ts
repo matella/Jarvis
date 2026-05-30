@@ -1,10 +1,15 @@
-// Spoken replies via the browser's on-device Web Speech synthesis (no server/Piper needed, and no
-// audio leaves the machine). While speaking we pulse the shared audioLevel so the orb blooms with
-// the voice. Toggle persisted in localStorage; respects reduced-motion by simply not pulsing.
+// Spoken replies — on-device, nothing leaves the machine. On the native app we use the platform
+// TTS engine (@capacitor-community/text-to-speech), because the Android System WebView doesn't
+// reliably implement Web Speech synthesis; on the web we use window.speechSynthesis. While
+// speaking we pulse the shared audioLevel so the orb blooms with the voice. Toggle in localStorage.
+
+import { Capacitor } from "@capacitor/core";
+import { TextToSpeech } from "@capacitor-community/text-to-speech";
 
 import { setAudioLevel } from "./audioLevel";
 
 const KEY = "jarvis.speak";
+const IS_NATIVE = Capacitor.isNativePlatform();
 
 export function speakEnabled(): boolean {
   return localStorage.getItem(KEY) !== "off"; // default ON
@@ -15,13 +20,18 @@ export function setSpeakEnabled(on: boolean): void {
   if (!on) cancel();
 }
 
-export function available(): boolean {
+function webSpeechOk(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
+export function available(): boolean {
+  return IS_NATIVE || webSpeechOk();
+}
+
 export function cancel(): void {
-  if (available()) window.speechSynthesis.cancel();
-  setAudioLevel(0);
+  if (IS_NATIVE) TextToSpeech.stop().catch(() => {});
+  else if (webSpeechOk()) window.speechSynthesis.cancel();
+  stopPulse();
 }
 
 // Mobile webviews only allow speech AFTER it's been unlocked inside a user gesture. Replies arrive
@@ -30,7 +40,7 @@ export function cancel(): void {
 let primed = false;
 
 export function primeSpeech(): void {
-  if (primed || !available()) return;
+  if (IS_NATIVE || primed || !webSpeechOk()) return; // native TTS needs no gesture unlock
   primed = true;
   try {
     window.speechSynthesis.getVoices(); // nudge async voice loading
@@ -63,6 +73,17 @@ function stopPulse(): void {
 
 export function speak(text: string): void {
   if (!available() || !speakEnabled() || !text.trim()) return;
+
+  if (IS_NATIVE) {
+    // Platform TTS — reliable in the Android WebView where Web Speech isn't.
+    TextToSpeech.stop().catch(() => {});
+    startPulse();
+    TextToSpeech.speak({ text, lang: "en-US", rate: 1.0, pitch: 1.0, category: "playback" })
+      .catch(() => {})
+      .finally(stopPulse);
+    return;
+  }
+
   window.speechSynthesis.cancel(); // interrupt any prior utterance
   window.speechSynthesis.resume(); // Android can leave synthesis paused; nudge it
   const u = new SpeechSynthesisUtterance(text);

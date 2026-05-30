@@ -118,6 +118,9 @@ class Settings(BaseSettings):
     # Ollama — reached at 127.0.0.1 via the SSH tunnel (off-LAN, like PG/Redis).
     ollama_host: str = "127.0.0.1"
     ollama_port: int = 11434
+    # Hard ceiling on a single inference so a slow/stuck model (or a GPU swap storm) can't hang a
+    # request forever — on timeout the call raises and the caller degrades to a reply, not silence.
+    ollama_timeout_s: int = 150
 
     # Model roles → Ollama tags. Default reasoning model is qwen3:1.7b — the lightest tenant on the
     # shared 8 GB card (qwen3:8b at 6.6 GB crowds out other containers). Same family → the

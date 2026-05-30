@@ -17,7 +17,10 @@ from jarvis.config import get_settings
 
 @lru_cache
 def get_client() -> Client:
-    return Client(host=get_settings().ollama_url)
+    # Explicit timeout (passed through to httpx): the default client has none, so a stuck model
+    # call would hang the chat turn indefinitely. On timeout it raises → graceful degrade.
+    s = get_settings()
+    return Client(host=s.ollama_url, timeout=s.ollama_timeout_s)
 
 
 def _as_dict(obj: Any) -> dict:
