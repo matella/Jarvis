@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket,
 import jarvis.connectors  # noqa: F401 — registers connector act-Tools (mail.send, ha.set_state)
 from jarvis import db
 from jarvis.agents import conversation as convo
-from jarvis.conversation.store import start_conversation
+from jarvis.conversation.store import history_for_display, resume_or_start
 from jarvis.gateway import presence
 from jarvis.gateway.auth import AuthError, Principal, authenticate
 
@@ -260,10 +260,22 @@ async def _serve_ws(socket: WebSocket) -> None:
         return
 
     await socket.accept()
+    # The client passes its last conversation id (?cid=) so a refresh resumes the same thread
+    # instead of starting a blank one. Ownership is checked server-side (resume_or_start).
+    prior_cid = socket.query_params.get("cid") or None
     with db.connect(autocommit=True) as conn:
-        session = start_conversation(conn, actor=principal.actor)
+        session = resume_or_start(conn, actor=principal.actor, conversation_id=prior_cid)
         session.scopes = principal.scopes
         await socket.send_json({"kind": "ready", "conversation_id": session.conversation_id})
+        history = history_for_display(conn, session.conversation_id)
+        if history:
+            await socket.send_json({
+                "kind": "history",
+                "messages": [
+                    {"role": m["role"], "content": m["content"], "artifacts": m["artifacts"]}
+                    for m in history
+                ],
+            })
         await _send_presence(socket, presence.baseline_presence(conn))
 
     try:

@@ -20,7 +20,7 @@ export default function App() {
   const voice = useVoice((b64) => sendAudioRef.current(b64));
   // Spoken replies: prefer server TTS audio (Piper) if it ever arrives; otherwise the browser
   // speaks the text on-device. Either way Jarvis talks when he answers.
-  const { turns, presence, conn, send, sendAudio } = useConversation({
+  const { turns, presence, conn, send, sendAudio, newConversation } = useConversation({
     onTts: voice.playTts,
     onReply: (text) => speak(text),
   });
@@ -47,6 +47,7 @@ export default function App() {
       { id: "approvals", label: "Insight · Approvals queue", run: () => goInsight("approvals") },
       { id: "mic", label: voice.recording ? "Stop mic" : "Start mic (talk)",
         run: () => (voice.recording ? voice.stopMic() : void voice.startMic()) },
+      { id: "new-convo", label: "New conversation", hint: "clear", run: newConversation },
     ],
     [voice.recording], // eslint-disable-line react-hooks/exhaustive-deps
   );

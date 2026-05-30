@@ -4,9 +4,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { wsUrl } from "./api";
+import { setConversationId, wsUrl } from "./api";
 import { isPresenceState } from "./presence";
-import type { ChatTurn, PresenceState, ServerEvent } from "./types";
+import type { ChatTurn, HistoryMessage, PresenceState, ServerEvent } from "./types";
 
 export type ConnState = "connecting" | "open" | "closed";
 
@@ -20,6 +20,21 @@ interface VoiceMsg {
   detail?: string;
 }
 
+// Map a persisted history message back to a renderable turn. Stored artifacts only carry the
+// route/intent (rich artifacts like tables aren't persisted), so restored Jarvis turns show
+// text + route badge; live turns still render everything.
+function historyToTurn(m: HistoryMessage): ChatTurn {
+  const route = (m.artifacts as { route?: ChatTurn["route"] })?.route;
+  const intentId = (m.artifacts as { intent_id?: string | null })?.intent_id ?? null;
+  return {
+    id: nextId(),
+    role: m.role === "user" ? "user" : "jarvis",
+    text: m.content,
+    ...(route ? { route } : {}),
+    ...(intentId ? { intentId } : {}),
+  };
+}
+
 export function useConversation(
   opts: { onTts?: (wavBase64: string) => void; onReply?: (text: string) => void } = {},
 ) {
@@ -30,7 +45,7 @@ export function useConversation(
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [presence, setPresence] = useState<PresenceState>("idle");
   const [conn, setConn] = useState<ConnState>("connecting");
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationIdState] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const aliveRef = useRef(true);
@@ -52,7 +67,11 @@ export function useConversation(
         return;
       }
       if (msg.kind === "ready") {
-        setConversationId(msg.conversation_id);
+        setConversationId(msg.conversation_id); // persist for refresh-resume
+        setConversationIdState(msg.conversation_id);
+      } else if (msg.kind === "history") {
+        // Rehydrate the transcript from the resumed thread (replaces the empty initial state).
+        setTurns(msg.messages.map(historyToTurn));
       } else if (msg.kind === "presence") {
         if (isPresenceState(msg.state)) setPresence(msg.state);
       } else if (msg.kind === "transcript") {
@@ -118,5 +137,13 @@ export function useConversation(
     ws.send(JSON.stringify({ kind: "audio", wav: wavBase64 }));
   }, []);
 
-  return { turns, presence, conn, conversationId, send, sendAudio };
+  // Start a blank thread: forget the stored id, clear the transcript, reconnect (no ?cid).
+  const newConversation = useCallback(() => {
+    setConversationId("");
+    setConversationIdState(null);
+    setTurns([]);
+    socketRef.current?.close(); // onclose auto-reconnects without a cid → fresh conversation
+  }, []);
+
+  return { turns, presence, conn, conversationId, send, sendAudio, newConversation };
 }

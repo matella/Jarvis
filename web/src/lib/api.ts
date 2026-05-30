@@ -3,6 +3,7 @@
 // localStorage; when present it's sent as Authorization and as the ?token= for the WebSocket.
 
 const TOKEN_KEY = "jarvis.token";
+const CONVO_KEY = "jarvis.conversationId";
 
 export function getToken(): string {
   return localStorage.getItem(TOKEN_KEY) ?? "";
@@ -11,6 +12,17 @@ export function getToken(): string {
 export function setToken(token: string): void {
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
+}
+
+// Persist the conversation id so a refresh resumes the same thread (history is replayed by the
+// gateway on reconnect). Cleared by `newConversation()` to start a blank thread.
+export function getConversationId(): string {
+  return localStorage.getItem(CONVO_KEY) ?? "";
+}
+
+export function setConversationId(id: string): void {
+  if (id) localStorage.setItem(CONVO_KEY, id);
+  else localStorage.removeItem(CONVO_KEY);
 }
 
 function authHeaders(): HeadersInit {
@@ -82,7 +94,11 @@ export const api = {
 
 export function wsUrl(): string {
   const proto = location.protocol === "https:" ? "wss" : "ws";
+  const params = new URLSearchParams();
   const token = getToken();
-  const q = token ? `?token=${encodeURIComponent(token)}` : "";
-  return `${proto}://${location.host}/ws${q}`;
+  if (token) params.set("token", token);
+  const cid = getConversationId();
+  if (cid) params.set("cid", cid);
+  const q = params.toString();
+  return `${proto}://${location.host}/ws${q ? `?${q}` : ""}`;
 }

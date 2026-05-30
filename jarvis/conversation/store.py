@@ -34,6 +34,24 @@ def start_conversation(conn: psycopg.Connection, *, actor: str) -> Session:
     return Session(conversation_id=cid, actor=actor)
 
 
+def resume_or_start(
+    conn: psycopg.Connection, *, actor: str, conversation_id: str | None
+) -> Session:
+    """Resume `conversation_id` if it exists AND belongs to `actor`; otherwise start fresh.
+
+    Ownership is enforced so a stored/forged id can't reopen another actor's conversation — a
+    refresh restores YOUR thread, nothing else.
+    """
+    if conversation_id:
+        row = conn.execute(
+            "SELECT id FROM conversations WHERE id = %s AND actor = %s",
+            (conversation_id, actor),
+        ).fetchone()
+        if row:
+            return Session(conversation_id=conversation_id, actor=actor)
+    return start_conversation(conn, actor=actor)
+
+
 def add_message(
     conn: psycopg.Connection, conversation_id: str, *, role: str, content: str,
     artifacts: dict | None = None,
@@ -50,6 +68,18 @@ def recent_messages(
     """The memory window — most recent turns, returned oldest-first for prompt assembly."""
     rows = conn.execute(
         "SELECT role, content, ts FROM messages WHERE conversation_id = %s "
+        "ORDER BY id DESC LIMIT %s",
+        (conversation_id, limit),
+    ).fetchall()
+    return list(reversed(rows))
+
+
+def history_for_display(
+    conn: psycopg.Connection, conversation_id: str, *, limit: int = 200
+) -> list[dict]:
+    """Prior turns (oldest-first) to rehydrate the UI on reconnect — includes stored artifacts."""
+    rows = conn.execute(
+        "SELECT role, content, artifacts, ts FROM messages WHERE conversation_id = %s "
         "ORDER BY id DESC LIMIT %s",
         (conversation_id, limit),
     ).fetchall()

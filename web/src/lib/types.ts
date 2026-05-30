@@ -35,9 +35,17 @@ export interface TurnResult {
   presence: string;
 }
 
+// A persisted prior turn replayed on reconnect (artifacts are the stored route/intent only).
+export interface HistoryMessage {
+  role: string; // "user" | "assistant"
+  content: string;
+  artifacts: { route?: TurnRoute; intent_id?: string | null } | Record<string, unknown>;
+}
+
 // Messages over the /ws channel (gateway → client).
 export type ServerEvent =
   | { kind: "ready"; conversation_id: string }
+  | { kind: "history"; messages: HistoryMessage[] }
   | { kind: "presence"; state: PresenceState }
   | { kind: "turn"; result: TurnResult };
 
