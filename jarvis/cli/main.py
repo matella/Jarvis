@@ -283,23 +283,30 @@ def intents_list(n: int = typer.Option(20, "-n", "--number")) -> None:
 
 @intents_app.command("approve")
 def intents_approve(intent_id: str) -> None:
+    from jarvis.audit.log import record
     from jarvis.intents import service
 
     with db.connect(autocommit=True) as conn:
-        _print_intent(service.approve(conn, intent_id))
+        result = service.approve(conn, intent_id)
+        record(conn, actor="cli", action="intent.approve", target=intent_id)
+        _print_intent(result)
 
 
 @intents_app.command("reject")
 def intents_reject(intent_id: str) -> None:
+    from jarvis.audit.log import record
     from jarvis.intents import service
 
     with db.connect(autocommit=True) as conn:
-        _print_intent(service.reject(conn, intent_id))
+        result = service.reject(conn, intent_id)
+        record(conn, actor="cli", action="intent.reject", target=intent_id)
+        _print_intent(result)
 
 
 @intents_app.command("execute")
 def intents_execute(intent_id: str) -> None:
     """Execute an intent through the approval + mode gate (dry-run under observe)."""
+    from jarvis.audit.log import record
     from jarvis.core.modes import get_mode
     from jarvis.intents import service
 
@@ -308,8 +315,12 @@ def intents_execute(intent_id: str) -> None:
         try:
             execution = service.execute(conn, intent_id)
         except (service.ApprovalRequired, service.ModeBlocked) as exc:
+            record(conn, actor="cli", action="intent.execute.blocked", target=intent_id,
+                   reason=str(exc))
             console.print(f"[yellow]blocked[/yellow] — {exc}")
             raise typer.Exit(code=1) from exc
+        record(conn, actor="cli", action="intent.execute", target=intent_id,
+               outcome=execution.outcome.value, mode=mode)
     console.print(
         f"[bold]execution[/bold] {execution.exec_id}  outcome={execution.outcome.value}  "
         f"mode={mode}"
@@ -691,7 +702,46 @@ def mode_cmd(
                 f"unknown mode {set_to!r}; choose: {[m.value for m in Mode]}"
             ) from exc
         set_mode(conn, new)
+        from jarvis.audit.log import record
+        record(conn, actor="cli", action="mode.set", target=new.value)
         console.print(f"mode set to [bold]{new.value}[/bold]")
+
+
+@app.command("self")
+def self_cmd() -> None:
+    """Self-observability: worker liveness, DLQ/stream, inference latency, reachability."""
+    from jarvis.ops.health import health
+
+    h = health()
+    status = "[red]DEGRADED[/red]" if h["degraded"] else "[green]healthy[/green]"
+    console.print(f"jarvis: {status}")
+    w = h["workers"]
+    console.print(f"  workers alive: {len(w['alive'])}/{len(w['expected'])}"
+                  + (f"  [red]missing: {', '.join(w['missing'])}[/red]" if w["missing"] else ""))
+    console.print("  reachable: " + "  ".join(
+        f"{k}={'ok' if v else '[red]down[/red]'}" for k, v in h["reachable"].items()))
+    console.print(f"  dlq_depth={h['dlq_depth']}  stream_pending={h['stream_pending']}")
+    inf = h["inference"]
+    console.print(f"  inference: last={inf['last_ms']}ms avg={inf['avg_ms']}ms "
+                  f"(n={inf['samples']})")
+
+
+@app.command()
+def audit(n: int = typer.Option(30, "-n", "--number")) -> None:
+    """Show the audit timeline (who did what)."""
+    from jarvis.audit.log import list_audit
+
+    with db.connect() as conn:
+        rows = list_audit(conn, n)
+    table = Table(title=f"audit ({len(rows)})")
+    for col in ("ts", "actor", "action", "target", "details"):
+        table.add_column(col, overflow="fold")
+    for r in reversed(rows):
+        table.add_row(
+            _short(r["ts"]), r["actor"], r["action"],
+            r["target"] or "", str(r["details"]),
+        )
+    console.print(table)
 
 
 @app.command()

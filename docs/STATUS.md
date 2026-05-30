@@ -6,7 +6,7 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**5.5a Durability DONE** (live-verified). Next: 5.5b self-observability + audit.
+**5.5b Self-observability + audit DONE** (live-verified). Next: 5.5c security primitives.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -45,17 +45,20 @@
   (`backup verify` restores into a scratch DB + sanity-checks); state **snapshots** as
   fast-restore checkpoints + `rebuild` (replay after snapshot) — events never pruned. Two new
   daemon workers (snapshot, backup). CLI `backup run/verify`, `snapshot write/rebuild`.
-- Latest: `pytest` 126/126, `ruff` clean. Migrations at head = 0009 (5.5a needs none).
+- **5.5b Self-observability + audit** (`ops/health.py` + `audit/log.py` + migration 0010
+  `audit_log`): `jarvis self` (worker liveness via Redis TTL heartbeats beaten centrally by the
+  supervisor, DLQ depth, stream pending, inference latency, dependency reachability) + periodic
+  `selfcheck` worker emitting `jarvis.health` on degrade/recover transitions; `audit_log` with
+  actor attribution on intents approve/reject/execute, mode-set, and reactor auto-execute;
+  `jarvis audit` timeline. Two new daemon workers wired (snapshot from 5.5a, selfcheck).
+- Latest: `pytest` 128/128, `ruff` clean. Migrations at head = 0010.
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 5.5b** (self-observability + audit;
-  migration 0010 `audit_log`), then 5.5c, 6a, 6b, 7, 8, 9, 10, scheduler (11), cross-cutting.
+- Conversational-orchestrator program, in order. **Next: 5.5c** (security primitives),
+  then 6a, 6b, 7, 8, 9, 10, scheduler (11), cross-cutting.
 
 ## Next step — do this first
-Build **5.5b** per `docs/superpowers/specs/2026-05-30-p55b-self-observability-audit-design.md`:
-`audit_log` table (0010) + actor attribution on approve/execute/mode-set; `jarvis self`
-(worker liveness, DLQ depth, inference latency, reachability) + `jarvis.health` events; `jarvis
-audit`. Then 5.5c.
+Build **5.5c** per its detailed spec in `docs/superpowers/specs/` (security primitives).
 
 ## Open questions / blockers
 - *(none)*

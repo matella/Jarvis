@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     snapshot_heartbeat_min: int = 60              # write a state snapshot at most this often…
     snapshot_change_threshold: int = 1            # …and only if ≥ this many new events since last
 
+    # Self-observability — worker heartbeats (Redis TTL keys) + periodic health.
+    heartbeat_ttl_s: int = 90
+    selfcheck_interval_s: int = 60
+
     # `jarvis run` daemon — periodic collector cadences (ingest/consume/metrics self-loop).
     topology_interval_s: int = 300
     deploy_interval_s: int = 120

@@ -81,9 +81,12 @@ def process_batch(
                     # semi_autonomous: the gate auto-runs it if low-risk+reversible, else holds
                     # for approval — the mode policy decides, not the reactor.
                     if mode is Mode.semi_autonomous:
+                        from jarvis.audit.log import record
                         with db.connect(autocommit=True) as conn:
                             try:
                                 ex = service.execute(conn, intent.intent_id)
+                                record(conn, actor="reactor", action="intent.execute",
+                                       target=intent.intent_id, outcome=ex.outcome.value)
                                 print(f"[reactor] auto-executed → {ex.outcome.value}", flush=True)
                             except service.ApprovalRequired:
                                 print("[reactor] held for approval (not auto-safe)", flush=True)

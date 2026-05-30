@@ -9,7 +9,6 @@ model calls across threads, and each collector opens its own short-lived DB conn
 from __future__ import annotations
 
 import threading
-import time
 from collections.abc import Callable
 
 from jarvis.config import get_settings
@@ -47,6 +46,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.ingest.topology import build_topology
     from jarvis.notify.notifier import run_notifier
     from jarvis.ops.backup import run_backup
+    from jarvis.ops.health import run_selfcheck
     from jarvis.state.snapshotter import run_snapshotter
 
     s = get_settings()
@@ -58,6 +58,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("notify", run_notifier),
         ("reactor", run_reactor),
         ("snapshot", run_snapshotter),
+        ("selfcheck", run_selfcheck),
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
@@ -65,17 +66,24 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
 
 
 def run() -> None:
-    """Start all collectors as daemon threads; block until interrupted."""
+    """Start all collectors as daemon threads; beat heartbeats; block until interrupted."""
+    from jarvis.ops.health import beat
+
     stop = threading.Event()
+    threads: list[tuple[str, threading.Thread]] = []
     for name, fn in workers(stop):
-        threading.Thread(target=_supervise, args=(name, fn, stop), name=name, daemon=True).start()
-    print(
-        "jarvis run: ingest + consume + metrics + topology + deploy (Ctrl-C to stop)",
-        flush=True,
-    )
+        t = threading.Thread(target=_supervise, args=(name, fn, stop), name=name, daemon=True)
+        t.start()
+        threads.append((name, t))
+    print(f"jarvis run: {', '.join(n for n, _ in threads)} (Ctrl-C to stop)", flush=True)
+
+    beat_interval = max(15, get_settings().heartbeat_ttl_s // 2)  # comfortably within TTL
     try:
         while not stop.is_set():
-            time.sleep(1)
+            for name, t in threads:
+                if t.is_alive():
+                    beat(name)
+            stop.wait(beat_interval)
     except KeyboardInterrupt:
         print("\nstopping…", flush=True)
         stop.set()
