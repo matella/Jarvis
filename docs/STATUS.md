@@ -255,6 +255,11 @@ Order: **1) notifications keystone → 2) memory (session history + facts) → 3
   Build verified (tsc/vite/vitest 17, `cap add android` + sync OK); APK build is the operator's
   Android-Studio step.
 - Model: operator moving `MODEL_REASONING` → `qwen3:4b` (lifts recall/triage/extraction fidelity).
+- **[deps DONE] Everything on latest.** Capacitor 6→8 (compileSdk 36, Gradle 8.14, JDK 21; android
+  regenerated). Front-end: React 18→19, @react-three/fiber 8→9, three 0.184, framer-motion 12,
+  Vite 5→8 (Rolldown), Vitest 4, TypeScript 6, Tailwind 3→4 (`@import`+`@config`, `@tailwindcss/
+  postcss`). tsc/build/vitest 17 green, custom theme verified in built CSS, console redeployed +
+  serving. ⚠ orb (R3F 9) + Tailwind-4 styling are build-verified only — eyeball on device.
 - **[security review DONE]** Full-codebase pass fixed: SSRF via redirect/scheme bypass in the egress
   guard (HIGH — redirects now re-validated, http(s)-only), timing-unsafe gateway token compare
   (→ hmac.compare_digest), plugins able to shadow built-in capabilities (load_plugins refuses
