@@ -16,12 +16,21 @@ has rules worth lazy-loading — created with the module, not in advance.
 | `events/` | Redis Streams producers/consumers, event schemas, DLQ handling | `consumer.py` | M2 |
 | `ingest/` | Docker events → stream (M2); metrics poller (P2); topology builder (P2); code indexer → `code_chunks` (P3) | `docker_events.py`, `metrics.py`, `topology.py`, `code_index.py` | M2, P2, P3 |
 | `cli/` | Terminal client + introspection (`tail`, `inspect`, `trace`, `explain`, `replay`) | `main.py` | M2, M4 |
-| `models/` | Ollama client, model-router policy, inference semaphore + timing events | `router.py` | M3 |
-| `core/` | Orchestrator: assembly (M3), context store (M4), journal (P2), supervisor + ambient reactor + operational-mode state machine (P5) | `assembly.py`, `reactor.py`, `modes.py` | M3–P5 |
-| `agents/` | One-shot reasoning endpoints (summarizer, infrastructure agent, alert correlator, coder Q&A) | `summarizer.py` | M3, M4, P2, P3 |
-| `tools/` | Deterministic, capability-scoped executors (the tool contract) | `registry.py` | M4 |
+| `models/` | Ollama client, model-router policy, inference semaphore + timing events; **GPU scheduler** (priority queue, swap limiter, budgets) | `router.py`, `scheduler.py` | M3, P11 |
+| `core/` | Orchestrator: assembly (M3), context store (M4), journal (P2), supervisor + ambient reactor + mode state machine (P5); **planner + plan_executor + policies** (P7) | `assembly.py`, `reactor.py`, `modes.py`, `planner.py`, `plan_executor.py` | M3–P7 |
+| `agents/` | One-shot reasoning endpoints (summarizer, infrastructure agent, alert correlator, coder Q&A); **conversation/executive agent** (P6a) | `summarizer.py`, `conversation.py` | M3–P6 |
+| `tools/` | Deterministic, capability-scoped executors (the tool contract; `preview`/`revert` added P7) | `registry.py` | M4, P7 |
 | `notify/` | Contextual notifications: rules-based notifier consumer + webhook channel | `notifier.py` | Phase 4 |
-| `gateway/` | FastAPI + WebSockets API (multi-client; later than the CLI) | `app.py` | Phase 4 |
+| `gateway/` | FastAPI + WebSocket API: chat `/ws` (+ voice audio), REST reads, presence feed, inbound webhooks, auth | `app.py`, `webhooks.py` | P6a, P8, P10 |
+| `conversation/` | Chat session/turn store (memory window) for the gateway | `store.py` | P6a |
+| `security/` | Secrets provider, egress allowlist, sanitize + untrusted framing (kill switch) | `egress.py`, `sanitize.py`, `secrets.py` | P5.5c |
+| `orchestration/` | Plan + PlanStep records + repository (multi-step goals; executor lives in `core/`) | `models.py` | P7 |
+| `connectors/` | External read (feeds RSS, mail IMAP → events) + act-Tools (mail.send, ha.set_state) | `base.py`, `feeds.py`, `mail.py` | P8 |
+| `search/` | SearchProvider (SearXNG) + web RAG + Playwright capture; egress-guarded, sanitized | `searxng.py`, `rag.py` | P9 |
+| `voice/` | STT (Whisper.cpp), TTS (Piper), wake gate — transport over the conversation pipeline | `stt.py`, `tts.py`, `wake.py` | P10 |
+| `ops/` | Durability (backups + DR drill) + self-observability (`jarvis self`/health) | `backup.py`, `health.py` | P5.5a/b |
+| `audit/` | Append-only audit log (who did what) | `log.py` | P5.5b |
+| `web/` (repo root) | React + Vite console: presence orb (WebGL) + HUD, artifact renderers, voice/audio-reactive orb | `web/src/App.tsx` | P6b, P10 |
 
 ## Where the truth lives
 - **What to build next:** `docs/STATUS.md`
