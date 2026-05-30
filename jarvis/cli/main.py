@@ -768,6 +768,24 @@ def run() -> None:
     run_supervisor()
 
 
+@app.command()
+def serve(
+    host: str | None = typer.Option(None, help="Bind host (default from config)"),
+    port: int | None = typer.Option(None, help="Bind port (default from config)"),
+) -> None:
+    """Start the conversational gateway (FastAPI + WebSocket). Local homelab only."""
+    import uvicorn
+
+    s = get_settings()
+    bind_host, bind_port = host or s.gateway_host, port or s.gateway_port
+    auth = "token-required" if s.gateway_token else "OPEN dev-mode (no token)"
+    console.print(
+        f"gateway → http://{bind_host}:{bind_port}  "
+        f"ws://{bind_host}:{bind_port}/ws  [{auth}]"
+    )
+    uvicorn.run("jarvis.gateway.app:app", host=bind_host, port=bind_port, log_level="info")
+
+
 @backup_app.command("run")
 def backup_run() -> None:
     """Back up the DB now (off-box + a remote copy), pruning to retention."""

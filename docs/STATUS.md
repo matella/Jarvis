@@ -6,7 +6,7 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**5.5c Security primitives DONE** (live-verified). Next: 6a conversational backend/gateway.
+**6a Conversational backend/gateway DONE** (live-verified). Next: 6b React console + presence orb.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -57,14 +57,24 @@
   `guarded_request`, subdomain match, `EGRESS_ALLOWLIST` config); `security/secrets.py`
   (`SecretsProvider`/`EnvSecretsProvider`, repr hides values, never logged/prompted); kill switch
   `jarvis kill` → maintenance (audited; reactor/executor re-check `get_mode()` per cycle).
-- Latest: `pytest` 139/139, `ruff` clean. Migrations at head = 0010.
+- **6a Conversational backend/gateway** (`gateway/` + `agents/conversation.py` + `conversation/`
+  + migration 0011 `conversations`/`messages`): FastAPI `jarvis serve` with `/ws` (chat in →
+  streamed `TurnResult` + presence transitions out), REST reads (events/state/incidents/intents/
+  metrics), `/health` (from 5.5b), bearer-token auth → actor (open dev-mode when no token). The
+  conversation agent is one-shot: NL + assembled context + memory window + capability summary →
+  schema-constrained decision (route=answer|propose). confirm-to-act: a pending proposal + "yes"
+  → approve+execute via the M4 gate, audited as `user:<actor>`. Presence states
+  idle|listening|thinking|speaking|alert|frozen from spine state. Schema-constrained decoding
+  (Ollama JSON-schema `format`) makes routing reliable on qwen3:8b.
+- Latest: `pytest` 149/149, `ruff` clean. Migrations at head = 0011.
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 6a** (conversational backend/gateway),
-  then 6b, 7, 8, 9, 10, scheduler (11), cross-cutting.
+- Conversational-orchestrator program, in order. **Next: 6b** (React console + presence orb),
+  then 7, 8, 9, 10, scheduler (11), cross-cutting.
 
 ## Next step — do this first
-Build **6a** (conversational backend/gateway) per its detailed spec in `docs/superpowers/specs/`.
+Build **6b** (React console + audio-reactive presence orb) per its detailed spec in
+`docs/superpowers/specs/`. It consumes 6a's `/ws` (turns + presence) and REST reads.
 
 ## Open questions / blockers
 - *(none)*

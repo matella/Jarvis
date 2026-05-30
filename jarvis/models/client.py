@@ -32,7 +32,7 @@ def chat(
     *,
     num_ctx: int,
     keep_alive: str,
-    format: str | None = None,
+    format: str | dict | None = None,
 ) -> dict:
     kwargs: dict[str, Any] = {
         "model": model,

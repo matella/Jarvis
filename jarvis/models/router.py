@@ -70,7 +70,7 @@ def chat(
     *,
     correlation_id: str | None = None,
     context_ref: str | None = None,
-    format: str | None = None,
+    format: str | dict | None = None,
 ) -> dict:
     s = get_settings()
     model = model_for_role(role)

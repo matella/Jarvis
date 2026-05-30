@@ -139,6 +139,14 @@ class Settings(BaseSettings):
             return [h.strip().lower() for h in s.split(",") if h.strip()]
         return v
 
+    # Conversational gateway (6a) — FastAPI + WebSocket. Local homelab only, no external exposure.
+    gateway_host: str = "127.0.0.1"
+    gateway_port: int = 8787
+    # Bearer token for the chat/read API. Empty = open dev mode (single "local" actor, all scopes);
+    # set a token to require it. Real per-user identities flow into the audit log as actor.
+    gateway_token: str = ""
+    gateway_actor: str = "local"
+
     # Global operational mode — defaults to propose-only.
     jarvis_mode: Mode = "observe"
 

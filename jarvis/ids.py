@@ -22,6 +22,7 @@ CHUNK = "chk"
 PLAYBOOK = "pb"
 CORRELATION = "corr"
 CONTEXT = "ctx"
+CONVERSATION = "conv"
 
 
 def new_id(prefix: str) -> str:
