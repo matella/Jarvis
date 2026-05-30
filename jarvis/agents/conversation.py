@@ -18,6 +18,7 @@ import psycopg
 from pydantic import BaseModel, Field, ValidationError
 
 from jarvis import ids
+from jarvis.config import get_settings
 from jarvis.conversation.store import Session, add_message, recent_messages
 from jarvis.core.assembly import assemble_context
 from jarvis.events.models import Event, Severity, utcnow
@@ -38,6 +39,7 @@ class TurnRoute(StrEnum):
     propose = "propose"
     confirm = "confirm"
     cancel = "cancel"
+    abstain = "abstain"  # not enough signal — declined to act rather than guess
 
 
 class Citation(BaseModel):
@@ -60,7 +62,13 @@ class TurnResult(BaseModel):
     artifacts: list[Artifact] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     intent_id: str | None = None
+    confidence: float | None = None  # surfaced certainty (proposals/abstentions)
     presence: str = "speaking"
+
+
+def should_abstain(confidence: float, *, floor: float) -> bool:
+    """Pure: a proposed action below the confidence floor should abstain, not guess."""
+    return confidence < floor
 
 
 class _Decision(BaseModel):
@@ -246,6 +254,17 @@ def _reason(
         return _search_answer(decision.query or utterance)
 
     if decision.route == "propose" and decision.intent_type in valid_intent_types():
+        floor = get_settings().abstain_confidence_floor
+        if should_abstain(decision.confidence, floor=floor):
+            # Not enough signal to act — say so instead of proposing a low-confidence action.
+            pct = round(decision.confidence * 100)
+            return TurnResult(
+                route=TurnRoute.abstain, confidence=decision.confidence,
+                message=(
+                    f"I'm not confident enough ({pct}%) to act on that yet. "
+                    "I'd want more signal first — ask me to investigate, or confirm the target."
+                ),
+            )
         intent = _make_intent(decision, ctx.context_ref, session.actor)
         insert_intent(conn, intent)
         session.pending_intent_id = intent.intent_id
@@ -255,7 +274,7 @@ def _reason(
         msg += " Confirm to proceed (reply 'yes'), or 'no' to cancel."
         return TurnResult(
             route=TurnRoute.propose, message=msg, intent_id=intent.intent_id,
-            citations=decision.citations,
+            citations=decision.citations, confidence=decision.confidence,
         )
 
     return TurnResult(

@@ -133,6 +133,9 @@ class Settings(BaseSettings):
     verify_window_min: int = 30
     verify_interval_s: int = 120
 
+    # Confidence + abstention (backlog) — below this confidence, the agent abstains rather than act.
+    abstain_confidence_floor: float = 0.45
+
     # Statistical anomaly detection (backlog) — flag a metric unusual *for itself* (z-score).
     anomaly_z_threshold: float = 3.5
     anomaly_min_samples: int = 20

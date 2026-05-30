@@ -13,6 +13,7 @@ const routeBadge: Record<string, { text: string; cls: string }> = {
   propose: { text: "PROPOSAL · awaiting confirm", cls: "text-amber border-amber/40" },
   confirm: { text: "EXECUTED", cls: "text-teal border-teal/40" },
   cancel: { text: "CANCELLED", cls: "text-steel border-steel/30" },
+  abstain: { text: "ABSTAINED · low confidence", cls: "text-steel border-steel/40" },
   answer: { text: "", cls: "" },
 };
 
@@ -64,8 +65,13 @@ function Bubble({ turn, onQuick }: { turn: ChatTurn; onQuick: (t: string) => voi
         {turn.text}
       </div>
       {badge?.text && (
-        <div className={`mt-1 border px-2 py-0.5 text-[10px] tracking-widest ${badge.cls}`}>
-          {badge.text}
+        <div className="mt-1 flex items-center gap-2">
+          <span className={`border px-2 py-0.5 text-[10px] tracking-widest ${badge.cls}`}>
+            {badge.text}
+          </span>
+          {typeof turn.confidence === "number" && (
+            <span className="label !text-ink">confidence {Math.round(turn.confidence * 100)}%</span>
+          )}
         </div>
       )}
       {turn.artifacts?.map((a, i) => (

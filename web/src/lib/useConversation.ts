@@ -76,6 +76,7 @@ export function useConversation(opts: { onTts?: (wavBase64: string) => void } = 
             artifacts: r.artifacts,
             citations: r.citations,
             intentId: r.intent_id,
+            confidence: r.confidence,
           },
         ]);
       }

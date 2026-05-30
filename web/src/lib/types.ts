@@ -8,7 +8,7 @@ export type PresenceState =
   | "alert"
   | "frozen";
 
-export type TurnRoute = "answer" | "propose" | "confirm" | "cancel";
+export type TurnRoute = "answer" | "propose" | "confirm" | "cancel" | "abstain";
 
 export interface Citation {
   kind: string;
@@ -31,6 +31,7 @@ export interface TurnResult {
   artifacts: Artifact[];
   citations: Citation[];
   intent_id: string | null;
+  confidence?: number | null;
   presence: string;
 }
 
@@ -54,5 +55,6 @@ export interface ChatTurn {
   artifacts?: Artifact[];
   citations?: Citation[];
   intentId?: string | null;
+  confidence?: number | null;
   pending?: boolean;
 }

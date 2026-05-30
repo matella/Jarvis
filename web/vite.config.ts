@@ -20,5 +20,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Vitest owns src/*.test.*; Playwright owns e2e/*.spec.* (don't let Vitest collect those).
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });
