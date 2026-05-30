@@ -682,6 +682,22 @@ def reactor(once: bool = typer.Option(False, help="Process one batch then exit")
     run_reactor(once=once)
 
 
+@app.command("kill")
+def kill_cmd() -> None:
+    """Emergency stop: flip to maintenance (freeze). Reactor/executor halt within a cycle."""
+    from jarvis.audit.log import record
+    from jarvis.core.modes import Mode, get_mode, set_mode
+
+    with db.connect(autocommit=True) as conn:
+        prev = get_mode(conn).value
+        set_mode(conn, Mode.maintenance)
+        record(conn, actor="cli", action="kill", target="maintenance", previous=prev)
+    console.print(
+        f"[bold red]KILL[/bold red] — mode {prev} → [bold]maintenance[/bold]. "
+        "Acting workers freeze within one cycle; restore with [bold]jarvis mode <mode>[/bold]."
+    )
+
+
 @app.command("mode")
 def mode_cmd(
     set_to: str = typer.Argument(

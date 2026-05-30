@@ -10,7 +10,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Default/initial operational mode (the LIVE mode is persisted in DB; see core/modes.py).
@@ -124,6 +124,20 @@ class Settings(BaseSettings):
     @property
     def ollama_url(self) -> str:
         return f"http://{self.ollama_host}:{self.ollama_port}"
+
+    # Security primitives (5.5c) — egress allowlist for connectors/search/capture (default-deny).
+    # Accepts a JSON list or a comma-separated string in env. Bare hosts; matched incl. subdomains.
+    egress_allowlist: list[str] = []
+
+    @field_validator("egress_allowlist", mode="before")
+    @classmethod
+    def _split_csv(cls, v: object) -> object:
+        if isinstance(v, str):
+            s = v.strip()
+            if not s or s.startswith("["):  # empty or JSON — let pydantic handle it
+                return [] if not s else v
+            return [h.strip().lower() for h in s.split(",") if h.strip()]
+        return v
 
     # Global operational mode — defaults to propose-only.
     jarvis_mode: Mode = "observe"

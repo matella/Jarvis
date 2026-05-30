@@ -6,7 +6,7 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**5.5b Self-observability + audit DONE** (live-verified). Next: 5.5c security primitives.
+**5.5c Security primitives DONE** (live-verified). Next: 6a conversational backend/gateway.
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -51,14 +51,20 @@
   `selfcheck` worker emitting `jarvis.health` on degrade/recover transitions; `audit_log` with
   actor attribution on intents approve/reject/execute, mode-set, and reactor auto-execute;
   `jarvis audit` timeline. Two new daemon workers wired (snapshot from 5.5a, selfcheck).
-- Latest: `pytest` 128/128, `ruff` clean. Migrations at head = 0010.
+- **5.5c Security primitives** (`security/` — no migration, library + config): `sanitize()`
+  (secrets + PII: emails/phones/tokens/keys) + `wrap_untrusted()` (data-not-instructions framing)
+  in `security/sanitize.py`; `security/egress.py` default-deny allowlist (`allowed`/`check_url`/
+  `guarded_request`, subdomain match, `EGRESS_ALLOWLIST` config); `security/secrets.py`
+  (`SecretsProvider`/`EnvSecretsProvider`, repr hides values, never logged/prompted); kill switch
+  `jarvis kill` → maintenance (audited; reactor/executor re-check `get_mode()` per cycle).
+- Latest: `pytest` 139/139, `ruff` clean. Migrations at head = 0010.
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 5.5c** (security primitives),
-  then 6a, 6b, 7, 8, 9, 10, scheduler (11), cross-cutting.
+- Conversational-orchestrator program, in order. **Next: 6a** (conversational backend/gateway),
+  then 6b, 7, 8, 9, 10, scheduler (11), cross-cutting.
 
 ## Next step — do this first
-Build **5.5c** per its detailed spec in `docs/superpowers/specs/` (security primitives).
+Build **6a** (conversational backend/gateway) per its detailed spec in `docs/superpowers/specs/`.
 
 ## Open questions / blockers
 - *(none)*
