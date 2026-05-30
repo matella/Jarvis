@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4: single import + keep the existing JS theme (colors/fonts/shadows) via @config. */
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 :root {
   color-scheme: dark;

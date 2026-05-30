@@ -143,7 +143,11 @@ function SonarRings({ state }: { state: PresenceState }) {
       {[0, 1, 2].map((i) => (
         <mesh
           key={i}
-          ref={(el) => el && (refs.current[i] = el)}
+          // React 19 types ref callbacks as returning void|cleanup; use a block body so the
+          // assignment expression isn't returned (the old arrow returned the mesh).
+          ref={(el) => {
+            if (el) refs.current[i] = el;
+          }}
           rotation={[Math.PI / 2, 0, 0]}
         >
           <ringGeometry args={[1.0, 1.04, 96]} />
