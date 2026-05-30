@@ -151,19 +151,24 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   since) → a `verifications` row + `verification.completed` event, linked by correlation_id.
   Periodic `verify` worker (13th) + CLI `jarvis verify [--show]`. The substrate for trustworthy
   autonomy — confidence, learning, postmortems all key off whether actions actually worked.
-- Latest: `pytest` 218/218, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
-  Migrations at head = 0015.
+- **Backlog #2 Auto-postmortems** (`agents/postmortem.py`): one inference over a resolved incident →
+  structured postmortem (what/root-cause/resolution) + a suggested reusable playbook; stored as a
+  `postmortem` memory record + `postmortem.generated` event. `adopt_playbook` deterministically
+  embeds + inserts the suggested playbook (operator-confirmed). CLI `jarvis postmortem <id> [--adopt]`.
+- Latest: `pytest` 219/219, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+  Migrations at head = 0015 (#2 needs none).
 
 ## Building the backlog (recommended order, one per commit)
-1. Outcome verification ✅ · 2. auto-postmortems → learned playbooks · 3. statistical anomaly
+1. Outcome verification ✅ · 2. auto-postmortems → learned playbooks ✅ · 3. statistical anomaly
 detection · 4. confidence/abstention · 5. time-travel diffs · 6. graceful degradation · 7.
 knowledge-base ingest · 8. cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP ·
 11. mobile PWA. (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node,
 OS sandboxing.) Numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish all complete.
 
 ## Next step — do this first
-Build backlog **#2 auto-postmortems**: on incident/verification-failure, generate a postmortem and
-suggest codifying it as a playbook (procedural memory that grows from experience).
+Build backlog **#3 statistical anomaly detection**: flag a metric behaving unusually *for itself*
+(rolling mean/stdev z-score over `metrics` history) → an `anomaly.detected` event the correlator
+can use — beyond fixed thresholds/trends.
 
 ## Open questions / blockers
 - *(none)*

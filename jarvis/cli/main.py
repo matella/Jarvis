@@ -1044,6 +1044,31 @@ def feedback(
     console.print(f"recorded {'👍' if up else '👎'} on {target_type}:{target_id} (net score {s})")
 
 
+@app.command("postmortem")
+def postmortem_cmd(
+    incident_id: str,
+    adopt: bool = typer.Option(False, "--adopt", help="Also codify the suggested playbook"),
+) -> None:
+    """Generate a postmortem for an incident (and optionally adopt the suggested playbook)."""
+    from jarvis.agents.postmortem import adopt_playbook, generate
+
+    try:
+        pm = generate(incident_id)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[bold]{pm.as_text()}[/bold]")
+    console.print(f"\n[teal]Suggested playbook:[/teal] {pm.playbook_title}")
+    console.print(f"  when: {pm.playbook_when}")
+    console.print(f"  procedure: {pm.playbook_procedure}")
+    if adopt:
+        pid = adopt_playbook(pm)
+        console.print(
+            f"\nadopted playbook → [bold]{pid}[/bold]" if pid
+            else "\n[yellow]no playbook to adopt[/yellow]"
+        )
+
+
 @app.command("verify")
 def verify_cmd(
     show: bool = typer.Option(False, "--show", help="List recent verifications instead of running"),
