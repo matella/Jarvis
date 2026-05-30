@@ -10,18 +10,20 @@ has rules worth lazy-loading — created with the module, not in advance.
 | `intents/` | Intent + Execution contracts (Pydantic, schema-versioned, causal ids) + approval/mode gate | `models.py`, `service.py` | M1, M4 |
 | `incidents/` | Correlated-alert incident contract + repository (alert correlation output) | `models.py` | P2 |
 | `playbooks/` | Operator-authored procedural memory (pgvector); grounds agent proposals | `repository.py` | P5 |
-| `state/` | Postgres state models + the event→state **projector**, snapshots | `projector.py` | M2 |
+| `state/` | Postgres state models + the event→state **projector**, snapshots; **time-travel** (point-in-time reconstruction + diffs, #5) | `projector.py`, `timetravel.py` | M2, #5 |
 | `migrations/` (repo root) | Alembic versioned schema migrations (runner-only, raw SQL) | `versions/0001_initial_schema.py` | M1 |
 | `memory/` | `MemoryStore` (pgvector) + **governance** (list/forget/consolidate) | `store.py`, `governance.py` | M1, X-D |
 | `events/` | Redis Streams producers/consumers, event schemas, DLQ handling | `consumer.py` | M2 |
-| `ingest/` | Docker events (M2); metrics (P2); topology (P2); code indexer (P3); predict (P5); **Prometheus scrape + Loki spikes** (cross-cut C) | `docker_events.py`, `metrics.py`, `prometheus.py`, `loki.py` | M2–P5, X-C |
+| `ingest/` | Docker events (M2); metrics (P2); topology (P2); code indexer (P3); predict (P5); Prometheus/Loki (X-C); **anomaly** (z-score #3); **KB ingest** (docs→memory #7) | `docker_events.py`, `metrics.py`, `prometheus.py`, `anomaly.py`, `kb.py` | M2–P5, X-C, #3, #7 |
 | `routines/` | Scheduled proactive briefings (cron-ish over existing capabilities) | `scheduler.py` | X-A |
 | `eval/` | Replay-based regression harness (re-run stored contexts, flag decision drift) | `harness.py` | X-B |
 | `feedback.py` | Operator 👍/👎 → feedback rows + events (adaptive-attention signal) | `feedback.py` | X-B |
+| `verify/` | Outcome verification — did an action actually work? (deterministic check → verdict) | `runner.py`, `checks.py` | backlog #1 |
+| `plugins/` | Plugin SDK — register external capability-scoped HTTP tools from YAML manifests | `loader.py` | backlog #10 |
 | `cli/` | Terminal client + introspection (`tail`, `inspect`, `trace`, `explain`, `replay`) | `main.py` | M2, M4 |
-| `models/` | Ollama client, model-router policy, inference semaphore + timing events; **GPU scheduler** (priority queue, swap limiter, budgets) | `router.py`, `scheduler.py` | M3, P11 |
-| `core/` | Orchestrator: assembly (M3), context store (M4), journal (P2), supervisor + ambient reactor + mode state machine (P5); **planner + plan_executor + policies** (P7) | `assembly.py`, `reactor.py`, `modes.py`, `planner.py`, `plan_executor.py` | M3–P7 |
-| `agents/` | One-shot reasoning endpoints (summarizer, infrastructure agent, alert correlator, coder Q&A); **conversation/executive agent** (P6a) | `summarizer.py`, `conversation.py` | M3–P6 |
+| `models/` | Ollama client, router policy, semaphore + timing; **GPU scheduler** (P11); **embedding cache** (cost-aware #8) | `router.py`, `scheduler.py`, `cache.py` | M3, P11, #8 |
+| `core/` | Orchestrator: assembly (M3), context store (M4), supervisor + reactor + modes (P5); **planner/plan_executor/policies** (P7); **governance** (freeze/preview/nudge #9); **degrade** (graceful degradation #6) | `reactor.py`, `modes.py`, `planner.py`, `governance.py`, `degrade.py` | M3–P7, #6, #9 |
+| `agents/` | One-shot reasoning endpoints (summarizer, infra agent, correlator, coder); **conversation agent** (P6a); **postmortem** (auto-postmortems #2) | `conversation.py`, `postmortem.py` | M3–P6, #2 |
 | `tools/` | Deterministic, capability-scoped executors (the tool contract; `preview`/`revert` added P7) | `registry.py` | M4, P7 |
 | `notify/` | Contextual notifications: rules-based notifier consumer + webhook channel | `notifier.py` | Phase 4 |
 | `gateway/` | FastAPI + WebSocket API: chat `/ws` (+ voice audio), REST reads, presence feed, inbound webhooks, auth | `app.py`, `webhooks.py` | P6a, P8, P10 |
