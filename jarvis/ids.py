@@ -25,6 +25,7 @@ CONTEXT = "ctx"
 CONVERSATION = "conv"
 PLAN = "plan"
 ROUTINE = "rtn"
+VERIFICATION = "vrf"
 
 
 def new_id(prefix: str) -> str:

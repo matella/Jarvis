@@ -49,6 +49,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.ops.health import run_selfcheck
     from jarvis.routines.scheduler import run_routine_scheduler
     from jarvis.state.snapshotter import run_snapshotter
+    from jarvis.verify.runner import run_verifier
 
     s = get_settings()
     workers_list: list[tuple[str, Callable[[], None]]] = [
@@ -61,6 +62,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("snapshot", run_snapshotter),
         ("selfcheck", run_selfcheck),
         ("routines", run_routine_scheduler),
+        ("verify", run_verifier),
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),

@@ -146,17 +146,24 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   New gateway reads: `/api/topology`, `/api/intent/{id}` (detail+trace+context),
   `POST /api/intent/{id}/approve|reject` (gated + audited). Pure viz helpers unit-tested; Playwright
   E2E harness (`web/e2e/`, run after `npx playwright install chromium`).
-- Latest: `pytest` 212/212, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
-  Migrations at head = 0014.
+- **Backlog #1 Outcome verification** (`verify/` + migration 0015): after an execution settles, a
+  DETERMINISTIC check judges whether the effect held (container running + no fresh failure events
+  since) → a `verifications` row + `verification.completed` event, linked by correlation_id.
+  Periodic `verify` worker (13th) + CLI `jarvis verify [--show]`. The substrate for trustworthy
+  autonomy — confidence, learning, postmortems all key off whether actions actually worked.
+- Latest: `pytest` 218/218, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+  Migrations at head = 0015.
 
-## In progress
-- **Everything is built**: numbered program (5.5a–11) + cross-cutting tracks (A–D) + 6b UI polish.
-  Only deploy-time external-service wiring remains (SearXNG/Prometheus/Loki/whisper/Piper/mail/HA)
-  + running the Playwright E2E once browsers are installed. Nothing blocking; nothing left to code.
+## Building the backlog (recommended order, one per commit)
+1. Outcome verification ✅ · 2. auto-postmortems → learned playbooks · 3. statistical anomaly
+detection · 4. confidence/abstention · 5. time-travel diffs · 6. graceful degradation · 7.
+knowledge-base ingest · 8. cost-aware model strategy · 9. governance polish · 10. plugin SDK/MCP ·
+11. mobile PWA. (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node,
+OS sandboxing.) Numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish all complete.
 
 ## Next step — do this first
-Optional only: 6b UI polish slices, or stand up deferred external services (SearXNG/Prometheus/
-Loki/whisper/Piper/mail/HA) to light up the live paths end-to-end.
+Build backlog **#2 auto-postmortems**: on incident/verification-failure, generate a postmortem and
+suggest codifying it as a playbook (procedural memory that grows from experience).
 
 ## Open questions / blockers
 - *(none)*

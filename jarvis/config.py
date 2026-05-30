@@ -128,6 +128,11 @@ class Settings(BaseSettings):
     # Scheduled routines (cross-cutting A) — proactive briefings. `at` times are interpreted UTC.
     routine_tick_s: int = 60
 
+    # Outcome verification (backlog) — did an action work? Settle, then judge within the window.
+    verify_settle_s: int = 60  # give the effect time to manifest before judging
+    verify_window_min: int = 30
+    verify_interval_s: int = 120
+
     # Observability ingest (cross-cutting C) — Prometheus scrape + Loki log-spike detection.
     # Hosts must be egress-allowlisted. Enable workers via OBSERVABILITY_ENABLED=prometheus,loki.
     observability_enabled: list[str] = []

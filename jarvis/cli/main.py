@@ -1044,6 +1044,31 @@ def feedback(
     console.print(f"recorded {'👍' if up else '👎'} on {target_type}:{target_id} (net score {s})")
 
 
+@app.command("verify")
+def verify_cmd(
+    show: bool = typer.Option(False, "--show", help="List recent verifications instead of running"),
+) -> None:
+    """Outcome verification: did past actions actually work? (run a pass, or --show recent)."""
+    if show:
+        with db.connect() as conn:
+            rows = conn.execute(
+                "SELECT created_at, subject_id, status, detail FROM verifications "
+                "ORDER BY created_at DESC LIMIT 20"
+            ).fetchall()
+        table = Table(title=f"verifications ({len(rows)})")
+        for col in ("created_at", "subject_id", "status", "detail"):
+            table.add_column(col, overflow="fold")
+        for r in rows:
+            tone = {"verified": "green", "unverified": "red"}.get(r["status"], "yellow")
+            table.add_row(_short(r["created_at"]), r["subject_id"],
+                          f"[{tone}]{r['status']}[/{tone}]", r["detail"] or "")
+        console.print(table)
+        return
+    from jarvis.verify.runner import run_once
+
+    console.print(f"verified [bold]{run_once()}[/bold] execution(s)")
+
+
 @app.command("eval")
 def eval_cmd(
     limit: int = typer.Option(5, help="How many recent agent proposals to replay"),
