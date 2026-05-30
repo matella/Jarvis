@@ -269,7 +269,8 @@ class Settings(BaseSettings):
     webhook_require_signature: bool = True
 
     @field_validator(
-        "connectors_enabled", "feed_urls", "ha_watch_entities", "calendar_ics_urls", mode="before"
+        "connectors_enabled", "feed_urls", "ha_watch_entities", "calendar_ics_urls",
+        "gateway_cors_origins", mode="before"
     )
     @classmethod
     def _split_list_csv(cls, v: object) -> object:
@@ -315,6 +316,13 @@ class Settings(BaseSettings):
     # set a token to require it. Real per-user identities flow into the audit log as actor.
     gateway_token: str = ""
     gateway_actor: str = "local"
+    # CORS — allow the native (Capacitor) app + dev origins to call the REST API cross-origin.
+    # The bundled app's origin is capacitor://localhost (Android) / ionic://localhost; localhost
+    # covers `cap run` + dev. Add your console's https domain if you serve it from another origin.
+    gateway_cors_origins: list[str] = [
+        "capacitor://localhost", "ionic://localhost", "http://localhost",
+        "http://localhost:5173", "https://localhost",
+    ]
 
     # Global operational mode — defaults to propose-only.
     jarvis_mode: Mode = "observe"

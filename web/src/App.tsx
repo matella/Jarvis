@@ -5,6 +5,7 @@
 import { useMemo, useRef, useState } from "react";
 
 import { CommandPalette, useCommandPalette, type Command } from "./components/CommandPalette";
+import { ConnectionSettings } from "./components/ConnectionSettings";
 import { ConsoleMode } from "./components/ConsoleMode";
 import { DecisionInspector } from "./components/DecisionInspector";
 import { InsightMode, type InsightTab } from "./components/InsightMode";
@@ -29,6 +30,7 @@ export default function App() {
   const [surface, setSurface] = useState<Surface>("presence");
   const [insightTab, setInsightTab] = useState<InsightTab>("topology");
   const [inspecting, setInspecting] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const palette = useCommandPalette();
 
   const disabled = conn !== "open";
@@ -48,13 +50,17 @@ export default function App() {
       { id: "mic", label: voice.recording ? "Stop mic" : "Start mic (talk)",
         run: () => (voice.recording ? voice.stopMic() : void voice.startMic()) },
       { id: "new-convo", label: "New conversation", hint: "clear", run: newConversation },
+      { id: "settings", label: "Connection settings", hint: "gateway", run: () => setSettingsOpen(true) },
     ],
     [voice.recording], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return (
     <div className="atmosphere grain scanlines relative flex h-full flex-col bg-void">
-      <TopBar presence={presence} conn={conn} surface={surface} onSurface={setSurface} />
+      <TopBar
+        presence={presence} conn={conn} surface={surface} onSurface={setSurface}
+        onSettings={() => setSettingsOpen(true)}
+      />
       <main className="relative min-h-0 flex-1">
         {surface === "presence" && (
           <PresenceMode
@@ -75,6 +81,7 @@ export default function App() {
       {inspecting && (
         <DecisionInspector intentId={inspecting} onClose={() => setInspecting(null)} />
       )}
+      {settingsOpen && <ConnectionSettings onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

@@ -155,7 +155,7 @@ export function Chat({
         )}
         <div ref={endRef} />
       </div>
-      <div className="mt-3 flex items-center gap-2 border-t border-edge pt-3">
+      <div className="pb-safe mt-3 flex items-center gap-2 border-t border-edge pt-3">
         <span className="text-teal/60">›</span>
         <input
           value={draft}

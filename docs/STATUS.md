@@ -245,9 +245,15 @@ Order: **1) notifications keystone → 2) memory (session history + facts) → 3
   - **Reminders** (migration 0018, `jarvis/reminders.py`, ALWAYS-ON worker): "remind me to … in 10m"
     → deterministic trigger + focused {text, due_at} extraction → stored; due-check worker fires via
     notifier (⏰), marks fired. CLI `jarvis remind add/list/fire`. Live-verified end-to-end.
-- **[mobile] decision: NO native app** — ntfy is the local-first push answer (native would relay via
-  FCM/APNs). Recommended next client work = a mobile-first **PWA pass** (+ Capacitor only if "one app"
-  is later wanted). Not built yet — candidate for next session.
+- **[5 DONE] Native mobile app (Capacitor).** Same React console wrapped as an Android app (one
+  codebase, orb intact) — `web/android/` committed, build runbook in `docs/MOBILE.md`. Enablers:
+  gateway **CORS** (`gateway_cors_origins`, allows capacitor/localhost origins) + a runtime-configurable
+  **gateway URL + token** (⚙ Connection settings / Cmd-K, `getGatewayUrl`/`VITE_GATEWAY_URL`) so the
+  bundled app reaches the box over Tailscale/NPM; `wsUrl()` derives ws(s) from that base. Native shell
+  (`lib/native.ts`, guarded to native): status bar, splash, Android back-button, keyboard→`--kb` var;
+  safe-area helpers (`.pt-safe`/`.pb-safe`) on the top bar + composer. Notifications stay on ntfy.
+  Build verified (tsc/vite/vitest 17, `cap add android` + sync OK); APK build is the operator's
+  Android-Studio step.
 - Model: operator moving `MODEL_REASONING` → `qwen3:4b` (lifts recall/triage/extraction fidelity).
 
 ## Building the backlog — ALL DONE ✅

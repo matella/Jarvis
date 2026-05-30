@@ -38,6 +38,20 @@ def create_app() -> FastAPI:
     load_plugins()  # register external tool plugins (no-op if PLUGINS_DIR unset)
     app = FastAPI(title="Jarvis Gateway", version="0.1.0")
 
+    # CORS so the native (Capacitor) app can call the REST API from its capacitor://localhost
+    # origin. Token auth still gates every protected route; this only permits the browser/webview
+    # to make the request. (WebSockets don't use CORS; /ws auth is via the token query param.)
+    from fastapi.middleware.cors import CORSMiddleware
+
+    from jarvis.config import get_settings
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_settings().gateway_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.get("/health")
     def health() -> dict[str, Any]:
         from jarvis.ops.health import health as health_snapshot

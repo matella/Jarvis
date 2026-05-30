@@ -14,11 +14,13 @@ export function TopBar({
   conn,
   surface,
   onSurface,
+  onSettings,
 }: {
   presence: PresenceState;
   conn: ConnState;
   surface: Surface;
   onSurface: (s: Surface) => void;
+  onSettings: () => void;
 }) {
   const v = orbVisual(presence);
   const [speaks, setSpeaks] = useState(speakEnabled());
@@ -30,7 +32,7 @@ export function TopBar({
   };
 
   return (
-    <header className="relative z-10 flex flex-wrap items-center justify-between gap-y-2 border-b border-edge px-3 py-3 sm:px-5">
+    <header className="pt-safe relative z-10 flex flex-wrap items-center justify-between gap-y-2 border-b border-edge px-3 py-3 sm:px-5">
       <div className="flex items-baseline gap-3">
         <span className="font-display text-lg font-700 tracking-[0.3em] text-ink">JARVIS</span>
         <span className="label hidden sm:inline">Operational Intelligence</span>
@@ -60,6 +62,14 @@ export function TopBar({
             {speaks ? "🔊" : "🔇"}
           </button>
         )}
+
+        <button
+          onClick={onSettings}
+          title="Connection settings (gateway URL + token)"
+          className="text-sm text-steel transition hover:text-ink"
+        >
+          ⚙
+        </button>
 
         <div className="flex border border-edge">
           {(["presence", "console", "insight"] as Surface[]).map((s) => (

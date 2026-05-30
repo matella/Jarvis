@@ -4,6 +4,15 @@
 
 :root {
   color-scheme: dark;
+  --kb: 0px; /* soft-keyboard height, set by the native shell (lib/native.ts) */
+}
+
+/* Notch / gesture-bar safe areas for the native app + notched phones (viewport-fit=cover). */
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+.pb-safe {
+  padding-bottom: max(0.75rem, calc(env(safe-area-inset-bottom) + var(--kb)));
 }
 
 html,
