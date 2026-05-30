@@ -16,9 +16,11 @@ gateway **cross-origin**. Two things make that work:
   Enter the bearer token there too if `GATEWAY_TOKEN` is set. The mic needs a secure context, which
   `https://localhost` provides.
 
-## Build it (on a machine with Android Studio + JDK 17)
-Prereqs: Node, Android Studio (SDK + platform-tools), JDK 17. The `web/android/` Gradle project is
-committed; build outputs are gitignored.
+## Build it (on a machine with Android Studio + JDK 21)
+Built on **Capacitor 8** (compileSdk 36, Gradle 8.14). Prereqs: Node 20+, Android Studio with
+**SDK 36 / platform-tools**, and **JDK 21** (set the Gradle JDK to 21 in Android Studio →
+Settings → Build Tools → Gradle). The `web/android/` Gradle project is committed; build outputs
+are gitignored.
 
 ```bash
 cd web
