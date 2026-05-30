@@ -1,8 +1,5 @@
-// The command bar: identity, live presence caption, link status, surface toggle, token entry.
+// The command bar: identity, live presence caption, link status, surface toggle.
 
-import { useState } from "react";
-
-import { getToken, setToken } from "../lib/api";
 import { orbVisual } from "../lib/presence";
 import type { PresenceState } from "../lib/types";
 import type { ConnState } from "../lib/useConversation";
@@ -20,15 +17,7 @@ export function TopBar({
   surface: Surface;
   onSurface: (s: Surface) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [token, setTok] = useState(getToken());
   const v = orbVisual(presence);
-
-  const save = () => {
-    setToken(token);
-    setEditing(false);
-    location.reload(); // re-handshake the WS with the new credential
-  };
 
   return (
     <header className="relative z-10 flex flex-wrap items-center justify-between gap-y-2 border-b border-edge px-3 py-3 sm:px-5">
@@ -51,26 +40,6 @@ export function TopBar({
         >
           ◉ {conn}
         </span>
-
-        {editing ? (
-          <div className="flex items-center gap-1">
-            <input
-              autoFocus
-              value={token}
-              onChange={(e) => setTok(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && save()}
-              placeholder="bearer token"
-              className="w-40 border border-edge bg-deep px-2 py-1 text-xs text-ink outline-none"
-            />
-            <button onClick={save} className="label !text-teal">
-              save
-            </button>
-          </div>
-        ) : (
-          <button onClick={() => setEditing(true)} className="label hover:!text-teal">
-            {getToken() ? "token ✓" : "auth"}
-          </button>
-        )}
 
         <div className="flex border border-edge">
           {(["presence", "console", "insight"] as Surface[]).map((s) => (
