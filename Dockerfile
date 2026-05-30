@@ -1,6 +1,17 @@
-# Jarvis gateway image — runs `jarvis serve` (FastAPI + /ws). Reaches postgres/redis by compose
-# service name and Ollama via the host. Migrations run on startup (idempotent) before serving.
+# Jarvis app image — serves `jarvis serve` (gateway) AND runs `jarvis run` (the spine daemon).
+# Reaches postgres/redis by compose service name and Ollama via the host. The Docker CLI is included
+# so the daemon's ingest/metrics/topology workers can drive the host's Docker via a mounted socket
+# (the gateway never uses it). Migrations run on startup (idempotent).
 FROM python:3.11-slim
+
+# Docker CLI (static binary) — used only by the daemon (DOCKER_CONTEXT=default + mounted socket).
+ARG DOCKER_CLI_VERSION=27.3.1
+RUN set -eux; \
+    apt-get update && apt-get install -y --no-install-recommends curl ca-certificates; \
+    curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz" \
+      | tar -xz --strip-components=1 -C /usr/local/bin docker/docker; \
+    apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*; \
+    docker --version
 
 WORKDIR /app
 

@@ -84,6 +84,39 @@ services:
         condition: service_healthy
     profiles: ["app"]
 
+  # The spine daemon (`jarvis run`) — ingest + projector + reactor + verify + anomaly + routines +
+  # snapshot/selfcheck/etc. Same image as the gateway; uses the host's Docker via a mounted socket
+  # (DOCKER_CONTEXT=default) for ingest/metrics/topology. The socket is root-equivalent on the host
+  # — that's inherent to an agent that operates the homelab; keep it on your trusted box only.
+  daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jarvis-gateway:latest
+    container_name: jarvis-daemon
+    restart: unless-stopped
+    command: ["jarvis", "run"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis}
+      POSTGRES_DB: ${POSTGRES_DB:-jarvis}
+      REDIS_HOST: redis
+      OLLAMA_HOST: host.docker.internal
+      OLLAMA_PORT: "11434"
+      JARVIS_MODE: ${JARVIS_MODE:-observe}
+      DOCKER_CONTEXT: default   # use the mounted socket, not the Mac's SSH 'jarvis' context
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # ingest/metrics/topology drive host Docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ["app"]
+
   # The interface — nginx serving the React SPA + reverse-proxying the gateway. Published on the
   # LAN like the other homelab apps; put it behind nginx-proxy-manager / VPN as usual.
   console:
