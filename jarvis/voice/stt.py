@@ -1,57 +1,66 @@
-"""Speech-to-text via Whisper.cpp. Audio (WAV bytes) → text.
+"""Speech-to-text — local, on-device, CPU (faster-whisper). Audio bytes → text.
 
-A thin subprocess wrapper. Command construction + output parsing are pure (unit-tested); the actual
-binary call is isolated. `available()` lets the gateway degrade gracefully when no model is set.
+Runs entirely inside the gateway container: no external service, no audio leaves the box
+(local-first per CLAUDE.md). faster-whisper bundles CTranslate2 + PyAV, so it transcribes the
+browser's webm/opus recording directly — no separate binary or ffmpeg step. The model loads once
+(lazy singleton); `available()` lets the gateway degrade when the lib/model isn't present.
 """
 
 from __future__ import annotations
 
-import re
-import subprocess
 import tempfile
+import threading
 
 from jarvis.config import get_settings
 
 
 class STTUnavailable(Exception):
-    """Whisper binary/model not configured or not runnable."""
+    """faster-whisper not installed, or the model can't be loaded."""
+
+
+_model = None
+_lock = threading.Lock()
 
 
 def available() -> bool:
-    s = get_settings()
-    return bool(s.whisper_model)
+    """True if local STT can run (lib importable + a model configured)."""
+    if not get_settings().whisper_model:
+        return False
+    try:
+        import faster_whisper  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
-def _build_command(wav_path: str) -> list[str]:
-    s = get_settings()
-    # whisper.cpp: -m model -f file -nt (no timestamps) -otxt would write a file; we read stdout.
-    return [s.whisper_bin, "-m", s.whisper_model, "-f", wav_path, "-nt"]
-
-
-# whisper.cpp prints lines like "[00:00.000 --> 00:02.000]  text" or, with -nt, plain text lines.
-_TS = re.compile(r"^\s*\[[0-9:.\s>-]+\]\s*")
-
-
-def parse_output(stdout: str) -> str:
-    """Extract the transcript from whisper.cpp stdout (strip any timestamp prefixes)."""
-    lines = [_TS.sub("", ln).strip() for ln in stdout.splitlines()]
-    return " ".join(ln for ln in lines if ln).strip()
-
-
-def transcribe(wav: bytes) -> str:
-    """Transcribe WAV audio to text. Raises STTUnavailable if the backend isn't ready."""
+def _get_model():
+    """Load the WhisperModel once (thread-safe). Raises STTUnavailable if unavailable."""
+    global _model
+    if _model is not None:
+        return _model
     s = get_settings()
     if not s.whisper_model:
         raise STTUnavailable("whisper_model not configured")
-    with tempfile.NamedTemporaryFile(suffix=".wav") as fh:
-        fh.write(wav)
+    with _lock:
+        if _model is None:
+            try:
+                from faster_whisper import WhisperModel
+            except ImportError as exc:
+                raise STTUnavailable("faster-whisper not installed (pip install .[voice])") from exc
+            _model = WhisperModel(
+                s.whisper_model, device=s.whisper_device, compute_type=s.whisper_compute
+            )
+    return _model
+
+
+def transcribe(audio: bytes) -> str:
+    """Transcribe recorded audio (wav/webm/opus) → text. Raises STTUnavailable if not ready."""
+    model = _get_model()
+    with tempfile.NamedTemporaryFile(suffix=".audio") as fh:
+        fh.write(audio)
         fh.flush()
         try:
-            proc = subprocess.run(
-                _build_command(fh.name), capture_output=True, text=True, timeout=120, check=True,
-            )
-        except FileNotFoundError as exc:
-            raise STTUnavailable(f"whisper binary not found: {s.whisper_bin}") from exc
-        except subprocess.CalledProcessError as exc:
-            raise STTUnavailable(f"whisper failed: {exc.stderr or exc}") from exc
-    return parse_output(proc.stdout)
+            segments, _info = model.transcribe(fh.name, beam_size=1)
+            return " ".join(seg.text.strip() for seg in segments).strip()
+        except Exception as exc:  # noqa: BLE001 — decode/inference failure → a clean STT error
+            raise STTUnavailable(f"transcription failed: {exc}") from exc

@@ -15,11 +15,15 @@ RUN set -eux; \
 
 WORKDIR /app
 
-# Install the package + its deps from a minimal context (pyproject + the package + migrations).
+# Install the package + its deps (incl. the local-STT 'voice' extra: faster-whisper, on-device).
 COPY pyproject.toml alembic.ini ./
 COPY jarvis ./jarvis
 COPY migrations ./migrations
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[voice]"
+
+# Pre-cache the Whisper model into the image so STT runs offline and audio never leaves the box.
+ARG WHISPER_MODEL=base.en
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('${WHISPER_MODEL}', device='cpu', compute_type='int8')"
 
 # Bind all interfaces inside the container so the console service can reach it on the compose net.
 ENV GATEWAY_HOST=0.0.0.0 \

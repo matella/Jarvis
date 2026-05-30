@@ -16,6 +16,15 @@ function rms(data: Uint8Array): number {
   return Math.sqrt(sum / data.length);
 }
 
+export function micSupported(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    !!navigator.mediaDevices?.getUserMedia &&
+    typeof window !== "undefined" &&
+    window.isSecureContext
+  );
+}
+
 export function useVoice(onClip: (base64: string) => void) {
   const [recording, setRecording] = useState(false);
   const ctxRef = useRef<AudioContext | null>(null);
@@ -42,6 +51,15 @@ export function useVoice(onClip: (base64: string) => void) {
   }, []);
 
   const startMic = useCallback(async () => {
+    // Browsers only allow the mic on a secure context (HTTPS, or localhost). Over http://<ip> it's
+    // blocked — surface that clearly instead of silently failing.
+    if (!micSupported()) {
+      alert(
+        "Microphone needs a secure context. Open the console over your HTTPS domain " +
+        "(nginx-proxy-manager) or http://localhost on the box.",
+      );
+      return;
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     streamRef.current = stream;
     const ctx = _ctx();

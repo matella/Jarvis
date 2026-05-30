@@ -249,12 +249,15 @@ class Settings(BaseSettings):
     sched_session_token_budget: int = 0  # per-chat-session cap (0 = unlimited)
     sched_plan_token_budget: int = 0  # per-plan cap (0 = unlimited)
 
-    # Voice (10) — local/CPU transport over the conversation pipeline. Binaries are external.
+    # Voice (10) — local/CPU. STT is faster-whisper IN-PROCESS (no external service, audio stays
+    # on the box). whisper_model is a faster-whisper model name (e.g. base.en / base / small);
+    # empty → STT off. TTS in the browser by default; set piper_voice for server-side Piper.
     voice_enabled: bool = False
-    whisper_bin: str = "whisper-cli"  # whisper.cpp CLI
-    whisper_model: str = ""  # path to a ggml model; empty → STT unavailable
+    whisper_model: str = "base.en"  # faster-whisper model; "" disables local STT
+    whisper_device: str = "cpu"     # cpu | cuda
+    whisper_compute: str = "int8"   # int8 (fast/CPU) | float16 (GPU) | float32
     piper_bin: str = "piper"
-    piper_voice: str = ""  # path to a Piper .onnx voice; empty → TTS unavailable
+    piper_voice: str = ""  # path to a Piper .onnx voice; empty → server TTS off (browser speaks)
     wake_word_enabled: bool = False
     wake_silence_ms: int = 1500  # stop buffering after this much trailing silence
 
