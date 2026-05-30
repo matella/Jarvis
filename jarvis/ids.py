@@ -23,6 +23,7 @@ PLAYBOOK = "pb"
 CORRELATION = "corr"
 CONTEXT = "ctx"
 CONVERSATION = "conv"
+PLAN = "plan"
 
 
 def new_id(prefix: str) -> str:

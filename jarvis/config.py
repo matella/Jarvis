@@ -139,6 +139,12 @@ class Settings(BaseSettings):
             return [h.strip().lower() for h in s.split(",") if h.strip()]
         return v
 
+    # Orchestration + action safety (7) — bounds on a single plan and on action throughput.
+    plan_max_steps: int = 12
+    plan_max_entities: int = 5  # blast radius: distinct entities an action plan may touch
+    action_rate_limit: int = 20  # max real executions per window (rate cap)
+    action_rate_window_s: int = 300
+
     # Conversational gateway (6a) — FastAPI + WebSocket. Local homelab only, no external exposure.
     gateway_host: str = "127.0.0.1"
     gateway_port: int = 8787

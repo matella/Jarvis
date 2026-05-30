@@ -34,6 +34,7 @@ incidents_app = typer.Typer(no_args_is_help=True, help="Correlated alert inciden
 replay_app = typer.Typer(no_args_is_help=True, help="Replay a decision")
 backup_app = typer.Typer(no_args_is_help=True, help="Backups + restore drill")
 snapshot_app = typer.Typer(no_args_is_help=True, help="State snapshots (compaction / DR)")
+plan_app = typer.Typer(no_args_is_help=True, help="Multi-step plans (planner + executor)")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -48,6 +49,7 @@ app.add_typer(incidents_app, name="incidents")
 app.add_typer(replay_app, name="replay")
 app.add_typer(backup_app, name="backup")
 app.add_typer(snapshot_app, name="snapshot")
+app.add_typer(plan_app, name="plan")
 
 console = Console()
 
@@ -784,6 +786,68 @@ def serve(
         f"ws://{bind_host}:{bind_port}/ws  [{auth}]"
     )
     uvicorn.run("jarvis.gateway.app:app", host=bind_host, port=bind_port, log_level="info")
+
+
+def _render_plan(plan) -> None:  # noqa: ANN001 — Plan, kept loose to avoid a CLI import cycle
+    console.print(
+        f"plan [bold]{plan.plan_id}[/bold]  status=[bold]{plan.status.value}[/bold]  "
+        f"goal: {plan.goal}"
+    )
+    table = Table(title=f"{len(plan.steps)} steps")
+    for col in ("id", "kind", "capability", "target", "depends_on", "status", "outcome"):
+        table.add_column(col, overflow="fold")
+    for s in plan.steps:
+        table.add_row(
+            s.id, s.kind.value, s.capability, str(s.target),
+            ",".join(s.depends_on), s.status.value, s.outcome or "",
+        )
+    console.print(table)
+
+
+@plan_app.command("make")
+def plan_make(
+    goal: str,
+    run: bool = typer.Option(False, "--run", help="Execute the plan after building it"),
+    simulate: bool = typer.Option(False, "--simulate", help="Preview actions; touch nothing"),
+) -> None:
+    """Plan a multi-step goal (one inference → validated DAG); optionally run or simulate it."""
+    from jarvis.core import planner
+    from jarvis.core.plan_executor import execute_plan
+
+    try:
+        plan = planner.plan(goal)
+    except planner.PlanRejected as exc:
+        console.print(f"[red]plan rejected[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    if run or simulate:
+        plan = execute_plan(plan.plan_id, simulate=simulate)
+    _render_plan(plan)
+
+
+@plan_app.command("run")
+def plan_run(
+    plan_id: str,
+    simulate: bool = typer.Option(False, "--simulate", help="Preview actions; touch nothing"),
+) -> None:
+    """Execute (or simulate) a previously-built plan by id."""
+    from jarvis.core.plan_executor import execute_plan
+
+    _render_plan(execute_plan(plan_id, simulate=simulate))
+
+
+@plan_app.command("show")
+def plan_show(n: int = typer.Option(10, "-n", "--number")) -> None:
+    """List recent plans."""
+    from jarvis.orchestration.repository import list_plans
+
+    with db.connect() as conn:
+        plans = list_plans(conn, n)
+    table = Table(title=f"plans ({len(plans)})")
+    for col in ("plan_id", "status", "steps", "goal", "created_at"):
+        table.add_column(col, overflow="fold")
+    for p in plans:
+        table.add_row(p.plan_id, p.status.value, str(len(p.steps)), p.goal, _short(p.created_at))
+    console.print(table)
 
 
 @backup_app.command("run")

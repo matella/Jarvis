@@ -33,3 +33,8 @@ class Tool:
     # performs the action and returns result info. Both raise on failure.
     run: Callable[..., dict[str, Any]]
     inspect: Callable[[dict[str, Any]], dict[str, Any]] | None = field(default=None)
+    # Action-safety (Phase 7). `preview` describes what *would* change (for plan simulation /
+    # what-if) without touching anything. `revert` undoes a successful `run` and is only invoked
+    # for tools declaring `rollback=automatic` when a later plan step fails. Both raise on failure.
+    preview: Callable[[dict[str, Any]], dict[str, Any]] | None = field(default=None)
+    revert: Callable[[dict[str, Any]], dict[str, Any]] | None = field(default=None)

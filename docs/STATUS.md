@@ -6,8 +6,8 @@
 
 ## Current milestone
 **Building the conversational-orchestrator program in order** (specs in `docs/superpowers/specs/`).
-**6b React console + presence orb — foundation DONE** (live-verified in browser). Next: 7
-orchestration + action safety. (6b follow-ups: topology graph, metric charts, Cmd-K, Playwright.)
+**7 Orchestration + action safety DONE** (live-verified). Next: 8 connectors + webhooks.
+(6b UI follow-ups still pending: topology graph, metric charts, Cmd-K, Playwright.)
 
 ## Done (one line each — git history is the record)
 - **M0–M4 spine**: infra (pgvector+redis on remote via SSH context) · contracts
@@ -76,17 +76,28 @@ orchestration + action safety. (6b follow-ups: topology graph, metric charts, Cm
   image); confirm-to-act buttons send "yes"/"no" (UI never executes — the gateway gates). Cinematic
   command-deck aesthetic (Chakra Petch + IBM Plex Mono, teal/amber/steel). `npm run dev` (Vite
   proxies /api,/ws,/health → gateway). Vitest: 9 component tests (orb state machine + renderers).
-- Latest: `pytest` 149/149, `ruff` clean (python); web `vitest` 9/9, `tsc` clean, `vite build` ok.
-  Migrations at head = 0011.
+- **7 Orchestration + action safety** (`orchestration/` + `core/planner.py` +
+  `core/plan_executor.py` + `core/policies.py` + migration 0012 `plans`): the planner is one-shot
+  (schema-constrained → a validated DAG of KNOWN capabilities; unknown → plan rejected; toposort
+  rejects cycles). The executor is deterministic — walks steps in dep order, reads run queries,
+  actions flow through the existing Intent→gate→executor (mode/approval/audit intact), all sharing
+  the plan's correlation_id (one `trace`). Action safety: blast-radius (≤K entities) + rate-limit
+  (≤N exec/window) pre-flight; **automatic rollback** of already-succeeded reversible steps on a
+  later failure (tool contract gained `preview` for simulation + `revert`); reversible
+  (rollback=automatic) actions are low-risk so semi_autonomous auto-runs them. CLI `jarvis plan
+  make "<goal>" [--run|--simulate]`, `plan run/show`.
+- Latest: `pytest` 165/165, `ruff` clean (python); web `vitest` 9/9, `tsc`/`vite build` clean.
+  Migrations at head = 0012.
 
 ## In progress
-- Conversational-orchestrator program, in order. **Next: 7** (orchestration + action safety),
-  then 8, 9, 10, scheduler (11), cross-cutting. 6b follow-up slices (deferred): topology graph
+- Conversational-orchestrator program, in order. **Next: 8** (connectors + webhooks),
+  then 9, 10, scheduler (11), cross-cutting. 6b UI follow-up slices (deferred): topology graph
   (react-flow), metric charts (trend overlay), decision inspector, Cmd-K palette, approvals queue,
   Playwright E2E.
 
 ## Next step — do this first
-Build **7** (orchestration + action safety) per its detailed spec in `docs/superpowers/specs/`.
+Build **8** (connectors + webhooks) per its detailed spec in `docs/superpowers/specs/`. It uses
+5.5c's egress allowlist + secrets, and reads + acts via gated intents.
 
 ## Open questions / blockers
 - *(none)*
