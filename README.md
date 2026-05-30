@@ -64,6 +64,41 @@ cd web && npm install && npm run dev   # the React console — http://127.0.0.1:
 Default mode is `observe` (propose-only / dry-run). Real execution needs `JARVIS_MODE` set higher
 (`jarvis mode <mode>`), and side-effecting intents are still human-approved unless auto-safe.
 
+## Self-hosted deploy (clone + build on the box)
+
+The production posture: clone the repo **on the Ubuntu host** and build the containers there — no
+Mac involved. Three services come up under the `app` profile: **`gateway`** (FastAPI, internal),
+**`daemon`** (`jarvis run`, drives the host Docker via the mounted socket), and **`console`** (nginx
+serving the SPA + reverse-proxying the gateway, published on the LAN). They join the existing
+`postgres`/`redis` on the compose network and reach **Ollama on the host**.
+
+**One-time box prerequisites** (host services a container must reach):
+```bash
+# 1. DNS must resolve (Docker pulls base images). If your resolver is flaky (e.g. Tailscale
+#    MagicDNS), point resolv.conf at a working one and lock it so a reboot can't clobber it:
+printf 'nameserver 192.168.1.1\nnameserver 1.1.1.1\n' | sudo tee /etc/resolv.conf
+sudo chattr +i /etc/resolv.conf
+# 2. Ollama must listen on all interfaces (so containers can reach it):
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+printf '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0:11434"\n' | sudo tee /etc/systemd/system/ollama.service.d/override.conf
+sudo systemctl daemon-reload && sudo systemctl restart ollama
+# 3. Let the docker subnets reach Ollama on the host (Ubuntu+ufw blocks this by default):
+sudo ufw allow from 172.16.0.0/12 to any port 11434 proto tcp
+```
+
+**Deploy:**
+```bash
+git clone <repo> jarvis && cd jarvis
+cp .env.example .env            # optional — defaults work; set GATEWAY_TOKEN / CONSOLE_PORT to taste
+docker compose --profile app up -d --build
+```
+Open `http://<box-ip>:${CONSOLE_PORT:-8092}` (front it with nginx-proxy-manager + VPN like your
+other apps). Redeploy after changes: `git pull && docker compose --profile app up -d --build`.
+
+Notes: services are `restart: unless-stopped` (survive reboots, independent of any other machine).
+The `daemon` mounts `/var/run/docker.sock` (root-equivalent — trusted box only). `backup`'s off-box
+copy and `code` indexing need SSH keys in the container, so they no-op there unless you add them.
+
 ## CLI tour
 
 The terminal client is the first-class introspection surface (`jarvis --help` for everything):
