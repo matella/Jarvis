@@ -55,6 +55,50 @@ services:
       - searxng-config:/etc/searxng
     profiles: ["search"]  # opt-in: `docker --context jarvis compose --profile search up -d`
 
+  # Conversational gateway (FastAPI + /ws). Internal to the compose network — the console
+  # reverse-proxies it, so it needs no published host port. Reaches deps by service name; Ollama
+  # runs on the host. Migrations apply on startup. Set GATEWAY_TOKEN to require auth.
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jarvis-gateway:latest
+    container_name: jarvis-gateway
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis}
+      POSTGRES_DB: ${POSTGRES_DB:-jarvis}
+      REDIS_HOST: redis
+      OLLAMA_HOST: host.docker.internal
+      OLLAMA_PORT: "11434"
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:-}
+      JARVIS_MODE: ${JARVIS_MODE:-observe}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # let the container reach Ollama on the host
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ["app"]
+
+  # The interface — nginx serving the React SPA + reverse-proxying the gateway. Published on the
+  # LAN like the other homelab apps; put it behind nginx-proxy-manager / VPN as usual.
+  console:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: jarvis-console:latest
+    container_name: jarvis-console
+    restart: unless-stopped
+    ports:
+      - "${CONSOLE_BIND:-0.0.0.0}:${CONSOLE_PORT:-8092}:80"
+    depends_on:
+      - gateway
+    profiles: ["app"]
+
 volumes:
   postgres-data:
   redis-data:

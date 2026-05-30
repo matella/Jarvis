@@ -1,0 +1,18 @@
+# Keep the build context small when building on the remote via the SSH docker context.
+.venv/
+.git/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+backups/
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+docs/
+tests/
+*.png
+.env
