@@ -56,6 +56,67 @@ def test_turnresult_serializes() -> None:
     assert dumped["artifacts"] == [] and dumped["citations"] == []
 
 
+def test_looks_like_remember_triggers_on_explicit_phrasing() -> None:
+    assert convo._looks_like_remember("Remember my city is Brussels") is True
+    assert convo._looks_like_remember("note that I prefer metric units") is True
+    assert convo._looks_like_remember("don't forget the gate code is 1234") is True
+    # questions / recall must NOT trigger capture (they go through normal routing)
+    assert convo._looks_like_remember("where do I live?") is False
+    assert convo._looks_like_remember("do you remember my city?") is False
+
+
+def test_is_personal_suppresses_search_for_operator_questions() -> None:
+    assert convo._is_personal("what city do I live in?") is True
+    assert convo._is_personal("where's my car") is True
+    # not personal → web search is allowed
+    assert convo._is_personal("what's the weather in Paris") is False
+    assert convo._is_personal("latest news on the EU AI act") is False
+
+
+def test_capture_fact_falls_back_to_reason_when_extraction_fails(monkeypatch) -> None:
+    monkeypatch.setattr(convo, "_extract_fact", lambda u: None)
+    sentinel = TurnResult(route=TurnRoute.answer, message="reasoned")
+    monkeypatch.setattr(convo, "_reason", lambda *a, **k: sentinel)
+    out = convo._capture_fact(conn=None, session=None, utterance="remember blah", store=None)
+    assert out is sentinel  # a misfire degrades to normal reasoning, never a dead end
+
+
+def test_build_prompt_injects_facts_and_offers_remember_route() -> None:
+    prompt = convo._build_prompt(
+        "ctx", "", "where do I live?", search_on=False,
+        facts="What you know about the operator (treat as ground truth):\n- city: Brussels",
+    )
+    assert "city: Brussels" in prompt            # facts are in context → recalled
+    assert '"remember"' in prompt                # the remember route is offered
+    assert "fact_key" in prompt and "fact_value" in prompt
+
+
+def test_remember_route_stores_fact_and_confirms(monkeypatch) -> None:
+    from jarvis.memory.facts import UserFact
+
+    saved: dict[str, str] = {}
+
+    def _fake_set(conn, key, value):
+        f = UserFact(key=key, value=value)
+        saved[f.key] = f.value
+        return f
+
+    monkeypatch.setattr(convo, "set_fact", _fake_set)
+    result = convo._remember(conn=None, key="City", value="Brussels")
+    assert result.route is TurnRoute.remember
+    assert saved == {"city": "Brussels"}
+    assert "Brussels" in result.message
+
+
+def test_remember_handles_invalid_value_without_storing(monkeypatch) -> None:
+    def _boom(conn, key, value):
+        raise ValueError("fact value must be non-empty")
+
+    monkeypatch.setattr(convo, "set_fact", _boom)
+    result = convo._remember(conn=None, key="city", value="")
+    assert result.route is TurnRoute.answer and "couldn't note" in result.message
+
+
 def test_decide_falls_back_to_answer_on_garbage(monkeypatch) -> None:
     # A non-JSON model reply degrades to a plain answer rather than crashing the turn.
     # _decide now goes through the scheduler → router.chat; patch the underlying router call.

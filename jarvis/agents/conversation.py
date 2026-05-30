@@ -10,6 +10,7 @@ content is data, not instructions — the deterministic boundary, not the model,
 from __future__ import annotations
 
 import json
+import re
 from datetime import timedelta
 from enum import StrEnum
 from typing import Any
@@ -25,6 +26,7 @@ from jarvis.events.models import Event, Severity, utcnow
 from jarvis.events.stream import emit_event
 from jarvis.intents.models import Intent, IntentReasoning, Risk
 from jarvis.intents.repository import insert_intent
+from jarvis.memory.facts import facts_block, set_fact
 from jarvis.tools.registry import ADVISORY_TYPES, get_tool, valid_intent_types
 
 _WINDOW_HOURS = 24
@@ -40,6 +42,7 @@ class TurnRoute(StrEnum):
     confirm = "confirm"
     cancel = "cancel"
     abstain = "abstain"  # not enough signal — declined to act rather than guess
+    remember = "remember"  # store a durable operator fact (memory write, no infra)
 
 
 class Citation(BaseModel):
@@ -84,6 +87,8 @@ class _Decision(BaseModel):
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     citations: list[Citation] = Field(default_factory=list)
     query: str | None = None  # the search query when route == "search" (web RAG)
+    fact_key: str | None = None    # when route == "remember": the fact name (e.g. "city")
+    fact_value: str | None = None  # when route == "remember": the fact value (e.g. "Brussels")
 
 
 def capability_summary() -> str:
@@ -107,6 +112,63 @@ def _is_negative(text: str) -> bool:
     return text.strip().lower().rstrip(".!") in _NEGATIVE
 
 
+_REMEMBER_TRIGGERS = ("remember ", "remember that ", "note that ", "keep in mind ",
+                      "don't forget ", "dont forget ", "make a note ", "for the record ")
+
+
+_PERSONAL_RE = re.compile(r"\b(i|me|my|mine|myself|i'm|i've)\b")
+
+
+def _is_personal(text: str) -> bool:
+    """True if the utterance is about the operator themselves (first-person).
+
+    Used to suppress the web-search route for personal questions: those are answered from stored
+    facts, and "where do I live?" must never be sent to a search engine (privacy + correctness).
+    """
+    return bool(_PERSONAL_RE.search(text.lower()))
+
+
+def _looks_like_remember(text: str) -> bool:
+    """Deterministic trigger for fact capture — an explicit imperative to remember something.
+
+    We don't trust the weak router to classify this reliably; an explicit phrase is unambiguous,
+    so we branch deterministically and only use the model for the (focused) key/value extraction.
+    """
+    return text.strip().lower().startswith(_REMEMBER_TRIGGERS)
+
+
+_FACT_SCHEMA = {
+    "type": "object",
+    "properties": {"fact_key": {"type": "string"}, "fact_value": {"type": "string"}},
+    "required": ["fact_key", "fact_value"],
+}
+
+
+def _extract_fact(utterance: str) -> tuple[str, str] | None:
+    """One focused inference: pull {fact_key, fact_value} from an explicit 'remember …' request."""
+    from jarvis.models.scheduler import Priority
+    from jarvis.models.scheduler import chat as sched_chat
+
+    prompt = (
+        "Extract the durable fact the user wants you to remember. Reply with ONE JSON object: "
+        '{"fact_key": <short snake_case name>, "fact_value": <the value>}.\n'
+        'Examples: "remember my city is Brussels" -> {"fact_key":"city","fact_value":"Brussels"}; '
+        '"note that I prefer metric units" -> '
+        '{"fact_key":"preferred_units","fact_value":"metric"}.\n'
+        f"User: {utterance}"
+    )
+    resp = sched_chat(
+        "reasoning", [{"role": "user", "content": prompt}],
+        priority=Priority.INTERACTIVE, format=_FACT_SCHEMA,
+    )
+    try:
+        data = json.loads(str(resp["message"]["content"]))
+        key, value = str(data.get("fact_key", "")).strip(), str(data.get("fact_value", "")).strip()
+        return (key, value) if key and value else None
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
 def _memory_window(conn: psycopg.Connection, session: Session) -> str:
     msgs = recent_messages(conn, session.conversation_id, limit=10)
     if not msgs:
@@ -115,17 +177,23 @@ def _memory_window(conn: psycopg.Connection, session: Session) -> str:
     return "Recent conversation:\n" + rendered
 
 
-def _build_prompt(ctx_prompt: str, memory: str, utterance: str, *, search_on: bool) -> str:
+def _build_prompt(
+    ctx_prompt: str, memory: str, utterance: str, *, search_on: bool, facts: str = ""
+) -> str:
     # ANSWER is the default; only offer the search route when a search backend is actually
     # configured (otherwise a small model over-routes to a dead end).
     search_rule = (
         "- ONLY if the user explicitly asks for CURRENT EXTERNAL information (latest news, a CVE, "
         "today's weather, 'look up …', 'search the web …'), set route=\"search\" and put the query "
-        "in query.\n"
+        "in query. NEVER search for facts about the operator themselves (where they live, their "
+        "name, their preferences) — those are answered from the facts below.\n"
         if search_on else ""
     )
     search_spec = ' when route="search": query (string);' if search_on else ""
-    routes = '"answer"|"propose"|"search"' if search_on else '"answer"|"propose"'
+    routes = (
+        '"answer"|"propose"|"search"|"remember"' if search_on
+        else '"answer"|"propose"|"remember"'
+    )
     parts = [
         "You are Jarvis, an operational-intelligence assistant for a homelab. You reply with ONE "
         "JSON object and nothing else.\n"
@@ -133,14 +201,21 @@ def _build_prompt(ctx_prompt: str, memory: str, utterance: str, *, search_on: bo
         "- If the user asks you to DO or CHANGE infrastructure (restart/stop/start/redeploy a "
         "container, edit a file, etc.), set route=\"propose\", pick the matching intent_type "
         "from the capabilities, and fill target. Do NOT perform it — a human confirms first.\n"
+        "- ONLY if the user explicitly asks you to REMEMBER a durable personal fact about them or "
+        "their home (e.g. \"remember my city is Brussels\", \"note that I prefer metric units\"), "
+        "set route=\"remember\" with fact_key (short, e.g. \"city\") and fact_value (e.g. "
+        "\"Brussels\"). Do NOT use remember for questions or one-off chit-chat.\n"
         f"{search_rule}"
-        "- Otherwise — including who/what you are, your status, the homelab, explanations — set "
+        "- Otherwise — including who/what you are, your status, the homelab, explanations, and "
+        "RECALLING a fact you already know about the operator (use the facts below verbatim) — set "
         "route=\"answer\" and put your grounded reply in message; cite events/state you used.\n"
         'Example — user "restart nginx" → {"route":"propose","intent_type":'
         '"docker.restart_container","target":{"container":"nginx"},"summary":"restart nginx",'
         '"message":"I can restart nginx.","risk":"medium","reversible":true,"confidence":0.9}.',
         capability_summary(),
     ]
+    if facts:
+        parts.append(facts)
     if memory:
         parts.append(memory)
     parts.append("Context:\n" + ctx_prompt)
@@ -149,6 +224,7 @@ def _build_prompt(ctx_prompt: str, memory: str, utterance: str, *, search_on: bo
         f'Output exactly one JSON object with keys: route ({routes}), '
         'message (string), and when route="propose": intent_type, target (object), summary, '
         f'risk ("low"|"medium"|"high"), reversible (bool), confidence (0..1);{search_spec} '
+        ' when route="remember": fact_key (string), fact_value (string); '
         'Optional: citations [{kind, ref, note}]. No prose outside the JSON.'
     )
     return "\n\n".join(parts)
@@ -159,7 +235,7 @@ def _build_prompt(ctx_prompt: str, memory: str, utterance: str, *, search_on: bo
 _DECISION_SCHEMA = {
     "type": "object",
     "properties": {
-        "route": {"type": "string", "enum": ["answer", "propose", "search"]},
+        "route": {"type": "string", "enum": ["answer", "propose", "search", "remember"]},
         "message": {"type": "string"},
         "intent_type": {"type": "string"},
         "target": {"type": "object"},
@@ -168,6 +244,8 @@ _DECISION_SCHEMA = {
         "reversible": {"type": "boolean"},
         "confidence": {"type": "number"},
         "query": {"type": "string"},
+        "fact_key": {"type": "string"},
+        "fact_value": {"type": "string"},
     },
     "required": ["route", "message"],
 }
@@ -228,6 +306,9 @@ def respond(
         result = _confirm(conn, session)
     elif session.pending_intent_id and _is_negative(utterance):
         result = _cancel(session)
+    # Explicit "remember …" → deterministic capture (focused extraction), not the weak router.
+    elif _looks_like_remember(utterance):
+        result = _capture_fact(conn, session, utterance, store=store)
     else:
         result = _reason(conn, session, utterance, store=store)
 
@@ -253,15 +334,25 @@ def _reason(
     since = utcnow() - timedelta(hours=_WINDOW_HOURS)
     ctx = assemble_context(conn, since=since, query=utterance, store=store)
     search_on = bool(get_settings().searxng_url)
+    facts = facts_block(conn)  # durable operator facts → always recalled in context
     prompt = _build_prompt(
-        ctx.prompt, _memory_window(conn, session), utterance, search_on=search_on
+        ctx.prompt, _memory_window(conn, session), utterance, search_on=search_on, facts=facts
     )
     decision = _decide(
         prompt, correlation_id=ids.new_id(ids.CORRELATION), context_ref=ctx.context_ref
     )
 
-    # Only honor a search route when a backend exists; otherwise fall through to a normal answer.
-    if decision.route == "search" and search_on and (decision.query or utterance):
+    # Remember route: store a durable fact (a memory write — safe, no infra gate). Needs both
+    # key and value; otherwise fall through to a normal answer.
+    if decision.route == "remember" and decision.fact_key and decision.fact_value:
+        return _remember(conn, decision.fact_key, decision.fact_value)
+
+    # Only honor a search route when a backend exists AND the question isn't personal — the
+    # operator's own info comes from facts, never a web search. Otherwise fall through to answer.
+    if (
+        decision.route == "search" and search_on
+        and not _is_personal(utterance) and (decision.query or utterance)
+    ):
         return _search_answer(decision.query or utterance)
 
     if decision.route == "propose" and decision.intent_type in valid_intent_types():
@@ -288,17 +379,62 @@ def _reason(
             citations=decision.citations, confidence=decision.confidence,
         )
 
+    # Personal question + we have facts → answer from them with a FOCUSED, grounded inference.
+    # The big multi-route prompt drowns the fact for a small model (it confabulated "New York");
+    # a tight facts-only prompt recalls reliably. Runs after propose/search so those still win.
+    if facts and _is_personal(utterance):
+        return TurnResult(route=TurnRoute.answer, message=_recall_answer(facts, utterance))
+
     # Answer route (or any fall-through, e.g. a search misroute with no backend). If the structured
     # decision left message empty, do one plain answer pass so we never reply "(no response)".
     message = decision.message.strip()
     if not message:
-        message = _plain_answer(ctx.prompt, _memory_window(conn, session), utterance)
+        message = _plain_answer(ctx.prompt, _memory_window(conn, session), utterance, facts=facts)
     return TurnResult(
         route=TurnRoute.answer, message=message, citations=decision.citations,
     )
 
 
-def _plain_answer(ctx_prompt: str, memory: str, utterance: str) -> str:
+def _recall_answer(facts: str, utterance: str) -> str:
+    """Focused, strictly-grounded recall — answer ONLY from stored facts (small-model reliable)."""
+    from jarvis.models.scheduler import Priority
+    from jarvis.models.scheduler import chat as sched_chat
+
+    prompt = (
+        "Answer the question using ONLY these stored facts about the operator. Quote the relevant "
+        "value. If the facts don't contain the answer, say you don't have it noted yet — do not "
+        "invent.\n\n" + facts + f"\n\nQuestion: {utterance}\nAnswer in one short sentence."
+    )
+    resp = sched_chat(
+        "reasoning", [{"role": "user", "content": prompt}], priority=Priority.INTERACTIVE
+    )
+    return str(resp["message"]["content"]).strip() or "(no response)"
+
+
+def _remember(conn: psycopg.Connection, key: str, value: str) -> TurnResult:
+    """Persist a durable operator fact, then confirm. Validation lives in the facts model."""
+    try:
+        fact = set_fact(conn, key, value)
+    except ValueError as exc:  # malformed key/value from the model → don't store, just answer
+        return TurnResult(route=TurnRoute.answer, message=f"I couldn't note that: {exc}")
+    return TurnResult(
+        route=TurnRoute.remember,
+        message=f"Got it — I'll remember that {fact.key.replace('_', ' ')} is {fact.value}.",
+    )
+
+
+def _capture_fact(
+    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
+) -> TurnResult:
+    """Deterministic 'remember …' path: focused extraction → store. Falls back to normal
+    reasoning if no clean key/value can be pulled (so a misfire never dead-ends the turn)."""
+    extracted = _extract_fact(utterance)
+    if extracted is None:
+        return _reason(conn, session, utterance, store=store)
+    return _remember(conn, *extracted)
+
+
+def _plain_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> str:
     """A plain grounded answer — fallback when structured routing yields no message."""
     from jarvis.models.scheduler import Priority
     from jarvis.models.scheduler import chat as sched_chat
@@ -306,6 +442,7 @@ def _plain_answer(ctx_prompt: str, memory: str, utterance: str) -> str:
     prompt = (
         "Answer the user concisely and grounded in the context below; if it's about you, use your "
         "identity. Cite events/state you rely on.\n\n"
+        + (facts + "\n\n" if facts else "")
         + (memory + "\n\n" if memory else "")
         + "Context:\n" + ctx_prompt + f"\n\nUser: {utterance}"
     )

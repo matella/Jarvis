@@ -8,7 +8,13 @@ export type PresenceState =
   | "alert"
   | "frozen";
 
-export type TurnRoute = "answer" | "propose" | "confirm" | "cancel" | "abstain";
+export type TurnRoute =
+  | "answer"
+  | "propose"
+  | "confirm"
+  | "cancel"
+  | "abstain"
+  | "remember";
 
 export interface Citation {
   kind: string;

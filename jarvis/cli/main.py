@@ -1005,6 +1005,41 @@ def memory_forget(memory_id: str) -> None:
     console.print(f"{'forgot' if ok else 'no such memory'}: {memory_id}")
 
 
+@memory_app.command("fact")
+def memory_fact(
+    action: str = typer.Argument(..., help="set | list | forget"),
+    key: str = typer.Argument("", help="fact key (for set/forget), e.g. city"),
+    value: str = typer.Argument("", help="fact value (for set), e.g. Brussels"),
+) -> None:
+    """Durable operator facts the agent recalls every turn (e.g. `fact set city Brussels`)."""
+    from jarvis.memory.facts import forget_fact, list_facts, set_fact
+
+    with db.connect(autocommit=True) as conn:
+        if action == "set":
+            if not key or not value:
+                console.print("[red]set needs a key and a value[/red]")
+                raise typer.Exit(1)
+            fact = set_fact(conn, key, value)
+            console.print(f"remembered: {fact.key} = {fact.value}")
+        elif action == "forget":
+            if not key:
+                console.print("[red]forget needs a key[/red]")
+                raise typer.Exit(1)
+            ok = forget_fact(conn, key)
+            console.print(f"{'forgot' if ok else 'no such fact'}: {key}")
+        elif action == "list":
+            facts = list_facts(conn)
+            table = Table(title=f"operator facts ({len(facts)})")
+            for col in ("key", "value"):
+                table.add_column(col, overflow="fold")
+            for f in facts:
+                table.add_row(f.key, f.value)
+            console.print(table)
+        else:
+            console.print(f"[red]unknown action {action!r} (use set|list|forget)[/red]")
+            raise typer.Exit(1)
+
+
 @memory_app.command("consolidate")
 def memory_consolidate(
     kind: str = typer.Option("summary", help="Which kind to consolidate"),

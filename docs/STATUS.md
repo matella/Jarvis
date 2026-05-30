@@ -219,9 +219,16 @@ Order: **1) notifications keystone → 2) memory (session history + facts) → 3
   published to ntfy and read it back (prio/tags correct). **Operator setup to RECEIVE on devices:**
   NPM proxy host → set `NTFY_BASE_URL`, choose `NTFY_TOPIC`, install the ntfy app + subscribe
   (enable "instant delivery" for self-hosted). See `.env.example`.
-- **[1b TODO] PWA Web Push** — VAPID keys + push subscription store + SW push handler (3rd channel).
-- **[2 TODO] Memory** — restore session history across refresh (turns already persisted server-side;
-  client doesn't reload them) + a durable user-facts/profile layer injected into persona context.
+- **[1b SKIPPED-by-design] PWA Web Push** — ntfy already delivers to phone/desktop/Wear OS locally;
+  Web Push would relay via Google FCM (not local-first) for marginal gain. Revisit only if wanted.
+- **[2 DONE] Memory.** (a) Session history survives refresh: client persists the conversation id
+  (`?cid`), gateway `resume_or_start` (ownership-checked) + replays a `history` frame on reconnect;
+  Cmd-K "New conversation" starts blank. (b) Durable operator facts (migration 0017 `user_facts`,
+  `memory/facts.py`, upsert by key): captured deterministically (explicit "remember …" → focused
+  extraction, NOT the weak router) + injected into context every turn; personal questions answered
+  from facts via a focused grounded inference (small-model reliable) and NEVER web-searched (privacy
+  guard). CLI `jarvis memory fact set/list/forget`. Live: capture → cross-session recall → search
+  all verified. NOTE: recall fidelity rises with a bigger reasoning model (1.7b needs the focused path).
 - **[3 TODO] Mail/RSS** — multi-account mail + feeds → summarized push (noise classifier gates buzz).
 
 ## Building the backlog — ALL DONE ✅
