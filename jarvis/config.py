@@ -144,6 +144,9 @@ class Settings(BaseSettings):
     freeze_windows: list[str] = []  # e.g. ["09:00-17:00"] (UTC); autonomous actions denied within
     nudge_pending_threshold: int = 5
 
+    # Plugin SDK (backlog) — register external capability-scoped HTTP tools from YAML manifests.
+    plugins_dir: str = ""  # local dir of *.yaml plugin manifests; empty = none
+
     @field_validator("freeze_windows", mode="before")
     @classmethod
     def _split_freeze_csv(cls, v: object) -> object:

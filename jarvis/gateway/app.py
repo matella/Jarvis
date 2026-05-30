@@ -33,6 +33,9 @@ def _require(principal: Principal, scope: str) -> None:
 
 
 def create_app() -> FastAPI:
+    from jarvis.plugins.loader import load_plugins
+
+    load_plugins()  # register external tool plugins (no-op if PLUGINS_DIR unset)
     app = FastAPI(title="Jarvis Gateway", version="0.1.0")
 
     @app.get("/health")

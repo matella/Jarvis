@@ -1147,6 +1147,15 @@ def diff_cmd(
         console.print("changed: —")
 
 
+@app.command("plugins")
+def plugins_cmd() -> None:
+    """Load external tool plugins from PLUGINS_DIR and list the capabilities they register."""
+    from jarvis.plugins.loader import load_plugins
+
+    loaded = load_plugins()
+    console.print(f"loaded plugins: [bold]{', '.join(loaded) or '(none)'}[/bold]")
+
+
 @app.command("cache")
 def cache_cmd() -> None:
     """Show the embedding cache stats (cost-aware caching)."""

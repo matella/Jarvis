@@ -194,18 +194,22 @@ eval/replay harness · C observability ingest (Prometheus/Loki) · D memory gove
   wraps midnight); **universal preview** — `docker.restart_container` gained `preview`, `jarvis
   intents preview <id>` shows what any intent would change; **proactive nudges** — selfcheck emits
   `governance.nudge` when proposals pile past threshold. Live: previewed a real restart intent.
-- Latest: `pytest` 243/243, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
+- **Backlog #10 Plugin SDK** (`plugins/loader.py`): a YAML manifest declares a capability (Intent
+  type) backed by a templated, egress-allowlisted HTTP call — NOT shell. `render` substitutes
+  `{arg}` only from a declared allowlist with scalar values; `build_tool` registers into the same
+  registry/gate/audit as built-ins (+ preview). Loaded at gateway startup + `jarvis plugins`;
+  `PLUGINS_DIR` empty = none. MCP would bridge onto this same path. Boundary unchanged.
+- Latest: `pytest` 249/249, `ruff` clean (python); web `vitest` 15/15, `tsc`/`vite build` clean.
 
 ## Building the backlog (recommended order, one per commit)
 1. Outcome verification ✅ · 2. auto-postmortems ✅ · 3. anomaly detection ✅ · 4. confidence/
 abstention ✅ · 5. time-travel diffs ✅ · 6. graceful degradation ✅ · 7. knowledge-base ingest ✅ ·
-8. cost-aware caching ✅ · 9. governance polish ✅ · 10. plugin SDK/MCP · 11. mobile PWA.
+8. cost-aware caching ✅ · 9. governance polish ✅ · 10. plugin SDK/MCP ✅ · 11. mobile PWA.
 (Deferred-as-premature, NOT building: knowledge graph, multi-user, multi-node, OS sandboxing.)
 
 ## Next step — do this first
-Build backlog **#10 plugin SDK / MCP**: formalize the tool contract into a small plugin SDK
-(register external capability-scoped tools from a manifest, gated like everything else) + optionally
-speak MCP to reach external tool servers.
+Build backlog **#11 mobile PWA** (last): make the React console installable + responsive — web app
+manifest + service worker (offline shell) + responsive layout for the orb/chat on a phone.
 
 ## Open questions / blockers
 - *(none)*
