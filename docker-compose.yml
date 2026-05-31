@@ -84,6 +84,12 @@ services:
     image: jarvis-gateway:latest
     container_name: jarvis-gateway
     restart: unless-stopped
+    # Load the box .env so connector config + secrets (CONNECTORS_ENABLED, QBITTORRENT_*, MAIL_*,
+    # HA_TOKEN, WEBHOOK_TOKEN_*, calendar/feed URLs, …) reach the container. The explicit
+    # `environment:` below overrides any duplicates, so POSTGRES_HOST=postgres etc. still win.
+    env_file:
+      - path: .env
+        required: false
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-jarvis}
