@@ -65,7 +65,33 @@ def _capabilities_section() -> str:
     )
 
 
+_SOURCE_LABELS = {
+    "feeds": "news / RSS feeds",
+    "mail": "email",
+    "calendar": "your calendar",
+    "homeassistant": "Home Assistant entities (sensors, lights, climate)",
+    "qbittorrent": "qBittorrent download activity",
+}
+
+
+def _observability_section() -> str:
+    """Live 'what you can SEE' — enabled connectors + the spine. Config-only (no DB lookup)."""
+    s = get_settings()
+    sources = [_SOURCE_LABELS.get(c, c) for c in s.connectors_enabled]
+    line = (
+        "You continuously observe this homelab's containers, metrics, incidents and deployments "
+        "through the event spine, and you keep durable facts about the operator."
+    )
+    if sources:
+        line += " Connected data sources right now: " + ", ".join(sorted(sources)) + "."
+    line += (
+        " Inbound webhooks (e.g. Jellyseerr media requests/availability) also reach you as events. "
+        "You only ever see the DATA these emit — never service URLs, ports, or credentials."
+    )
+    return "\n\nWHAT YOU CAN OBSERVE:\n- " + line
+
+
 def system_prompt() -> str:
-    """The full system message: identity (operator-overridable) + the live capability list."""
+    """The full system message: identity (operator-overridable) + live capabilities + senses."""
     identity = get_settings().system_prompt.strip() or _DEFAULT_IDENTITY
-    return identity + _capabilities_section()
+    return identity + _capabilities_section() + _observability_section()

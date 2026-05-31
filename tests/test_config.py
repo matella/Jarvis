@@ -45,3 +45,14 @@ def test_egress_allowlist_parses_from_env(monkeypatch) -> None:
 
     monkeypatch.setenv("EGRESS_ALLOWLIST", "")  # empty = default-deny
     assert Settings(_env_file=None).egress_allowlist == []
+
+
+def test_list_fields_parse_bare_and_csv_from_env(monkeypatch) -> None:
+    # Every list field that takes operator input from env must accept a bare value / CSV without
+    # the pydantic-settings JSON-pre-parse crash (regression: CONNECTORS_ENABLED=qbittorrent).
+    monkeypatch.setenv("CONNECTORS_ENABLED", "qbittorrent")
+    assert Settings(_env_file=None).connectors_enabled == ["qbittorrent"]
+    monkeypatch.setenv("CONNECTORS_ENABLED", "feeds, mail, qbittorrent")
+    assert Settings(_env_file=None).connectors_enabled == ["feeds", "mail", "qbittorrent"]
+    monkeypatch.setenv("HA_WATCH_ENTITIES", "light.office,climate.living")
+    assert Settings(_env_file=None).ha_watch_entities == ["light.office", "climate.living"]

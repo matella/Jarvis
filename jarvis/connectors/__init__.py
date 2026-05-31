@@ -12,4 +12,5 @@ fetched text is run through `security.sanitize`. Importing this package register
 
 from jarvis.connectors import feeds as _feeds  # noqa: F401 — registers feeds connector
 from jarvis.connectors import homeassistant as _ha  # noqa: F401 — registers ha.set_state
+from jarvis.connectors import jellyseerr as _js  # noqa: F401 — registers jellyseerr.request/approve
 from jarvis.connectors import mail as _mail  # noqa: F401 — registers mail.send

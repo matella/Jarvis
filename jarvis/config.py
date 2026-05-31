@@ -236,8 +236,8 @@ class Settings(BaseSettings):
 
     # Connectors (8) — external integrations behind the boundary (read → events, act → gated Tools).
     # Enabled connectors run as periodic ingest workers. Secrets via SecretsProvider, never here.
-    connectors_enabled: list[str] = []  # e.g. ["feeds", "mail"]
-    feed_urls: list[str] = []  # RSS/Atom URLs (hosts must be egress-allowlisted)
+    connectors_enabled: Annotated[list[str], NoDecode] = []  # e.g. feeds,mail,qbittorrent
+    feed_urls: Annotated[list[str], NoDecode] = []  # RSS/Atom URLs (hosts egress-allowlisted)
     feed_poll_interval_s: int = 900
     feed_max_items: int = 20
     # Mail (IMAP read + SMTP send). Creds: MAIL_USERNAME / MAIL_PASSWORD via SecretsProvider.
@@ -258,11 +258,11 @@ class Settings(BaseSettings):
     # Home Assistant (REST). Token: HA_TOKEN via SecretsProvider. ha.set_state acts; the read
     # connector polls watched entities → ha.state_changed events (empty list = read nothing).
     ha_base_url: str = ""  # e.g. http://homeassistant.lan:8123
-    ha_watch_entities: list[str] = []  # e.g. ["binary_sensor.front_door", "climate.living"]
+    ha_watch_entities: Annotated[list[str], NoDecode] = []  # e.g. binary_sensor.door,climate.x
     ha_poll_interval_s: int = 60
     # Calendar (read-only). Secret ICS URLs (CalDAV/Google "secret address in iCal"); upcoming
     # events within the horizon → calendar.event, deduped by UID. Hosts must be egress-allowlisted.
-    calendar_ics_urls: list[str] = []
+    calendar_ics_urls: Annotated[list[str], NoDecode] = []
     calendar_poll_interval_s: int = 1800
     calendar_horizon_h: int = 24
     # Reminders — self-contained (no external service). The worker fires due reminders → notify.
@@ -271,6 +271,9 @@ class Settings(BaseSettings):
     # QBITTORRENT_USER/QBITTORRENT_PASS via SecretsProvider (its localhost-bypass can't apply here).
     qbittorrent_url: str = ""  # e.g. http://host.docker.internal:8088
     qbittorrent_poll_interval_s: int = 60
+    # Jellyseerr (media-request hub) — gated actions jellyseerr.request / jellyseerr.approve.
+    # Key JELLYSEERR_API_KEY via SecretsProvider. Reachable from the container.
+    jellyseerr_url: str = ""  # e.g. http://requests.matelab
     # Inbound webhooks — per-source HMAC secret names resolved via SecretsProvider
     # (e.g. WEBHOOK_SECRET_GITHUB). Empty signature config → that source is rejected.
     webhook_require_signature: bool = True
@@ -281,10 +284,14 @@ class Settings(BaseSettings):
     )
     @classmethod
     def _split_list_csv(cls, v: object) -> object:
+        # These fields are NoDecode (pydantic-settings won't JSON-pre-parse them), so the validator
+        # owns ALL parsing: empty→[], JSON list→parsed, otherwise comma-separated.
         if isinstance(v, str):
             s = v.strip()
-            if not s or s.startswith("["):
-                return [] if not s else v
+            if not s:
+                return []
+            if s.startswith("["):
+                return json.loads(s)
             return [x.strip() for x in s.split(",") if x.strip()]
         return v
 
@@ -326,7 +333,7 @@ class Settings(BaseSettings):
     # CORS — allow the native (Capacitor) app + dev origins to call the REST API cross-origin.
     # The bundled app's origin is capacitor://localhost (Android) / ionic://localhost; localhost
     # covers `cap run` + dev. Add your console's https domain if you serve it from another origin.
-    gateway_cors_origins: list[str] = [
+    gateway_cors_origins: Annotated[list[str], NoDecode] = [
         "capacitor://localhost", "ionic://localhost", "http://localhost",
         "http://localhost:5173", "https://localhost",
     ]
