@@ -206,6 +206,14 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"recorded": True}
 
+    @app.get("/api/torrents")
+    def torrents(principal: Principal = Depends(_principal)) -> dict[str, Any]:
+        """Live qBittorrent download snapshot (read-only)."""
+        _require(principal, "read")
+        from jarvis.connectors.qbittorrent import fetch_snapshot
+
+        return fetch_snapshot()
+
     @app.post("/inbound/{source}")
     async def inbound(source: str, request: Request) -> dict[str, Any]:
         """Signed push from GitHub/Grafana/etc → a verified, sanitized event on the spine."""

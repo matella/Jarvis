@@ -267,6 +267,10 @@ class Settings(BaseSettings):
     calendar_horizon_h: int = 24
     # Reminders — self-contained (no external service). The worker fires due reminders → notify.
     reminder_check_interval_s: int = 30
+    # qBittorrent (read-only). WebUI base reachable from the container (behind gluetun); creds
+    # QBITTORRENT_USER/QBITTORRENT_PASS via SecretsProvider (its localhost-bypass can't apply here).
+    qbittorrent_url: str = ""  # e.g. http://host.docker.internal:8088
+    qbittorrent_poll_interval_s: int = 60
     # Inbound webhooks — per-source HMAC secret names resolved via SecretsProvider
     # (e.g. WEBHOOK_SECRET_GITHUB). Empty signature config → that source is rejected.
     webhook_require_signature: bool = True

@@ -88,6 +88,10 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         from jarvis.connectors.calendar import poll_once as cal_poll
         workers_list.append(
             ("calendar", lambda: _periodic(cal_poll, s.calendar_poll_interval_s, stop)))
+    if "qbittorrent" in s.connectors_enabled:
+        from jarvis.connectors.qbittorrent import poll_once as qbt_poll
+        workers_list.append(
+            ("qbittorrent", lambda: _periodic(qbt_poll, s.qbittorrent_poll_interval_s, stop)))
     # Inbox triage — summarize/classify inbound content and push the important items (opt-in).
     if s.triage_enabled:
         from jarvis.notify.triage import run_triage

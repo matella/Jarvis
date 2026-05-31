@@ -105,6 +105,40 @@ def consume(once: bool = typer.Option(False, help="Run one batch then exit")) ->
         run_forever()
 
 
+def _mbps(bps: int) -> str:
+    return f"{bps / 1e6:.1f} MB/s" if bps else "—"
+
+
+def _eta(secs: int | None) -> str:
+    if not secs:
+        return "?"
+    h, m = divmod(secs // 60, 60)
+    return f"{h}h {m}m" if h else f"{m}m"
+
+
+@app.command()
+def torrents() -> None:
+    """Live qBittorrent download status — active downloads, speed, ETA."""
+    from jarvis.connectors.qbittorrent import fetch_snapshot
+
+    snap = fetch_snapshot()
+    if not snap.get("available"):
+        console.print(f"[yellow]qBittorrent unavailable[/yellow]: {snap.get('reason', '')}")
+        raise typer.Exit(1)
+    head = (f"⬇ {snap['downloading']} downloading · {snap['seeding']} seeding · "
+            f"{snap['queued']} queued · {snap['total']} total — {_mbps(snap['dl_speed'])} down")
+    if snap.get("eta_s"):
+        head += f", ~{_eta(snap['eta_s'])} until the slowest finishes"
+    console.print(head)
+    table = Table(title="active downloads")
+    for col in ("name", "state", "progress", "eta", "speed"):
+        table.add_column(col, overflow="fold")
+    for it in snap["items"]:
+        table.add_row(it["name"][:48], it["state"], f"{round(it['progress'] * 100)}%",
+                      _eta(it.get("eta_s")), _mbps(it["dl_speed"]))
+    console.print(table)
+
+
 @events_app.command("tail")
 def events_tail(n: int = typer.Option(20, "-n", "--number", help="How many recent events")) -> None:
     """Show the most recent events (newest last)."""
