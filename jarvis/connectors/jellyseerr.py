@@ -47,7 +47,8 @@ def _api(method: str, path: str, body: dict | None = None) -> Any:
 
 def _top_match(query: str) -> dict[str, Any] | None:
     """First movie/tv search result for a free-text title (sanitized title for display)."""
-    q = urllib.parse.urlencode({"query": query})
+    # quote_via=quote → spaces become %20, NOT '+' (Jellyseerr 400s on '+').
+    q = urllib.parse.urlencode({"query": query}, quote_via=urllib.parse.quote)
     for r in _api("GET", f"/api/v1/search?{q}").get("results", []):
         if r.get("mediaType") in _REQUESTABLE and r.get("id"):
             return {
