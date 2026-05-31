@@ -27,24 +27,51 @@ def _secret(source: str) -> str | None:
     return get_provider().get(f"WEBHOOK_SECRET_{source.upper()}")
 
 
+def _token(source: str) -> str | None:
+    return get_provider().get(f"WEBHOOK_TOKEN_{source.upper()}")
+
+
+def _bearer(value: str) -> str:
+    """Strip an optional 'Bearer ' prefix — apps set the Authorization value either way."""
+    return value[7:].strip() if value.lower().startswith("bearer ") else value.strip()
+
+
 def verify(source: str, body: bytes, headers: dict[str, str]) -> None:
-    """Constant-time HMAC-SHA256 check. Raises WebhookUnverified on any failure."""
+    """Authenticate an inbound webhook. Raises WebhookUnverified on any failure.
+
+    Two schemes (a source uses whichever its sender supports):
+      • Shared-secret TOKEN in a header — for apps that can't HMAC-sign (Radarr/Sonarr/Jellyseerr
+        can set a custom header). Set WEBHOOK_TOKEN_<SOURCE>; sender sends X-Jarvis-Token or
+        Authorization with that value.
+      • HMAC-SHA256 — GitHub/Grafana style. Set WEBHOOK_SECRET_<SOURCE>.
+    """
     s = get_settings()
-    secret = _secret(source)
-    if not secret:
-        if s.webhook_require_signature:
-            raise WebhookUnverified(f"no signing secret configured for {source!r}")
-        return
-    # GitHub: X-Hub-Signature-256: sha256=<hex>. Others: X-Jarvis-Signature: <hex>.
     h = {k.lower(): v for k, v in headers.items()}
-    provided = h.get("x-hub-signature-256", "")
-    if provided.startswith("sha256="):
-        provided = provided.split("=", 1)[1]
-    else:
-        provided = h.get("x-jarvis-signature", "")
-    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    if not provided or not hmac.compare_digest(provided, expected):
-        raise WebhookUnverified(f"bad signature for {source!r}")
+    token_secret = _token(source)
+    hmac_secret = _secret(source)
+
+    # Token scheme (constant-time). Takes precedence when configured for this source.
+    if token_secret:
+        provided = h.get("x-jarvis-token", "") or _bearer(h.get("authorization", ""))
+        if provided and hmac.compare_digest(provided, token_secret):
+            return
+        raise WebhookUnverified(f"missing/invalid token for {source!r}")
+
+    # HMAC scheme. GitHub: X-Hub-Signature-256: sha256=<hex>. Others: X-Jarvis-Signature: <hex>.
+    if hmac_secret:
+        provided = h.get("x-hub-signature-256", "")
+        if provided.startswith("sha256="):
+            provided = provided.split("=", 1)[1]
+        else:
+            provided = h.get("x-jarvis-signature", "")
+        expected = hmac.new(hmac_secret.encode(), body, hashlib.sha256).hexdigest()
+        if not provided or not hmac.compare_digest(provided, expected):
+            raise WebhookUnverified(f"bad signature for {source!r}")
+        return
+
+    # No credential configured for this source.
+    if s.webhook_require_signature:
+        raise WebhookUnverified(f"no signing secret or token configured for {source!r}")
 
 
 def _github_event(payload: dict[str, Any]) -> Event:
@@ -73,6 +100,50 @@ def _grafana_event(payload: dict[str, Any]) -> Event:
     )
 
 
+def _norm(verb: str) -> str:
+    """Normalize an eventType/notification_type to a snake-ish suffix (Grab → grab, MEDIA_PENDING
+    → media_pending, HealthIssue → health_issue)."""
+    import re
+
+    # Split camelCase only at a lower→upper boundary (so HealthIssue → health_issue) without
+    # mangling ALL_CAPS inputs (MEDIA_PENDING stays media_pending).
+    s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", verb.strip()).lower()
+    return re.sub(r"[^a-z0-9]+", "_", s).strip("_") or "event"
+
+
+def _arr_event(source: str, payload: dict[str, Any]) -> Event:
+    """Radarr/Sonarr webhook → `<source>.<eventtype>` (e.g. radarr.grab, sonarr.download)."""
+    etype = _norm(str(payload.get("eventType", "event")))
+    media = payload.get("movie") or payload.get("series") or {}
+    title = sanitize(str(media.get("title", payload.get("instanceName", source))))
+    kind = "movie" if "movie" in payload else "series" if "series" in payload else source
+    severity = Severity.warning if etype in ("health_issue", "manual_interaction_required") \
+        else Severity.info
+    return Event(
+        type=f"{source}.{etype}", severity=severity, source=f"webhook:{source}",
+        entity_ref=f"{kind}:{title}", occurred_at=utcnow(),
+        payload={"title": title, "event": etype,
+                 "quality": sanitize(str((payload.get("release") or {}).get("quality", ""))),
+                 "message": sanitize(str(payload.get("message", "")))[:500]},
+        correlation_id=ids.new_id(ids.CORRELATION),
+    )
+
+
+def _jellyseerr_event(payload: dict[str, Any]) -> Event:
+    """Jellyseerr webhook → `jellyseerr.<notification_type>` (e.g. jellyseerr.media_pending)."""
+    ntype = _norm(str(payload.get("notification_type", "notification")))
+    subject = sanitize(str(payload.get("subject", "request")))
+    requested_by = sanitize(str((payload.get("request") or {}).get("requestedBy_username", "")))
+    severity = Severity.warning if ntype in ("media_failed", "issue_created") else Severity.info
+    return Event(
+        type=f"jellyseerr.{ntype}", severity=severity, source="webhook:jellyseerr",
+        entity_ref=f"media:{subject}", occurred_at=utcnow(),
+        payload={"subject": subject, "event": ntype, "requested_by": requested_by,
+                 "message": sanitize(str(payload.get("message", "")))[:500]},
+        correlation_id=ids.new_id(ids.CORRELATION),
+    )
+
+
 def _generic_event(source: str, payload: dict[str, Any]) -> Event:
     return Event(
         type="webhook.received", severity=Severity.info, source=f"webhook:{sanitize(source)}",
@@ -87,4 +158,8 @@ def to_event(source: str, payload: dict[str, Any]) -> Event:
         return _github_event(payload)
     if source == "grafana":
         return _grafana_event(payload)
+    if source in ("radarr", "sonarr"):
+        return _arr_event(source, payload)
+    if source == "jellyseerr":
+        return _jellyseerr_event(payload)
     return _generic_event(source, payload)

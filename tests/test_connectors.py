@@ -134,3 +134,24 @@ def test_webhook_maps_sources() -> None:
     assert graf.type == "grafana.alert" and graf.severity.value == "critical"
     other = webhooks.to_event("zapier", {"a": 1, "b": 2})
     assert other.type == "webhook.received"
+
+
+def test_webhook_maps_arr_and_jellyseerr() -> None:
+    r = webhooks.to_event("radarr", {"eventType": "Grab", "movie": {"title": "Dune"}})
+    assert r.type == "radarr.grab" and r.entity_ref == "movie:Dune"
+    health = webhooks.to_event("sonarr", {"eventType": "HealthIssue", "series": {"title": "X"}})
+    assert health.type == "sonarr.health_issue" and health.severity.value == "warning"
+    js = webhooks.to_event("jellyseerr", {"notification_type": "MEDIA_PENDING",
+                                          "subject": "Andor (2022)"})
+    assert js.type == "jellyseerr.media_pending" and js.entity_ref == "media:Andor (2022)"
+
+
+def test_webhook_token_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("WEBHOOK_TOKEN_RADARR", "s3cret")
+    # right token (either header) passes; wrong/missing fails — no HMAC needed
+    webhooks.verify("radarr", b"{}", {"X-Jarvis-Token": "s3cret"})
+    webhooks.verify("radarr", b"{}", {"Authorization": "Bearer s3cret"})
+    with pytest.raises(webhooks.WebhookUnverified):
+        webhooks.verify("radarr", b"{}", {"X-Jarvis-Token": "nope"})
+    with pytest.raises(webhooks.WebhookUnverified):
+        webhooks.verify("radarr", b"{}", {})

@@ -1,0 +1,17 @@
+# Example gated-action plugin: approve a Jellyseerr request.
+# Copy into your PLUGINS_DIR, set the real host + API key, and add the host to EGRESS_ALLOWLIST.
+# It registers as the Intent type `jellyseerr.approve` and routes through the SAME approval + audit
+# gate as every other action — Jarvis can only PROPOSE it; you confirm before it runs.
+#
+# Note: the API key lives in this manifest (operator-authored, on your trusted box). Keep the file
+# readable only by you. The {request_id} arg is the only thing the model fills in.
+name: jellyseerr.approve
+version: 1
+permissions: ["jellyseerr:approve"]
+side_effects: true
+idempotent: true
+method: POST
+url: "http://jellyseerr:5055/api/v1/request/{request_id}/approve"
+args: ["request_id"]
+headers:
+  X-Api-Key: "REPLACE_WITH_JELLYSEERR_API_KEY"

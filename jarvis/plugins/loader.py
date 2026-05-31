@@ -43,13 +43,24 @@ class PluginError(Exception):
     pass
 
 
+def _walk_strings(v: Any):
+    """Yield every string nested anywhere in a value (dicts, lists, scalars)."""
+    if isinstance(v, str):
+        yield v
+    elif isinstance(v, dict):
+        for x in v.values():
+            yield from _walk_strings(x)
+    elif isinstance(v, list):
+        for x in v:
+            yield from _walk_strings(x)
+
+
 def validate_manifest(m: PluginManifest) -> None:
     if not _INTENT_TYPE.match(m.name):
         raise PluginError(f"plugin name must be 'entity.verb', got {m.name!r}")
     referenced = set(_PLACEHOLDER.findall(m.url))
-    for v in m.body.values():
-        if isinstance(v, str):
-            referenced |= set(_PLACEHOLDER.findall(v))
+    for s in _walk_strings(m.body):  # placeholders anywhere in the body (incl. nested arrays)
+        referenced |= set(_PLACEHOLDER.findall(s))
     unknown = referenced - set(m.args)
     if unknown:
         raise PluginError(f"{m.name}: template references undeclared args {sorted(unknown)}")
@@ -73,11 +84,19 @@ def render(template: str, target: dict[str, Any], allowed: list[str]) -> str:
     return _PLACEHOLDER.sub(_sub, template)
 
 
+def _render_value(v: Any, target: dict[str, Any], allowed: list[str]) -> Any:
+    """Render {arg} placeholders in strings anywhere in the structure (recurses dicts/lists)."""
+    if isinstance(v, str):
+        return render(v, target, allowed)
+    if isinstance(v, dict):
+        return {k: _render_value(x, target, allowed) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_render_value(x, target, allowed) for x in v]
+    return v
+
+
 def _render_body(body: dict[str, Any], target: dict[str, Any], allowed: list[str]) -> dict:
-    out: dict[str, Any] = {}
-    for k, v in body.items():
-        out[k] = render(v, target, allowed) if isinstance(v, str) else v
-    return out
+    return {k: _render_value(v, target, allowed) for k, v in body.items()}
 
 
 def build_tool(m: PluginManifest) -> Tool:

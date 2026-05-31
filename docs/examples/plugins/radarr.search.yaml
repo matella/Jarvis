@@ -1,0 +1,16 @@
+# Example gated-action plugin: trigger a Radarr search for a movie by its id.
+# Copy into PLUGINS_DIR, set host + API key, add the host to EGRESS_ALLOWLIST. Registers as the
+# Intent type `radarr.search`; gated + audited like every action (propose → you confirm → run).
+name: radarr.search
+version: 1
+permissions: ["radarr:command"]
+side_effects: true
+idempotent: false
+method: POST
+url: "http://radarr:7878/api/v3/command"
+args: ["movie_id"]
+body:
+  name: "MoviesSearch"
+  movieIds: ["{movie_id}"]
+headers:
+  X-Api-Key: "REPLACE_WITH_RADARR_API_KEY"

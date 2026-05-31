@@ -56,6 +56,16 @@ def test_build_tool_contract() -> None:
     assert "api/scenes/movie" in tool.preview({"scene": "movie"})["would_call"]
 
 
+def test_body_placeholders_render_in_nested_arrays() -> None:
+    from jarvis.plugins.loader import _render_body, validate_manifest
+
+    m = _manifest(name="radarr.search", url="http://radarr/api/v3/command",
+                  body={"name": "MoviesSearch", "movieIds": ["{movie_id}"]}, args=["movie_id"])
+    validate_manifest(m)  # placeholder in a nested array is recognized (no "undeclared arg")
+    rendered = _render_body(m.body, {"movie_id": "42"}, m.args)
+    assert rendered == {"name": "MoviesSearch", "movieIds": ["42"]}  # nested placeholder rendered
+
+
 def test_plugins_cannot_shadow_builtin(tmp_path) -> None:
     import jarvis.connectors  # noqa: F401 — ensure built-ins are registered
     from jarvis.plugins.loader import load_plugins
