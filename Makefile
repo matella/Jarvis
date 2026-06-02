@@ -12,7 +12,7 @@ OLLAMA_PORT ?= 11434
 
 DC = docker --context $(CONTEXT) compose
 
-.PHONY: context up down ps logs tunnel health test deploy deploy-logs deploy-down claude-token app-passphrase
+.PHONY: context up down ps logs tunnel health test deploy deploy-logs deploy-down claude-token app-passphrase google-oauth
 
 ## Create/point the SSH docker context at the remote host.
 context:
@@ -66,3 +66,9 @@ claude-token:
 ## passphrase is never stored; only this hash. Re-run to rotate.
 app-passphrase:
 	@./.venv/bin/python -c 'import getpass; from jarvis.gateway.sessions import hash_passphrase; print(hash_passphrase(getpass.getpass("New app passphrase: ")))'
+
+## Mint a Google Calendar refresh token (read-only) for the calendar read-mirror. Run on a machine
+## WITH A BROWSER (your Mac). Export the OAuth client first, then approve once; paste the printed
+## GOOGLE_OAUTH_REFRESH_TOKEN into the box .env (with the client id/secret).
+google-oauth:
+	@./.venv/bin/python scripts/google_oauth.py
