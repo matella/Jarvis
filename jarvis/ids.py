@@ -28,6 +28,14 @@ ROUTINE = "rtn"
 VERIFICATION = "vrf"
 DEFERRAL = "dfr"
 REMINDER = "rem"
+# Personal-OS module rows (user documents — the module's table owns the truth).
+TASK = "task"
+NOTE = "note"
+RECIPE = "rcp"
+DOCUMENT = "doc"
+DOCVERSION = "docv"
+RESEARCH = "rsch"
+MODELPREF = "mpref"
 
 
 def new_id(prefix: str) -> str:

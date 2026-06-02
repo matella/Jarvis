@@ -22,6 +22,7 @@ from fastapi import (
 )
 
 import jarvis.connectors  # noqa: F401 — registers connector act-Tools (mail.send, ha.set_state)
+import jarvis.modules.builtin_tools  # noqa: F401 — registers personal-OS module tools (task.*, …)
 from jarvis import db
 from jarvis.agents import conversation as convo
 from jarvis.config import get_settings
