@@ -9,8 +9,10 @@ import { ConnectionSettings } from "./components/ConnectionSettings";
 import { ConsoleMode } from "./components/ConsoleMode";
 import { DecisionInspector } from "./components/DecisionInspector";
 import { InsightMode, type InsightTab } from "./components/InsightMode";
+import { LoginGate } from "./components/LoginGate";
 import { PresenceMode } from "./components/PresenceMode";
 import { TopBar, type Surface } from "./components/TopBar";
+import { Workspace } from "./components/Workspace";
 import { speak } from "./lib/speak";
 import { useConversation } from "./lib/useConversation";
 import { useVoice } from "./lib/useVoice";
@@ -58,33 +60,36 @@ export default function App() {
   );
 
   return (
-    <div className="atmosphere grain scanlines relative flex h-full flex-col bg-void">
-      <TopBar
-        presence={presence} conn={conn} surface={surface} onSurface={setSurface}
-        onSettings={() => setSettingsOpen(true)}
-      />
-      <main className="relative min-h-0 flex-1">
-        {surface === "presence" && (
-          <PresenceMode
-            presence={presence} onSend={send} disabled={disabled} mic={mic} thinking={thinking}
-          />
-        )}
-        {surface === "console" && (
-          <ConsoleMode
-            presence={presence} turns={turns} onSend={send} disabled={disabled} mic={mic}
-            thinking={thinking}
-          />
-        )}
-        {surface === "insight" && (
-          <InsightMode tab={insightTab} onTab={setInsightTab} onInspect={setInspecting} />
-        )}
-      </main>
+    <LoginGate>
+      <div className="atmosphere grain scanlines relative flex h-full flex-col bg-void">
+        <TopBar
+          presence={presence} conn={conn} surface={surface} onSurface={setSurface}
+          onSettings={() => setSettingsOpen(true)}
+        />
+        <main className="relative min-h-0 flex-1">
+          {surface === "presence" && (
+            <PresenceMode
+              presence={presence} onSend={send} disabled={disabled} mic={mic} thinking={thinking}
+            />
+          )}
+          {surface === "console" && (
+            <ConsoleMode
+              presence={presence} turns={turns} onSend={send} disabled={disabled} mic={mic}
+              thinking={thinking}
+            />
+          )}
+          {surface === "insight" && (
+            <InsightMode tab={insightTab} onTab={setInsightTab} onInspect={setInspecting} />
+          )}
+          {surface === "workspace" && <Workspace />}
+        </main>
 
-      <CommandPalette open={palette.open} setOpen={palette.setOpen} commands={commands} />
-      {inspecting && (
-        <DecisionInspector intentId={inspecting} onClose={() => setInspecting(null)} />
-      )}
-      {settingsOpen && <ConnectionSettings onClose={() => setSettingsOpen(false)} />}
-    </div>
+        <CommandPalette open={palette.open} setOpen={palette.setOpen} commands={commands} />
+        {inspecting && (
+          <DecisionInspector intentId={inspecting} onClose={() => setInspecting(null)} />
+        )}
+        {settingsOpen && <ConnectionSettings onClose={() => setSettingsOpen(false)} />}
+      </div>
+    </LoginGate>
   );
 }

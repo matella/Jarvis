@@ -7,7 +7,7 @@ import { available as speakAvailable, cancel, setSpeakEnabled, speakEnabled } fr
 import type { PresenceState } from "../lib/types";
 import type { ConnState } from "../lib/useConversation";
 
-export type Surface = "presence" | "console" | "insight";
+export type Surface = "presence" | "console" | "insight" | "workspace";
 
 export function TopBar({
   presence,
@@ -72,7 +72,7 @@ export function TopBar({
         </button>
 
         <div className="flex border border-edge">
-          {(["presence", "console", "insight"] as Surface[]).map((s) => (
+          {(["presence", "console", "insight", "workspace"] as Surface[]).map((s) => (
             <button
               key={s}
               onClick={() => onSurface(s)}
