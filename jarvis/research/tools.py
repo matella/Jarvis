@@ -31,7 +31,10 @@ def _run(target: dict[str, Any], *, timeout_s: int) -> dict[str, Any]:
     except ValueError as exc:
         raise ValueError(f"invalid depth: {depth_raw!r}") from exc
 
-    run = run_harness(query.strip(), depth=depth)
+    from jarvis.cookbook import backend_for_action
+
+    synth_backend = backend_for_action("research.synthesize")  # cookbook; None → router default
+    run = run_harness(query.strip(), depth=depth, synth_backend=synth_backend)
 
     # Cross-module: a successful report lands as a Document linked back to the run.
     if run.status is ResearchStatus.done and run.report_md:

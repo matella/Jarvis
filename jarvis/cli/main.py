@@ -1196,6 +1196,42 @@ def model_status() -> None:
                       f"{fb['payload'].get('failure_class', '?')}")
 
 
+@model_app.command("prefs")
+def model_prefs() -> None:
+    """Show the model cookbook — per-action backend choices."""
+    from jarvis.cookbook import repository
+
+    with db.connect() as conn:
+        prefs = repository.list_prefs(conn)
+    if not prefs:
+        console.print("no per-action prefs set (everything uses the global default)")
+        return
+    for p in prefs:
+        tag = f" [{p.preset_name}]" if p.preset_name else ""
+        console.print(f"{p.scope.value}:{p.scope_key} → [bold]{p.backend}[/bold]{tag}")
+
+
+@model_app.command("pref")
+def model_pref(action: str = typer.Argument(...), backend: str = typer.Argument(...)) -> None:
+    """Set the backend for an action key, e.g. `jarvis model pref research.synthesize claude`."""
+    from jarvis.cookbook.models import ModelPref, PrefScope
+    from jarvis.cookbook.repository import set_pref
+
+    with db.connect(autocommit=True) as conn:
+        set_pref(conn, ModelPref(scope=PrefScope.action, scope_key=action, backend=backend))
+    console.print(f"{action} → [bold]{backend}[/bold]")
+
+
+@model_app.command("preset")
+def model_preset(name: str = typer.Argument(..., help="quality | frugal | balanced")) -> None:
+    """Apply a named cookbook preset (writes the per-action rows)."""
+    from jarvis.cookbook.repository import apply_preset
+
+    with db.connect(autocommit=True) as conn:
+        n = apply_preset(conn, name)
+    console.print(f"preset [bold]{name}[/bold] applied ({n} actions)")
+
+
 @obs_app.command("prometheus")
 def obs_prometheus() -> None:
     """Run one Prometheus scrape now (samples configured PromQL into `metrics`)."""

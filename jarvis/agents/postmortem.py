@@ -65,14 +65,16 @@ def _prompt(summary: str, root_cause: str, entities: list[str]) -> str:
 def _decide(prompt: str, correlation_id: str) -> dict[str, Any]:
     import json
 
+    # Postmortems are rare, advisory, and the task where the small local model is weakest — so
+    # prefer Claude (explicit, used despite the schema). The cookbook lets the operator override
+    # this per-action (default claude). The dispatcher validates + auto-falls-back to local if down.
+    from jarvis.cookbook import backend_for_action
     from jarvis.models.scheduler import Priority
     from jarvis.models.scheduler import chat as sched_chat
 
-    # Pilot for the multi-backend router: postmortems are rare, advisory, and the task where the
-    # small local model is weakest — so prefer Claude (explicit, so it's used despite the schema).
-    # The dispatcher validates the JSON and auto-falls-back to local if Claude is down/unauthed.
     resp = sched_chat(
-        "reasoning", [{"role": "user", "content": prompt}], backend="claude",
+        "reasoning", [{"role": "user", "content": prompt}],
+        backend=backend_for_action("postmortem", default="claude"),
         priority=Priority.BACKGROUND, correlation_id=correlation_id, format=_SCHEMA,
     )
     try:
