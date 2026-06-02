@@ -11,10 +11,17 @@ and the original differ, **this doc wins**.
 
 ## Refinements applied (from review)
 
-1. **Step 0 is a de-risk spike, not code.** Before any router code: confirm `claude -p` works
-   headless in the container on the subscription, survives a restart + token refresh. If it's
-   flaky, stop — the feature is flaky. (Verifies cage flags + login flow + credential path on the
-   real CLI; the spec must not trust guesses.)
+1. **Step 0 spike — DONE (verified on the box 2026-06-02, CLI v2.1.160).** Findings:
+   - **Auth = `CLAUDE_CODE_OAUTH_TOKEN` env var** (long-lived subscription token from
+     `claude setup-token`; NOT metered API key). `setup-token` does *not* persist a credential
+     file — so **no `claude-config` volume and no interactive in-container login**. The token is a
+     **secret in `.env`**, passed to the containers by the existing `env_file` wiring. Persistence
+     is solved by design (env var survives restart/rebuild); no write-race on a shared file.
+   - **Maximum cage = `claude -p "<prompt>" --allowedTools "" --output-format text`** run in an
+     **empty cwd** (no `CLAUDE.md` pickup) and **no `--mcp-config`** → pure text-in/text-out, no
+     tools, no MCP, no FS. (`json` output available for token-usage → best-effort `eval_count`.)
+   - Caged completion returns real text; unauthed correctly errors "Not logged in".
+   - **Token rotation:** re-run `setup-token` when it expires → update `.env` → redeploy.
 2. **Chat shape = "local routes, Claude composes."** The conversation agent keeps its
    **grammar-constrained routing inference on `local`** (the `_Decision` schema call — `_decide`
    pins `backend=local`); only the **free-text answer** is generated on the resolved backend.
@@ -66,8 +73,9 @@ and the original differ, **this doc wins**.
   Ollama dict shape (`backend_used="claude"`); classify failures (`timeout` / `tool_unavailable`
   (CLI missing) / `permission_denied` (unauthed) / `resource_exhaustion` (rate-limit) / `unknown`)
   → typed `ClaudeBackendError(failure_class, …)`.
-- **`jarvis/models/backends/availability.py`** — `claude_available()` (`command -v claude` + cred
-  file present; cached `claude_availability_cache_ttl`=60s); `CircuitBreaker`
+- **`jarvis/models/backends/availability.py`** — `claude_available()` (`command -v claude` AND
+  `CLAUDE_CODE_OAUTH_TOKEN` present via SecretsProvider; cached `claude_availability_cache_ttl`=60s);
+  `CircuitBreaker`
   (`open`/`is_open`/`record_rate_limit`, injected clock, process-global); `DailyBudget`
   (per-UTC-day call counter, injected clock).
 - **`jarvis/models/backends/state.py`** — read/write `system_state.llm_backend`, reusing the
@@ -86,12 +94,12 @@ and the original differ, **this doc wins**.
   `claude_available()`, breaker state, today's budget used, last fallback).
 - **config / `.env.example`** — `llm_default_backend="local"`, `claude_call_timeout`,
   `claude_availability_cache_ttl=60`, `claude_breaker_cooldown_s=900`, `claude_daily_call_budget`,
-  `claude_model`.
-- **Dockerfile** — add Node + `@anthropic-ai/claude-code`.
-- **docker-compose.yml** — named volume `claude-config:/root/.claude` (path verified on the box)
-  on **both** gateway and daemon.
-- **Makefile** — `make claude-login` → `docker exec -it jarvis-daemon claude` (one-time headless
-  login; creds persist across `--build`).
+  `claude_model`. **Secret:** `CLAUDE_CODE_OAUTH_TOKEN` (via SecretsProvider/`.env`, never logged).
+- **Dockerfile** — add Node + `@anthropic-ai/claude-code` (the CLI binary).
+- **docker-compose.yml** — **no volume needed.** `CLAUDE_CODE_OAUTH_TOKEN` reaches both gateway and
+  daemon via the existing `env_file: .env`.
+- **Makefile** — `make claude-token` → run `claude setup-token` in a throwaway container to mint the
+  long-lived token; operator pastes it into the box `.env` as `CLAUDE_CODE_OAUTH_TOKEN`.
 
 ## Events / data
 
@@ -114,14 +122,16 @@ default rides `system_state`).
   stderr/exit-code fixtures.
 - **Integration (`@pytest.mark.integration`, auto-skip):** local regression guard (byte-for-byte);
   claude path (authed → real completion, `backend_used=="claude"`, `inference.completed` carries
-  `backend="claude"`); fallback (rename `claude` on PATH → succeeds via local, exactly **one**
-  notification); persistence (restart container → still authed); cron (`backend: claude` routine
+  `backend="claude"`); fallback (unset `CLAUDE_CODE_OAUTH_TOKEN` or rename `claude` on PATH →
+  succeeds via local, exactly **one** notification); persistence (token in `.env` → survives
+  rebuild; trivial since it's an env var); cron (`backend: claude` routine
   runs + falls back cleanly when down); **chat-compose** (toggle on → routing event shows
   `backend=local`, the answer's `inference.completed` shows `backend=claude`).
 
 ## Rollout (small, reversible)
 
-0. **Spike** `claude -p` headless auth + restart survival (gate — stop if flaky).
+0. **Spike — DONE** (auth = `CLAUDE_CODE_OAUTH_TOKEN` env var; caged `-p --allowedTools ""`; verified
+   on the box). Gate passed.
 1. Branch.
 2. Land the dispatch fork + both backends + breaker + budget, default `local`. Behavior identical
    to today (all Ollama) — zero-risk merge.
