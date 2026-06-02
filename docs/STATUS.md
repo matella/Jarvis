@@ -261,27 +261,28 @@ actions reuse the tools). **REST DONE**: `gateway/deps.py` + `gateway/modules_ap
   worktree → diff → gated apply; allowlist-only).
 - `.env.example`, `MAP.md`, `docs/MODULE_TEMPLATE.md` updated.
 
-**ON HOLD (needs operator / a browser):**
-- (a) **Frontend** — shell refactor + per-module panels + login screen + Cmd-K + theme. UX choices,
-  can't verify headlessly, touches the live WebGL console. Build together on return (registry pattern
-  makes panels mechanical; per-module frontend checklist in the shell spec).
-- (b) **Three external spikes:** **IMAP creds** (wire live mail→cache sync), **Google OAuth token**
-  (`make google-oauth` + live calendar sync — `google._default_fetch` written, untested live),
-  **headless OpenCode command** (`code.harness._held_runner` raises until the `opencode run` command
-  + model-pin are confirmed).
-- (c) **Operational surfaces** (Memories/Routines UI) — pure gateway-reads/UI over existing tables;
-  deferred to the frontend phase (no new backend needed).
+**ALSO DONE since:** daily-brief `day_brief` routine action (calendar+tasks+mail+research+homelab,
+best-effort) + Routines UI panel (11th) + `/api/routines` + live **mail-sync** code
+(`jarvis/mail/sync.py`, run via `jarvis connectors mail-sync`) + `make google-oauth` helper
+(`scripts/google_oauth.py`). **Everything buildable-without-creds is now built.**
 
-**NOTED FOLLOW-UPS (additive, low-risk):** daily-brief cross-module composer (calendar today + tasks
-due + important mail + research digest) — wire the new read accessors into the existing routines/ntfy
-brief once modules are populated; Tasks proactive due-nudge worker (reuse reminder poll);
-capability-summary labels module write-tools "read-only" (cosmetic). Per-module plans live in each
-spec's Plan section — re-validate vs branch before building the frontend.
+**ON HOLD — only live config/runs remain (operator provides; assistant drives the box):**
+- **Mail:** set `IMAP_HOST/SMTP_HOST` + `MAIL_USERNAME`/`MAIL_PASSWORD` (app password) in box `.env`
+  → `jarvis connectors mail-sync` populates the cache+triage (the IMAP spike = confirm it connects).
+- **Google Calendar:** create an OAuth client → `make google-oauth` (browser machine) → paste
+  `GOOGLE_OAUTH_REFRESH_TOKEN` (+id/secret) into `.env` → `calendar.google.sync()` (live run).
+- **OpenCode:** confirm `opencode --version` on the box + set `CODE_REPO_ALLOWLIST`; spike the
+  headless command, then replace `code.harness._held_runner` with the real `opencode run` invocation.
+- **Login:** `make app-passphrase` → `APP_PASSPHRASE_HASH` in `.env`.
 
-**GO-LIVE (when operator returns):** review the branch → `make app-passphrase` (set `.env`) →
-merge `feat/personal-os-arc` → on box `git pull && make deploy` (runs migrations 0019–0028) →
-`jarvis mode semi_autonomous` to let module CRUD auto-run → try via chat ("add a task…", "research
-…"). Then build the frontend + run the 3 spikes together.
+**NOTED FOLLOW-UPS (additive):** Tasks proactive due-nudge worker (reuse reminder poll);
+capability-summary labels module write-tools "read-only" (cosmetic); Cmd-K wiring of module search
++ theme presets in the workspace.
+
+**GO-LIVE:** review branch → `make app-passphrase` → merge `feat/personal-os-arc` → on box
+`git pull && make deploy` (runs migrations 0019–0028) → set the secrets above → `jarvis mode
+semi_autonomous` → use via chat OR the app's **workspace** tab (login → 11 panels). Run mail-sync /
+google-oauth / opencode spike to light up the three live integrations.
 
 ## Everyday-AI roadmap (post-backlog) — in progress
 Goal: turn Jarvis from "a console I open" into "an assistant that knows me and reaches me".

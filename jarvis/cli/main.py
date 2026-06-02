@@ -953,6 +953,15 @@ def connectors_poll(name: str = typer.Argument(..., help="feeds|mail")) -> None:
     console.print(f"{name}: emitted [bold]{count}[/bold] events")
 
 
+@connectors_app.command("mail-sync")
+def connectors_mail_sync(max_messages: int = 50) -> None:
+    """Mirror recent mail into the cache + triage it (the inbox the app's Mail panel reads)."""
+    from jarvis.mail.sync import sync_account
+
+    n = sync_account(max_messages=max_messages)
+    console.print(f"mail: synced [bold]{n}[/bold] messages to the cache")
+
+
 @routine_app.command("add")
 def routine_add(
     name: str,
