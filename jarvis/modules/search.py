@@ -44,7 +44,7 @@ def _default_embed(text: str) -> list[float]:
 
 
 def _indexable(title: str, text: str) -> str:
-    # Title boosts recall; sanitize so secrets/PII never land in the vector index (defense-in-depth).
+    # Title boosts recall; sanitize so secrets/PII never reach the vector index (defense-in-depth).
     return sanitize(f"{title}\n{text}".strip())
 
 
@@ -57,7 +57,7 @@ def index_entity(
     store: MemoryStore | None = None,
     embed: Embedder | None = None,
 ) -> None:
-    """Embed a module entity's text into `memory` (kind='module', source/entity_ref/title facets)."""
+    """Embed a module entity into `memory` (kind='module'; source/entity_ref/title facets)."""
     store = store or PgVectorMemoryStore()
     embed = embed or _default_embed
     content = _indexable(title, text)
