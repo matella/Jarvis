@@ -44,6 +44,7 @@ obs_app = typer.Typer(no_args_is_help=True, help="Observability ingest (Promethe
 memory_app = typer.Typer(no_args_is_help=True, help="Memory governance (list/forget/consolidate)")
 kb_app = typer.Typer(no_args_is_help=True, help="Knowledge base (index runbooks/docs into memory)")
 remind_app = typer.Typer(no_args_is_help=True, help="Reminders (time-based nudges → notification)")
+model_app = typer.Typer(no_args_is_help=True, help="LLM backend: local (Ollama) | claude + status")
 app.add_typer(events_app, name="events")
 app.add_typer(state_app, name="state")
 app.add_typer(metrics_app, name="metrics")
@@ -65,6 +66,7 @@ app.add_typer(obs_app, name="obs")
 app.add_typer(memory_app, name="memory")
 app.add_typer(kb_app, name="kb")
 app.add_typer(remind_app, name="remind")
+app.add_typer(model_app, name="model")
 
 console = Console()
 
@@ -1143,6 +1145,55 @@ def remind_fire() -> None:
     with db.connect(autocommit=True) as conn:
         n = fire_due(conn)
     console.print(f"fired [bold]{n}[/bold] due reminder(s)")
+
+
+@model_app.command("local")
+def model_local() -> None:
+    """Route interactive chat to the local model (Ollama)."""
+    from jarvis.models.backends.state import set_backend
+
+    with db.connect(autocommit=True) as conn:
+        set_backend(conn, "local")
+    console.print("backend → [bold]local[/bold]")
+
+
+@model_app.command("claude")
+def model_claude() -> None:
+    """Route interactive chat to Claude (claude -p, subscription); falls back to local."""
+    from jarvis.models.backends.availability import claude_available
+    from jarvis.models.backends.state import set_backend
+
+    with db.connect(autocommit=True) as conn:
+        set_backend(conn, "claude")
+    note = "" if claude_available() else \
+        " [yellow](claude CLI/token not detected here — runtime will fall back to local)[/yellow]"
+    console.print(f"backend → [bold]claude[/bold]{note}")
+
+
+@model_app.command("status")
+def model_status() -> None:
+    """Global backend default, claude availability, recent fallbacks + 24h usage by backend."""
+    from jarvis.models.backends.availability import claude_available
+    from jarvis.models.backends.state import get_backend
+
+    with db.connect() as conn:
+        gb = get_backend(conn)
+        rows = conn.execute(
+            "SELECT payload->>'backend' AS b, count(*) AS n FROM events "
+            "WHERE type = 'inference.completed' AND occurred_at > now() - interval '24 hours' "
+            "GROUP BY 1"
+        ).fetchall()
+        fb = conn.execute(
+            "SELECT occurred_at, payload FROM events WHERE type = 'llm.fallback' "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    usage = {r["b"]: r["n"] for r in rows}
+    console.print(f"global default : [bold]{gb}[/bold]")
+    console.print(f"claude available: {claude_available()}")
+    console.print(f"inference (24h): local={usage.get('local', 0)} claude={usage.get('claude', 0)}")
+    if fb:
+        console.print(f"last fallback  : {_short(fb['occurred_at'])} — "
+                      f"{fb['payload'].get('failure_class', '?')}")
 
 
 @obs_app.command("prometheus")
