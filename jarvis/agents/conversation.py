@@ -300,7 +300,7 @@ def _decide(prompt: str, *, correlation_id: str, context_ref: str) -> _Decision:
     resp = sched_chat(
         "reasoning",
         [{"role": "user", "content": prompt}],
-        priority=Priority.INTERACTIVE,
+        priority=Priority.INTERACTIVE, backend="local",  # routing stays grammar-constrained
         correlation_id=correlation_id, context_ref=context_ref, format=_DECISION_SCHEMA,
     )
     raw = str(resp["message"]["content"])
@@ -428,10 +428,12 @@ def _reason(
     if facts and _is_personal(utterance):
         return TurnResult(route=TurnRoute.answer, message=_recall_answer(facts, utterance))
 
-    # Answer route (or any fall-through, e.g. a search misroute with no backend). If the structured
-    # decision left message empty, do one plain answer pass so we never reply "(no response)".
+    # Answer route. "Local routes, Claude composes": when the global backend is claude, generate the
+    # free-text answer via a fresh compose pass (the scheduler routes that INTERACTIVE, schema-less
+    # call to claude) instead of using the local router's draft. On local, keep today's single-call
+    # behavior. _plain_answer also covers the empty-message fall-through ("(no response)" guard).
     message = decision.message.strip()
-    if not message:
+    if _composes_with_claude(conn) or not message:
         message = _plain_answer(ctx.prompt, _memory_window(conn, session), utterance, facts=facts)
     return TurnResult(
         route=TurnRoute.answer, message=message, citations=decision.citations,
@@ -494,6 +496,14 @@ def _capture_reminder(
         return _reason(conn, session, utterance, store=store)
     when = rem.due_at.strftime("%a %d %b %H:%M UTC")
     return TurnResult(route=TurnRoute.remember, message=f"Reminder set: \"{rem.text}\" — {when}.")
+
+
+def _composes_with_claude(conn: psycopg.Connection) -> bool:
+    """True when the global backend is claude AND it's usable — else compose the answer locally."""
+    from jarvis.models.backends.availability import claude_available
+    from jarvis.models.backends.state import get_backend
+
+    return get_backend(conn) == "claude" and claude_available()
 
 
 def _plain_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> str:
