@@ -13,6 +13,18 @@ RUN set -eux; \
     apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*; \
     docker --version
 
+# Node + Claude Code CLI — the off-GPU `claude` backend (`claude -p`). Auth at runtime via the
+# CLAUDE_CODE_OAUTH_TOKEN env var (from `make claude-token`); used by the gateway (chat compose) and
+# the daemon (postmortems). Pinned for reproducibility; the router defaults to local so this is opt-in.
+ARG CLAUDE_CODE_VERSION=2.1.160
+RUN set -eux; \
+    apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg; \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -; \
+    apt-get install -y --no-install-recommends nodejs; \
+    npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"; \
+    claude --version; \
+    apt-get purge -y curl gnupg && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Install the package + its deps (incl. the local-STT 'voice' extra: faster-whisper, on-device).

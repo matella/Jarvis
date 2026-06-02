@@ -12,7 +12,7 @@ OLLAMA_PORT ?= 11434
 
 DC = docker --context $(CONTEXT) compose
 
-.PHONY: context up down ps logs tunnel health test deploy deploy-logs deploy-down
+.PHONY: context up down ps logs tunnel health test deploy deploy-logs deploy-down claude-token
 
 ## Create/point the SSH docker context at the remote host.
 context:
@@ -54,3 +54,9 @@ deploy-logs:
 	docker compose --profile app logs -f gateway daemon console
 deploy-down:
 	docker compose --profile app --profile search down
+
+## Mint a long-lived Claude subscription token, then paste it into the box .env as
+## CLAUDE_CODE_OAUTH_TOKEN (the off-GPU `claude` backend reads it via env_file). One-time; re-run
+## when it expires. Uses your Claude Pro/Max subscription — NOT a metered API key.
+claude-token:
+	docker run --rm -it node:22 sh -c 'npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && claude setup-token'
