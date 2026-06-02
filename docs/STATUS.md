@@ -222,7 +222,19 @@ framework). Sub-projects each get spec → plan → build.
   in the image + `make claude-token`. Spec+plan: `docs/specs/2026-06-02-multi-backend-router*.md`.
   Spike-verified auth = `CLAUDE_CODE_OAUTH_TOKEN` env. Merged to main; 261 tests green. **To go live:**
   `make claude-token` → token in box `.env` → `git pull && make deploy` on the box → `jarvis model claude`.
-- **[#2 NEXT] Shell + module framework** — the "all in one place" frame the modules plug into.
+- **[ENTIRE ARC SPECCED 2026-06-02]** Every module now has a spec+plan file under `docs/specs/`
+  (one self-contained file each, Spec + Plan sections). **Read `2026-06-02-personal-os-master-plan.md`
+  first** — locked cross-arc decisions, migration ledger (0019–0028), shared module template, build
+  order, go/no-go gates. Locked: session login in the shell · generic IMAP/SMTP email · Markdown-first
+  docs · Google-OAuth read-mirror calendar · "open code" = OpenCode as a gated sandboxed-worktree/
+  diff-as-artifact harness. Build order (each shippable; re-validate its plan vs main before building):
+  1. `2026-06-02-shell-and-module-framework.md` (+ session login; **builds the template**) — **NEXT**
+  2. `tasks.md` · `notes.md` · `operational-surfaces.md` (Memories+Routines UI)
+  3. `deep-research.md` + `document-editor.md` (router-backed wow pair)
+  4. `recipes.md`   5. `email-client.md` (spike IMAP first)
+  6. `calendar.md` (spike `make google-oauth` first)   7. `model-cookbook.md` (closes the router arc)
+  8. `code-opencode.md` (spike headless OpenCode first; heaviest Hard-Rule-#1 reconciliation)
+  All dated `2026-06-02-` under `docs/specs/`.
 
 ## Everyday-AI roadmap (post-backlog) — in progress
 Goal: turn Jarvis from "a console I open" into "an assistant that knows me and reaches me".
