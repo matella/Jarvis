@@ -13,13 +13,63 @@ scheduler owns ordering and emits `inference.scheduled` with wait-time + queue-d
 
 from __future__ import annotations
 
+import json
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import IntEnum
 
 from jarvis import ids
 from jarvis.config import get_settings
+from jarvis.models.backends.availability import CircuitBreaker, DailyBudget
+
+# Process-global breaker + soft daily budget for the off-GPU claude backend (config-fixed at load).
+_breaker = CircuitBreaker(cooldown_s=get_settings().claude_breaker_cooldown_s)
+_budget = DailyBudget(limit=get_settings().claude_daily_call_budget)
+_last_fallback_notify = 0.0
+
+
+def _emit(event) -> None:  # single emit point so tests can collect events
+    from jarvis.events.stream import emit_event
+
+    emit_event(event)
+
+
+def _emit_inference_completed(model: str, backend: str, cid: str, ctx, started: float) -> None:
+    from jarvis.events.models import Event, Severity, utcnow
+
+    _emit(Event(
+        type="inference.completed", severity=Severity.info, source="scheduler",
+        entity_ref=f"model:{model}", occurred_at=utcnow(),
+        payload={"model": model, "backend": backend, "context_ref": ctx,
+                 "duration_ms": round((time.monotonic() - started) * 1000, 1)},
+        correlation_id=cid,
+    ))
+
+
+def _emit_fallback(cid: str, failure: str, reason: str) -> None:
+    from jarvis.events.models import Event, Severity, utcnow
+
+    _emit(Event(
+        type="llm.fallback", severity=Severity.warning, source="scheduler",
+        entity_ref="backend:claude", occurred_at=utcnow(),
+        payload={"intended_backend": "claude", "failure_class": failure, "reason": reason,
+                 "correlation_id": cid},
+        correlation_id=cid,
+    ))
+
+
+def _notify_fallback(failure: str) -> None:
+    global _last_fallback_notify
+    now = time.monotonic()
+    if now - _last_fallback_notify < get_settings().notify_cooldown_s:
+        return  # debounce: one notice per cooldown window
+    _last_fallback_notify = now
+    from jarvis.notify.channel import send
+
+    send(title="Jarvis — Claude backend unavailable",
+         message=f"Falling back to local reasoning ({failure}).", priority="default")
 
 
 class Priority(IntEnum):
@@ -191,9 +241,36 @@ def get_scheduler() -> InferenceScheduler:
     return _SCHEDULER
 
 
-def chat(role: str, messages: list[dict], *, priority: Priority = Priority.BACKGROUND,
-         budget_key: str = "", budget_limit: int = 0, **kwargs) -> dict:
-    """Scheduled wrapper over router.chat — ordered by priority, one resident model, budgeted."""
+class _SchemaMiss(Exception):
+    """Claude returned content that doesn't satisfy the requested JSON schema."""
+
+
+def _validate_schema(content: str, fmt: dict | str) -> None:
+    """Lightweight check (no jsonschema dep): must be a JSON object with all `required` keys."""
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise _SchemaMiss(f"not JSON: {exc}") from exc
+    required = fmt.get("required", []) if isinstance(fmt, dict) else []
+    if not isinstance(data, dict) or any(k not in data for k in required):
+        raise _SchemaMiss(f"missing required keys {required}")
+
+
+def _resolve_backend(*, explicit: str | None, priority: Priority, has_schema: bool) -> str:
+    from jarvis.models.backends.resolve import resolve_backend
+    from jarvis.models.backends.state import cached_default_backend
+
+    # The global `jarvis model` default applies to INTERACTIVE chat only; background work stays
+    # local unless a caller explicitly asks for claude (so reactor/anomaly/triage never drift up).
+    global_default = cached_default_backend() if priority == Priority.INTERACTIVE else None
+    return resolve_backend(
+        explicit, None, global_default, has_schema=has_schema,  # type: ignore[arg-type]
+        breaker_open=_breaker.is_open(now=time.monotonic()),
+        budget_exhausted=_budget.exhausted(now=time.time()),
+    )
+
+
+def _run_local(role, messages, priority, budget_key, budget_limit, kwargs) -> dict:
     from jarvis.models import router
     from jarvis.models.router import model_for_role
 
@@ -202,3 +279,40 @@ def chat(role: str, messages: list[dict], *, priority: Priority = Priority.BACKG
         model, priority, lambda: router.chat(role, messages, **kwargs),
         budget_key=budget_key, budget_limit=budget_limit,
     )
+
+
+def _run_claude(role, messages, fmt, priority, budget_key, budget_limit, kwargs) -> dict:
+    from jarvis.models.backends import claude as claude_mod
+
+    s = get_settings()
+    cid = kwargs.get("correlation_id") or ids.new_id(ids.CORRELATION)
+    ctx = kwargs.get("context_ref")
+    started = time.monotonic()
+    try:
+        resp = claude_mod.claude_backend(role, messages, fmt=fmt, timeout=s.claude_call_timeout)
+        if fmt is not None:
+            _validate_schema(resp["message"]["content"], fmt)  # raises _SchemaMiss on a miss
+        _budget.record(now=time.time())
+        _emit_inference_completed(resp.get("model", "claude"), "claude", cid, ctx, started)
+        return resp
+    except (claude_mod.ClaudeBackendError, _SchemaMiss) as exc:
+        failure = getattr(exc, "failure_class", "validation_failure")
+        if failure == "resource_exhaustion":
+            _breaker.record_rate_limit(now=time.monotonic())
+        _emit_fallback(cid, failure, str(exc)[:200])
+        _notify_fallback(failure)
+        local = _run_local(role, messages, priority, budget_key, budget_limit, kwargs)
+        local["backend_used"] = "local"
+        local["error"] = f"claude {failure}"
+        return local
+
+
+def chat(role: str, messages: list[dict], *, priority: Priority = Priority.BACKGROUND,
+         backend: str | None = None, budget_key: str = "", budget_limit: int = 0, **kwargs) -> dict:
+    """Scheduled wrapper + backend dispatch. `local` → the GPU scheduler (unchanged); `claude` →
+    off-GPU `claude -p`, bypassing the semaphore, schema-validate-then-fallback to local."""
+    fmt = kwargs.get("format")
+    chosen = _resolve_backend(explicit=backend, priority=priority, has_schema=fmt is not None)
+    if chosen == "local":
+        return _run_local(role, messages, priority, budget_key, budget_limit, kwargs)
+    return _run_claude(role, messages, fmt, priority, budget_key, budget_limit, kwargs)

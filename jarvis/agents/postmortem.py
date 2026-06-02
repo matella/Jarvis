@@ -68,8 +68,11 @@ def _decide(prompt: str, correlation_id: str) -> dict[str, Any]:
     from jarvis.models.scheduler import Priority
     from jarvis.models.scheduler import chat as sched_chat
 
+    # Pilot for the multi-backend router: postmortems are rare, advisory, and the task where the
+    # small local model is weakest — so prefer Claude (explicit, so it's used despite the schema).
+    # The dispatcher validates the JSON and auto-falls-back to local if Claude is down/unauthed.
     resp = sched_chat(
-        "reasoning", [{"role": "user", "content": prompt}],
+        "reasoning", [{"role": "user", "content": prompt}], backend="claude",
         priority=Priority.BACKGROUND, correlation_id=correlation_id, format=_SCHEMA,
     )
     try:
