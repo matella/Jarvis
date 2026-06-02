@@ -287,9 +287,13 @@ class Settings(BaseSettings):
     # (e.g. WEBHOOK_SECRET_GITHUB). Empty signature config → that source is rejected.
     webhook_require_signature: bool = True
 
+    # Code module (OpenCode) — repos a coding session may target. Opt-in allowlist (empty = none);
+    # the Jarvis repo is refused by default (no self-modification). Absolute paths on the box.
+    code_repo_allowlist: Annotated[list[str], NoDecode] = []
+
     @field_validator(
         "connectors_enabled", "feed_urls", "ha_watch_entities", "calendar_ics_urls",
-        "gateway_cors_origins", mode="before"
+        "gateway_cors_origins", "code_repo_allowlist", mode="before"
     )
     @classmethod
     def _split_list_csv(cls, v: object) -> object:

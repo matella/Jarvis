@@ -6,6 +6,7 @@ must be populated before the conversation agent runs (gateway + CLI/daemon).
 """
 
 from jarvis.calendar import tools as _calendar  # noqa: F401 — registers calendar.*_event tools
+from jarvis.code import tools as _code  # noqa: F401 — registers code.* tools (gated)
 from jarvis.documents import tools as _documents  # noqa: F401 — registers document.* tools
 from jarvis.notes import tools as _notes  # noqa: F401 — registers note.* tools
 from jarvis.recipes import tools as _recipes  # noqa: F401 — registers recipe.* tools
