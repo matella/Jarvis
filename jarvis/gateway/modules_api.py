@@ -441,6 +441,40 @@ def set_fact(body: dict, p: Principal = Depends(_principal)) -> dict:
     return {"key": fact.key, "value": fact.value}
 
 
+# ── Routines (operational surface) ────────────────────────────────────────────────────────────
+@router.get("/routines")
+def list_routines_api(p: Principal = Depends(_principal)) -> list[dict]:
+    _require(p, "read")
+    from jarvis.routines.repository import list_routines
+    with db.connect() as conn:
+        return [
+            {"id": r.id, "name": r.name, "enabled": r.enabled,
+             "schedule": r.schedule.model_dump(mode="json"),
+             "action": r.action.model_dump(mode="json"),
+             "last_run": r.last_run.isoformat() if r.last_run else None}
+            for r in list_routines(conn)
+        ]
+
+
+@router.post("/routines/{routine_id}/{op}")
+def routine_op(routine_id: str, op: str, p: Principal = Depends(_principal)) -> dict:
+    _require(p, "chat")
+    from jarvis.routines.repository import get_routine, set_enabled
+    if op in ("enable", "disable"):
+        with db.connect(autocommit=True) as conn:
+            if not set_enabled(conn, routine_id, op == "enable"):
+                raise HTTPException(404, "routine not found")
+        return {"id": routine_id, "enabled": op == "enable"}
+    if op == "run":
+        from jarvis.routines.scheduler import run_routine
+        with db.connect() as conn:
+            routine = get_routine(conn, routine_id)
+        if routine is None:
+            raise HTTPException(404, "routine not found")
+        return {"id": routine_id, "ran": True, "preview": run_routine(routine)[:500]}
+    raise HTTPException(400, f"unknown op: {op} (enable|disable|run)")
+
+
 def _run_tool(name: str, target: dict[str, Any]) -> dict[str, Any]:
     """Run a registered tool's deterministic executor on behalf of the authenticated operator.
 

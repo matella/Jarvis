@@ -208,6 +208,12 @@ export const api = {
     set: (key: string, value: string) =>
       postJSON<{ key: string; value: string }>("/api/facts", { key, value }),
   },
+  routines: {
+    list: () => getJSON<Rec[]>("/api/routines"),
+    run: (id: string) => postJSON<{ preview: string }>(`/api/routines/${id}/run`),
+    enable: (id: string) => postJSON(`/api/routines/${id}/enable`),
+    disable: (id: string) => postJSON(`/api/routines/${id}/disable`),
+  },
 };
 
 export function wsUrl(): string {

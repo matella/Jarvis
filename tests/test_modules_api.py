@@ -12,7 +12,7 @@ from jarvis.tasks.models import Task
 
 
 @contextmanager
-def _fake_conn():
+def _fake_conn(*_a, **_k):
     yield object()
 
 
@@ -84,3 +84,16 @@ def test_set_model_pref_validates_backend(client: TestClient, monkeypatch: pytes
                                           ) -> None:
     resp = client.put("/api/models/prefs", json={"action": "postmortem", "backend": "gpt-9"})
     assert resp.status_code == 400  # invalid backend rejected before any DB write
+
+
+def test_routine_enable_disable(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list = []
+    monkeypatch.setattr("jarvis.routines.repository.set_enabled",
+                        lambda conn, rid, enabled: bool(seen.append((rid, enabled))) or True)
+    assert client.post("/api/routines/rtn_1/disable").json() == {"id": "rtn_1", "enabled": False}
+    assert client.post("/api/routines/rtn_1/enable").json()["enabled"] is True
+    assert seen == [("rtn_1", False), ("rtn_1", True)]
+
+
+def test_routine_unknown_op_is_400(client: TestClient) -> None:
+    assert client.post("/api/routines/rtn_1/frobnicate").status_code == 400

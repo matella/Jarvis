@@ -281,6 +281,29 @@ function MemoriesPanel() {
   );
 }
 
+function RoutinesPanel() {
+  const { data, error, reload } = useAsync(() => api.routines.list());
+  return (
+    <PanelShell title="Routines" error={error}>
+      <ul className="space-y-1">
+        {(data ?? []).map((r) => (
+          <li key={r.id} className="flex items-center justify-between border border-edge px-3 py-2">
+            <span className="text-ink">{str(r, "name")}
+              <span className="label ml-2">{r.enabled ? "on" : "off"}</span></span>
+            <span className="flex gap-2">
+              <Btn onClick={async () => { await api.routines.run(r.id); reload(); }}>run now</Btn>
+              {r.enabled
+                ? <Btn kind="danger" onClick={async () => { await api.routines.disable(r.id); reload(); }}>off</Btn>
+                : <Btn kind="accent" onClick={async () => { await api.routines.enable(r.id); reload(); }}>on</Btn>}
+            </span>
+          </li>
+        ))}
+        {data?.length === 0 && <li className="label">no routines configured</li>}
+      </ul>
+    </PanelShell>
+  );
+}
+
 interface Module { id: string; label: string; Panel: () => React.JSX.Element }
 export const MODULES: Module[] = [
   { id: "tasks", label: "Tasks", Panel: TasksPanel },
@@ -292,6 +315,7 @@ export const MODULES: Module[] = [
   { id: "mail", label: "Mail", Panel: MailPanel },
   { id: "code", label: "Code", Panel: CodePanel },
   { id: "models", label: "Models", Panel: ModelsPanel },
+  { id: "routines", label: "Routines", Panel: RoutinesPanel },
   { id: "memories", label: "Memories", Panel: MemoriesPanel },
 ];
 

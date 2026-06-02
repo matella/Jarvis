@@ -33,3 +33,10 @@ def get_routine(conn: psycopg.Connection, routine_id: str) -> Routine | None:
 
 def mark_run(conn: psycopg.Connection, routine_id: str, when) -> None:
     conn.execute("UPDATE routines SET last_run = %s WHERE id = %s", (when, routine_id))
+
+
+def set_enabled(conn: psycopg.Connection, routine_id: str, enabled: bool) -> bool:
+    cur = conn.execute(
+        "UPDATE routines SET enabled = %s WHERE id = %s", (enabled, routine_id)
+    )
+    return cur.rowcount > 0

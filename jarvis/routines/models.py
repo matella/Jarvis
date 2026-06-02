@@ -26,6 +26,7 @@ class ActionKind(StrEnum):
     summary = "summary"  # {"kind":"summary","hours":12}
     briefing = "briefing"  # {"kind":"briefing","hours":12} — incidents + critical + summary
     search = "search"  # {"kind":"search","query":"..."}
+    day_brief = "day_brief"  # calendar + tasks due + important mail + research + homelab health
 
 
 class Schedule(BaseModel):
