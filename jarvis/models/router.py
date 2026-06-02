@@ -103,6 +103,7 @@ def chat(
         _emit(
             _event(
                 "inference.completed", model, correlation_id, role=role,
+                backend="local",
                 duration_ms=duration_ms,
                 total_duration_ns=resp.get("total_duration"),
                 load_duration_ns=resp.get("load_duration"),
