@@ -36,6 +36,9 @@ DOCUMENT = "doc"
 DOCVERSION = "docv"
 RESEARCH = "rsch"
 MODELPREF = "mpref"
+MAIL = "mail"
+CALEVENT = "cal"
+CODESESSION = "code"
 
 
 def new_id(prefix: str) -> str:
