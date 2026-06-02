@@ -236,12 +236,17 @@ framework). Sub-projects each get spec → plan → build.
   8. `code-opencode.md` (spike headless OpenCode first; heaviest Hard-Rule-#1 reconciliation)
   All dated `2026-06-02-` under `docs/specs/`.
 
-### BUILD — branch `feat/personal-os-arc` (autonomous run; NOT merged — operator review pending)
-All 10 module **backends** are built, **331 unit tests green, lint clean**, one commit each. Strategy
-while operator away: backends are headless-verifiable and make modules **usable via chat now** (run
-`jarvis mode semi_autonomous` so low-risk/reversible tools auto-run; gated tools confirm). Repository
-round-trips + real-git apply are `@pytest.mark.integration` (auto-skip without DB; run on the box).
-The shared backend pattern is `docs/MODULE_TEMPLATE.md`.
+### BUILD — branch `feat/personal-os-arc` (NOT merged — operator review pending)
+All 10 module **backends + the gateway REST API + the React app shell** are built: **338 py unit
+tests + 22 web vitest green, lint + tsc + production build clean**. Modules are usable via chat (run
+`jarvis mode semi_autonomous`) AND via the app's **workspace** surface (4th TopBar tab: login →
+left nav → 10 panels). Repo round-trips + real-git apply are `@pytest.mark.integration` (run on box).
+Backend pattern: `docs/MODULE_TEMPLATE.md`.
+
+**Frontend DONE** (`web/`): `lib/api.ts` (login + module methods; session token = bearer), `LoginGate`
+(passphrase; open dev mode just works), `Workspace` + 10 panels (tasks/notes/docs/research/recipes/
+calendar/mail/code/models/memories) over `gateway/modules_api.py` (operator-direct CRUD; gated
+actions reuse the tools). **REST DONE**: `gateway/deps.py` + `gateway/modules_api.py`.
 
 **DONE (backend, tested, committed):**
 - **Shell foundation:** session login (`0019_app_sessions`, `gateway/sessions.py` scrypt+token-hash,
