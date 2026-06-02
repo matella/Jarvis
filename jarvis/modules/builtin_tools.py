@@ -7,4 +7,5 @@ must be populated before the conversation agent runs (gateway + CLI/daemon).
 
 from jarvis.documents import tools as _documents  # noqa: F401 — registers document.* tools
 from jarvis.notes import tools as _notes  # noqa: F401 — registers note.* tools
+from jarvis.research import tools as _research  # noqa: F401 — registers research.run (gated)
 from jarvis.tasks import tools as _tasks  # noqa: F401 — registers task.* tools
