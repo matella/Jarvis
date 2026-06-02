@@ -135,6 +135,15 @@ class Settings(BaseSettings):
     keep_alive: str = "5m"
     inference_context: int = 8192
 
+    # Multi-backend router — off-GPU Claude (`claude -p`, owner subscription) behind scheduler.chat.
+    # Defaults to local (Ollama) so Jarvis never goes dark. Auth = CLAUDE_CODE_OAUTH_TOKEN secret.
+    llm_default_backend: Literal["local", "claude"] = "local"
+    claude_call_timeout: int = 120           # seconds; hard ceiling on a `claude -p` call
+    claude_availability_cache_ttl: int = 60
+    claude_breaker_cooldown_s: int = 900     # rate-limit → force local for this long
+    claude_daily_call_budget: int = 200      # soft per-UTC-day cap; exhausted → force local
+    claude_model: str = ""                   # "" = CLI default; e.g. "claude-sonnet-4-…"
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def ollama_url(self) -> str:

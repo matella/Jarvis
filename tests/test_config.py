@@ -47,6 +47,14 @@ def test_egress_allowlist_parses_from_env(monkeypatch) -> None:
     assert Settings(_env_file=None).egress_allowlist == []
 
 
+def test_router_backend_defaults(monkeypatch) -> None:
+    s = Settings(_env_file=None)
+    assert s.llm_default_backend == "local"  # safety net: never claude by default
+    assert s.claude_breaker_cooldown_s == 900 and s.claude_daily_call_budget > 0
+    monkeypatch.setenv("LLM_DEFAULT_BACKEND", "claude")
+    assert Settings(_env_file=None).llm_default_backend == "claude"
+
+
 def test_list_fields_parse_bare_and_csv_from_env(monkeypatch) -> None:
     # Every list field that takes operator input from env must accept a bare value / CSV without
     # the pydantic-settings JSON-pre-parse crash (regression: CONNECTORS_ENABLED=qbittorrent).
