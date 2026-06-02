@@ -25,43 +25,16 @@ import jarvis.connectors  # noqa: F401 — registers connector act-Tools (mail.s
 import jarvis.modules.builtin_tools  # noqa: F401 — registers personal-OS module tools (task.*, …)
 from jarvis import db
 from jarvis.agents import conversation as convo
-from jarvis.config import get_settings
 from jarvis.conversation.store import history_for_display, resume_or_start
 from jarvis.gateway import presence, sessions
-from jarvis.gateway.auth import ALL_SCOPES, AuthError, Principal, authenticate
-
-
-def _bearer_token(authorization: str | None) -> str | None:
-    if authorization and authorization.lower().startswith("bearer "):
-        return authorization.split(" ", 1)[1].strip()
-    return None
-
-
-def _principal(
-    request: Request, authorization: str | None = Header(default=None)
-) -> Principal:
-    # A minted session token arrives either as the HttpOnly cookie (browser/PWA) or — since the
-    # native Capacitor app is cross-origin and cookies don't flow there — as a bearer token it
-    # stored at login. Try it as a DB-backed session first; then fall back to the static
-    # `gateway_token` (one-release bridge) / open dev mode via authenticate().
-    s = get_settings()
-    token = request.cookies.get(s.app_session_cookie) or _bearer_token(authorization)
-    if token:
-        with db.connect() as conn:
-            if sessions.resolve_session(conn, token):
-                return Principal(actor=s.gateway_actor, scopes=ALL_SCOPES)
-    try:
-        return authenticate(authorization)
-    except AuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-
-
-def _require(principal: Principal, scope: str) -> None:
-    if not principal.has(scope):
-        raise HTTPException(status_code=403, detail=f"missing scope: {scope}")
+from jarvis.gateway.auth import AuthError, Principal, authenticate
+from jarvis.gateway.deps import bearer_token as _bearer_token
+from jarvis.gateway.deps import principal as _principal
+from jarvis.gateway.deps import require as _require
 
 
 def create_app() -> FastAPI:
+    from jarvis.gateway.modules_api import router as modules_router
     from jarvis.plugins.loader import load_plugins
 
     load_plugins()  # register external tool plugins (no-op if PLUGINS_DIR unset)
@@ -80,6 +53,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.include_router(modules_router)  # personal-OS module REST (tasks/notes/docs/… + reads)
 
     @app.get("/health")
     def health() -> dict[str, Any]:
