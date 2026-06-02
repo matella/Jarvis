@@ -210,6 +210,20 @@ the entire backlog (#1–#11). Nothing left to code; only deploy-time external-s
   375px viewport: orb fills the screen, manifest/icon served, layout clean.
 - Latest: `pytest` 249/249, `ruff` clean (python); web `vitest` 17/17, `tsc`/`vite build` clean.
 
+## Personal-OS arc (post-everyday-AI) — in progress
+Foundation locked in `docs/specs/2026-06-02-personal-os-foundation.md` (two data classes:
+operational state vs user-owned CRUD docs; graduated gate; deterministic harnesses; module
+framework). Sub-projects each get spec → plan → build.
+- **[#1 Multi-backend router DONE]** local (Ollama) + claude (`claude -p`, subscription) behind
+  `scheduler.chat`, **default local** (zero behavior change until `jarvis model claude`). `backends/`
+  (resolve, breaker+budget, caged claude, persisted `system_state.llm_backend`) + dispatch fork
+  (schema-validate-then-fallback, breaker on rate-limit, `inference.completed` gains `backend`) +
+  conversation local-routes/Claude-composes + postmortem pilot + `jarvis model` CLI + Node/claude CLI
+  in the image + `make claude-token`. Spec+plan: `docs/specs/2026-06-02-multi-backend-router*.md`.
+  Spike-verified auth = `CLAUDE_CODE_OAUTH_TOKEN` env. Merged to main; 261 tests green. **To go live:**
+  `make claude-token` → token in box `.env` → `git pull && make deploy` on the box → `jarvis model claude`.
+- **[#2 NEXT] Shell + module framework** — the "all in one place" frame the modules plug into.
+
 ## Everyday-AI roadmap (post-backlog) — in progress
 Goal: turn Jarvis from "a console I open" into "an assistant that knows me and reaches me".
 Order: **1) notifications keystone → 2) memory (session history + facts) → 3) mail/RSS connectors.**
