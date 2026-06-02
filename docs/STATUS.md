@@ -236,29 +236,47 @@ framework). Sub-projects each get spec → plan → build.
   8. `code-opencode.md` (spike headless OpenCode first; heaviest Hard-Rule-#1 reconciliation)
   All dated `2026-06-02-` under `docs/specs/`.
 
-### BUILD IN PROGRESS — branch `feat/personal-os-arc` (autonomous run, not yet merged)
-Strategy while operator away: build every module's **backend** to green-tested completion in spec
-order (migrations, models, repositories, graded tools, awareness events, search hooks, context
-accessors, conversation-agent wiring), mocking external deps. Backends are headless-verifiable and
-make modules **usable via chat immediately** (`semi_autonomous` mode). One commit per module.
-**ON HOLD (needs operator / a browser):** (a) the **frontend** shell refactor + per-module panels +
-login screen UI — UX choices + can't verify headlessly + would touch the live WebGL console; fast to
-build together on return (registry pattern makes panels mechanical). (b) three external spikes —
-**IMAP creds** (email), **Google OAuth token** (calendar), **headless OpenCode command** (code).
-DONE so far (backend, tests green, lint clean):
-- **Shell foundation backend:** session login — `0019_app_sessions`, `gateway/sessions.py` (scrypt
-  passphrase, token=sha256 hash, mint/resolve/revoke/purge, injected clock), `/api/login`+`/api/logout`,
-  `_principal` accepts session token via cookie (browser) OR bearer (native app) + static-token
-  fallback (one release), `make app-passphrase` (→ `.env` `APP_PASSPHRASE_HASH`). `tools/grading.py`
-  = Evolution #2 auto-run-vs-gated default. `jarvis/modules/`: `awareness.emit_awareness`
-  (best-effort notice) + `search` hook (index/purge/reindex/search over `memory`, kind='module').
-- **Tasks** (`jarvis/tasks/`, `0020_tasks`): model+repo+4 auto-run tools (create/update/complete/
-  delete) + open/due_before accessors. Chat-usable in `semi_autonomous`.
-- **Notes** (`jarvis/notes/`, `0021_notes`): model (title derivation, tags)+repo+3 tools + recent.
-- Module tools auto-register via `jarvis/modules/builtin_tools.py` (imported by gateway + agent).
-NOTED FOLLOW-UPS: Tasks proactive due-nudge worker (reuse reminder poll) deferred (daily brief
-surfaces due items); capability-summary label for module write-tools says "read-only" (cosmetic).
-Per-module impl plans live in each spec's Plan section — re-validate vs branch before building each.
+### BUILD — branch `feat/personal-os-arc` (autonomous run; NOT merged — operator review pending)
+All 10 module **backends** are built, **331 unit tests green, lint clean**, one commit each. Strategy
+while operator away: backends are headless-verifiable and make modules **usable via chat now** (run
+`jarvis mode semi_autonomous` so low-risk/reversible tools auto-run; gated tools confirm). Repository
+round-trips + real-git apply are `@pytest.mark.integration` (auto-skip without DB; run on the box).
+The shared backend pattern is `docs/MODULE_TEMPLATE.md`.
+
+**DONE (backend, tested, committed):**
+- **Shell foundation:** session login (`0019_app_sessions`, `gateway/sessions.py` scrypt+token-hash,
+  `/api/login`+`/api/logout`, `_principal` cookie|bearer + static fallback, `make app-passphrase`);
+  `tools/grading.py` (Evolution #2 auto-run-vs-gated); `jarvis/modules/` `awareness`+`search` hooks
+  + `builtin_tools` registrar (imported by gateway + conversation agent).
+- **Tasks** `0020` · **Notes** `0021` · **Documents** `0022` (+versions, `ai.propose_edit` co-write)
+  · **Research** `0026` (bounded harness, gated `research.run`) · **Recipes** `0023` (URL import,
+  scaler, recipe→shopping-list→tasks) · **Mail** `0024` (cache+triage+compose) · **Calendar** `0025`
+  (local truth + Google read-mirror) · **Cookbook** `0027` (per-action backend + presets; wired into
+  research+postmortem; `jarvis model prefs|pref|preset`) · **Code/OpenCode** `0028` (sandboxed
+  worktree → diff → gated apply; allowlist-only).
+- `.env.example`, `MAP.md`, `docs/MODULE_TEMPLATE.md` updated.
+
+**ON HOLD (needs operator / a browser):**
+- (a) **Frontend** — shell refactor + per-module panels + login screen + Cmd-K + theme. UX choices,
+  can't verify headlessly, touches the live WebGL console. Build together on return (registry pattern
+  makes panels mechanical; per-module frontend checklist in the shell spec).
+- (b) **Three external spikes:** **IMAP creds** (wire live mail→cache sync), **Google OAuth token**
+  (`make google-oauth` + live calendar sync — `google._default_fetch` written, untested live),
+  **headless OpenCode command** (`code.harness._held_runner` raises until the `opencode run` command
+  + model-pin are confirmed).
+- (c) **Operational surfaces** (Memories/Routines UI) — pure gateway-reads/UI over existing tables;
+  deferred to the frontend phase (no new backend needed).
+
+**NOTED FOLLOW-UPS (additive, low-risk):** daily-brief cross-module composer (calendar today + tasks
+due + important mail + research digest) — wire the new read accessors into the existing routines/ntfy
+brief once modules are populated; Tasks proactive due-nudge worker (reuse reminder poll);
+capability-summary labels module write-tools "read-only" (cosmetic). Per-module plans live in each
+spec's Plan section — re-validate vs branch before building the frontend.
+
+**GO-LIVE (when operator returns):** review the branch → `make app-passphrase` (set `.env`) →
+merge `feat/personal-os-arc` → on box `git pull && make deploy` (runs migrations 0019–0028) →
+`jarvis mode semi_autonomous` to let module CRUD auto-run → try via chat ("add a task…", "research
+…"). Then build the frontend + run the 3 spikes together.
 
 ## Everyday-AI roadmap (post-backlog) — in progress
 Goal: turn Jarvis from "a console I open" into "an assistant that knows me and reaches me".

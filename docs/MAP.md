@@ -36,6 +36,14 @@ has rules worth lazy-loading — created with the module, not in advance.
 | `ops/` | Durability (backups + DR drill) + self-observability (`jarvis self`/health) | `backup.py`, `health.py` | P5.5a/b |
 | `audit/` | Append-only audit log (who did what) | `log.py` | P5.5b |
 | `web/` (repo root) | React + Vite console: presence orb (WebGL) + HUD, artifact renderers, voice/audio-reactive orb | `web/src/App.tsx` | P6b, P10 |
+| `modules/` | Personal-OS framework: `grading` (auto-run vs gated), `awareness` (notice events), `search` (module pgvector hook), `builtin_tools` (registers module tools) | `search.py`, `grading.py` | POS arc |
+| `tasks/` `notes/` `documents/` `recipes/` | User-document modules (CRUD table = truth; graded tools; awareness; search) | `models.py`, `repository.py`, `tools.py` | POS arc |
+| `mail/` | Inbox cache (mirror) + triage + compose-draft + search (extends `connectors/mail.py`) | `repository.py`, `triage.py` | POS arc |
+| `calendar/` | Local editable events (truth) + Google read-mirror sync | `repository.py`, `google.py` | POS arc |
+| `research/` | Deep-research harness (plan→search→synthesize, bounded) + gated `research.run` | `harness.py` | POS arc |
+| `cookbook/` | Per-action backend picker + presets (`backend_for_action` feeds the router) | `api.py`, `repository.py` | POS arc |
+| `code/` | OpenCode in a sandboxed worktree → diff artifact → gated apply (allowlist-only) | `harness.py`, `tools.py` | POS arc |
+| `gateway/sessions.py` | Session login (scrypt passphrase, opaque token = sha256 hash) | `sessions.py` | POS arc |
 
 ## Where the truth lives
 - **What to build next:** `docs/STATUS.md`
