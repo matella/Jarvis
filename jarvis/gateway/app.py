@@ -10,17 +10,45 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 
 import jarvis.connectors  # noqa: F401 — registers connector act-Tools (mail.send, ha.set_state)
 from jarvis import db
 from jarvis.agents import conversation as convo
+from jarvis.config import get_settings
 from jarvis.conversation.store import history_for_display, resume_or_start
-from jarvis.gateway import presence
-from jarvis.gateway.auth import AuthError, Principal, authenticate
+from jarvis.gateway import presence, sessions
+from jarvis.gateway.auth import ALL_SCOPES, AuthError, Principal, authenticate
 
 
-def _principal(authorization: str | None = Header(default=None)) -> Principal:
+def _bearer_token(authorization: str | None) -> str | None:
+    if authorization and authorization.lower().startswith("bearer "):
+        return authorization.split(" ", 1)[1].strip()
+    return None
+
+
+def _principal(
+    request: Request, authorization: str | None = Header(default=None)
+) -> Principal:
+    # A minted session token arrives either as the HttpOnly cookie (browser/PWA) or — since the
+    # native Capacitor app is cross-origin and cookies don't flow there — as a bearer token it
+    # stored at login. Try it as a DB-backed session first; then fall back to the static
+    # `gateway_token` (one-release bridge) / open dev mode via authenticate().
+    s = get_settings()
+    token = request.cookies.get(s.app_session_cookie) or _bearer_token(authorization)
+    if token:
+        with db.connect() as conn:
+            if sessions.resolve_session(conn, token):
+                return Principal(actor=s.gateway_actor, scopes=ALL_SCOPES)
     try:
         return authenticate(authorization)
     except AuthError as exc:
@@ -57,6 +85,40 @@ def create_app() -> FastAPI:
         from jarvis.ops.health import health as health_snapshot
 
         return health_snapshot()
+
+    @app.post("/api/login")
+    def login(request: Request, response: Response, body: dict[str, Any]) -> dict[str, Any]:
+        # Unauthenticated by design: the passphrase IS the credential. Single operator,
+        # Tailscale-only. The minted token is set as an HttpOnly cookie (browser) AND returned in
+        # the body so the cross-origin native app can store it and send it as a bearer.
+        from jarvis.security.secrets import get_provider
+
+        s = get_settings()
+        stored = get_provider().get("APP_PASSPHRASE_HASH")
+        if not sessions.verify_passphrase(str(body.get("passphrase", "")), stored):
+            raise HTTPException(status_code=401, detail="invalid passphrase")
+        with db.connect() as conn:
+            token = sessions.mint_session(
+                conn, ttl_days=s.app_session_ttl_days,
+                user_agent=request.headers.get("user-agent"),
+            )
+        response.set_cookie(
+            s.app_session_cookie, token, httponly=True, samesite="lax",
+            secure=request.url.scheme == "https", max_age=s.app_session_ttl_days * 86400, path="/",
+        )
+        return {"ok": True, "token": token}
+
+    @app.post("/api/logout")
+    def logout(
+        request: Request, response: Response, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        cookie_name = get_settings().app_session_cookie
+        token = request.cookies.get(cookie_name) or _bearer_token(authorization)
+        if token:
+            with db.connect() as conn:
+                sessions.revoke_session(conn, token)
+        response.delete_cookie(cookie_name, path="/")
+        return {"ok": True}
 
     @app.get("/api/events")
     def events(n: int = 20, principal: Principal = Depends(_principal)) -> list[dict]:

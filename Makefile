@@ -12,7 +12,7 @@ OLLAMA_PORT ?= 11434
 
 DC = docker --context $(CONTEXT) compose
 
-.PHONY: context up down ps logs tunnel health test deploy deploy-logs deploy-down claude-token
+.PHONY: context up down ps logs tunnel health test deploy deploy-logs deploy-down claude-token app-passphrase
 
 ## Create/point the SSH docker context at the remote host.
 context:
@@ -60,3 +60,9 @@ deploy-down:
 ## when it expires. Uses your Claude Pro/Max subscription — NOT a metered API key.
 claude-token:
 	docker run --rm -it node:22 sh -c 'npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 && claude setup-token'
+
+## Mint an APP_PASSPHRASE_HASH for the session-login shell. Prompts for a passphrase (hidden) and
+## prints `scrypt$<salt>$<hash>` — paste it into the box .env as APP_PASSPHRASE_HASH. The raw
+## passphrase is never stored; only this hash. Re-run to rotate.
+app-passphrase:
+	@./.venv/bin/python -c 'import getpass; from jarvis.gateway.sessions import hash_passphrase; print(hash_passphrase(getpass.getpass("New app passphrase: ")))'
