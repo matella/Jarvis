@@ -5,4 +5,5 @@ exactly as `import jarvis.connectors` registers connector act-Tools. Imported wh
 must be populated before the conversation agent runs (gateway + CLI/daemon).
 """
 
+from jarvis.notes import tools as _notes  # noqa: F401 — registers note.* tools
 from jarvis.tasks import tools as _tasks  # noqa: F401 — registers task.* tools
