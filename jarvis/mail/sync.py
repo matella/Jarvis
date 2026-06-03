@@ -79,9 +79,15 @@ def ingest_raw(
     chat_fn: Callable[..., dict] | None = None,
     conn_factory=db.connect,
 ) -> int:
-    """Parse + upsert + triage a batch of (uid, raw) messages. Returns the count ingested."""
+    """Parse + upsert + triage a batch of (uid, raw) messages. Already-cached uids are skipped (no
+    re-fetch parse, no re-triage), so a periodic re-poll only does work for genuinely new mail.
+    Returns the count of NEW messages ingested."""
     with conn_factory() as conn:
+        seen = repository.existing_uids(conn, account, [uid for uid, _ in messages])
+        new = 0
         for uid, raw in messages:
+            if uid in seen:
+                continue
             msg = parse_full(raw, uid=uid, account=account)
             if triage_on:
                 verdict = triage.classify(from_addr=msg.from_addr, subject=msg.subject,
@@ -89,7 +95,8 @@ def ingest_raw(
                 msg = msg.model_copy(update={"triage": verdict})
             repository.upsert(conn, msg)
             _emit(conn, msg)
-    return len(messages)
+            new += 1
+    return new
 
 
 def _emit(conn: psycopg.Connection, msg: CachedMessage) -> None:

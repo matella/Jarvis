@@ -85,3 +85,14 @@ def important(conn: psycopg.Connection, *, limit: int = 20) -> list[CachedMessag
 def purge_account(conn: psycopg.Connection, account: str) -> int:
     """Drop an account's mirror (it re-syncs). Returns rows removed."""
     return conn.execute("DELETE FROM mail_cache WHERE account = %s", (account,)).rowcount
+
+
+def existing_uids(conn: psycopg.Connection, account: str, uids: list[str]) -> set[str]:
+    """Of `uids`, which are already cached for the account — so a periodic re-poll can skip them
+    (no re-fetch, no re-triage). Empty input → empty set."""
+    if not uids:
+        return set()
+    rows = conn.execute(
+        "SELECT uid FROM mail_cache WHERE account = %s AND uid = ANY(%s)", (account, uids)
+    ).fetchall()
+    return {r["uid"] for r in rows}

@@ -37,6 +37,7 @@ def test_ingest_raw_upserts_triages_and_emits(monkeypatch: pytest.MonkeyPatch) -
     def _fake_conn():
         yield object()
 
+    monkeypatch.setattr(sync.repository, "existing_uids", lambda conn, acct, uids: set())
     monkeypatch.setattr(sync.repository, "upsert", lambda conn, m: upserted.append(m))
     monkeypatch.setattr(sync, "emit_event", events.append)
     monkeypatch.setattr(sync.triage, "classify",
@@ -56,8 +57,25 @@ def test_ingest_normal_mail_is_not_flagged(monkeypatch: pytest.MonkeyPatch) -> N
     def _fake_conn():
         yield object()
 
+    monkeypatch.setattr(sync.repository, "existing_uids", lambda conn, acct, uids: set())
     monkeypatch.setattr(sync.repository, "upsert", lambda conn, m: None)
     monkeypatch.setattr(sync, "emit_event", events.append)
     monkeypatch.setattr(sync.triage, "classify", lambda **k: Triage())  # normal, no reply
     sync.ingest_raw([("8", _raw())], account="default", conn_factory=_fake_conn)
     assert {e.type for e in events} == {"mail.received"}  # not flagged
+
+
+def test_ingest_skips_already_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    triaged: list = []
+
+    @contextmanager
+    def _fake_conn():
+        yield object()
+
+    # uid "9" already cached → skipped entirely (no upsert, no triage, no event).
+    monkeypatch.setattr(sync.repository, "existing_uids", lambda conn, acct, uids: {"9"})
+    monkeypatch.setattr(sync.repository, "upsert", lambda conn, m: triaged.append(m))
+    monkeypatch.setattr(sync, "emit_event", lambda e: None)
+    monkeypatch.setattr(sync.triage, "classify", lambda **k: triaged.append("TRIAGED") or Triage())
+    n = sync.ingest_raw([("9", _raw())], account="default", conn_factory=_fake_conn)
+    assert n == 0 and triaged == []  # no re-triage / re-upsert of seen mail

@@ -78,8 +78,14 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         from jarvis.connectors.feeds import poll_once as feeds_poll
         workers_list.append(("feeds", lambda: _periodic(feeds_poll, s.feed_poll_interval_s, stop)))
     if "mail" in s.connectors_enabled:
-        from jarvis.connectors.mail import poll_once as mail_poll
-        workers_list.append(("mail", lambda: _periodic(mail_poll, s.mail_poll_interval_s, stop)))
+        # The richer path: mirror recent mail into the cache (the inbox the app reads) + triage +
+        # events. Skips already-cached uids, so a re-poll only triages genuinely new messages.
+        from jarvis.mail.sync import sync_account as mail_sync
+        workers_list.append(("mail", lambda: _periodic(mail_sync, s.mail_poll_interval_s, stop)))
+    if "google_calendar" in s.connectors_enabled:
+        from jarvis.calendar.google import sync as gcal_sync
+        workers_list.append(
+            ("google_calendar", lambda: _periodic(gcal_sync, s.calendar_poll_interval_s, stop)))
     if "homeassistant" in s.connectors_enabled:
         from jarvis.connectors.homeassistant import poll_states as ha_poll
         workers_list.append(
