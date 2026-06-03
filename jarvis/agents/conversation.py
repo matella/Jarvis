@@ -28,6 +28,7 @@ from jarvis.events.stream import emit_event
 from jarvis.intents.models import Intent, IntentReasoning, Risk
 from jarvis.intents.repository import insert_intent
 from jarvis.memory.facts import facts_block, list_facts, set_fact
+from jarvis.present import auto_artifact
 from jarvis.tools.registry import ADVISORY_TYPES, get_tool, valid_intent_types
 from jarvis.weather import looks_like_weather, weather_view
 from jarvis.weather.provider import extract_location
@@ -357,6 +358,8 @@ def respond(
         result = _capture_fact(conn, session, utterance, store=store)
     elif looks_like_weather(utterance):
         result = _present_weather(conn, session, utterance, store=store)
+    elif _looks_like_show(utterance):
+        result = _present_data(conn, session, utterance, store=store)
     else:
         result = _reason(conn, session, utterance, store=store)
 
@@ -374,6 +377,62 @@ def respond(
         )
     )
     return result
+
+
+def _looks_like_show(text: str) -> bool:
+    return bool(re.search(r"\b(show|list|display|visuali[sz]e)\b", text, re.I))
+
+
+def _present_data(
+    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
+) -> TurnResult:
+    """Generic 'show me my <X>' → fetch X's data → a universal artifact the app renders as cards.
+    Known modules get clean projections; unknown shapes still render via the auto renderer. Falls
+    back to normal reasoning when the request names nothing presentable."""
+    t = utterance.lower()
+    title: str | None = None
+    data: Any = None
+    if re.search(r"\btask", t):
+        from jarvis.tasks import repository as r
+        title = "Open tasks"
+        data = [{"title": x.title, "status": x.status.value, "priority": x.priority.value,
+                 "due": x.due_at.isoformat()[:16].replace("T", " ") if x.due_at else ""}
+                for x in r.list_open(conn)]
+    elif re.search(r"\bnote", t):
+        from jarvis.notes import repository as r
+        title = "Notes"
+        data = [{"title": x.title, "tags": ", ".join(x.tags)} for x in r.recent(conn)]
+    elif re.search(r"\b(mail|inbox|email)", t):
+        from jarvis.mail import repository as r
+        title = "Inbox"
+        data = [{"from": m.from_addr, "subject": m.subject,
+                 "importance": m.triage.importance.value if m.triage else "-"}
+                for m in r.recent(conn, limit=20)]
+    elif re.search(r"\b(calendar|agenda|schedule|event)", t):
+        from jarvis.calendar import repository as r
+        evs = r.agenda(conn, utcnow(), utcnow() + timedelta(days=30))
+        title = "Agenda"
+        data = [{"when": e.starts_at.isoformat()[:16].replace("T", " "), "title": e.title,
+                 "source": e.source.value} for e in evs]
+    elif re.search(r"\brecipe", t):
+        from jarvis.recipes import repository as r
+        title = "Recipes"
+        data = [{"title": x.title, "servings": x.servings or "", "tags": ", ".join(x.tags)}
+                for x in r.recent(conn)]
+    elif re.search(r"\bresearch", t):
+        from jarvis.research import repository as r
+        title = "Research"
+        data = [{"query": x.query, "status": x.status.value} for x in r.recent(conn, limit=10)]
+    elif re.search(r"\b(torrent|download)", t):
+        try:
+            from jarvis.connectors.qbittorrent import fetch_snapshot
+            title, data = "Torrents", fetch_snapshot()  # raw shape → universal renderer handles it
+        except Exception:  # noqa: BLE001 — connector off/unreachable → fall back
+            data = None
+    if not data:
+        return _reason(conn, session, utterance, store=store)
+    return TurnResult(route=TurnRoute.answer, message=f"Here's your {title.lower()}:",
+                      artifacts=[auto_artifact(title, data)])
 
 
 def _operator_city(conn: psycopg.Connection) -> str | None:

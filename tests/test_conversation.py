@@ -153,6 +153,29 @@ def test_present_weather_emits_weather_artifact(monkeypatch) -> None:
     assert "Brussels" in r.message and "14°C" in r.message
 
 
+def test_present_data_shows_tasks_as_artifact(monkeypatch) -> None:
+    from types import SimpleNamespace as NS
+    tasks = [NS(title="Pay rent", status=NS(value="open"), priority=NS(value="high"), due_at=None)]
+    monkeypatch.setattr("jarvis.tasks.repository.list_open", lambda conn, **k: tasks)
+    out = convo._present_data(conn=None, session=None, utterance="show me my tasks", store=None)
+    assert out.route is TurnRoute.answer and out.artifacts[0].kind == "auto"
+    assert out.artifacts[0].data["value"][0]["title"] == "Pay rent"
+
+
+def test_present_data_falls_back_when_nothing_matches(monkeypatch) -> None:
+    sentinel = TurnResult(route=TurnRoute.answer, message="reasoned")
+    monkeypatch.setattr(convo, "_reason", lambda *a, **k: sentinel)
+    out = convo._present_data(conn=None, session=None, utterance="show me something weird",
+                              store=None)
+    assert out is sentinel
+
+
+def test_looks_like_show() -> None:
+    assert convo._looks_like_show("show me my tasks")
+    assert convo._looks_like_show("list my inbox")
+    assert not convo._looks_like_show("what is the capital of France")
+
+
 def test_present_weather_falls_back_to_reason_when_no_data(monkeypatch) -> None:
     monkeypatch.setattr(convo, "extract_location", lambda t: None)
     monkeypatch.setattr(convo, "_operator_city", lambda conn: None)

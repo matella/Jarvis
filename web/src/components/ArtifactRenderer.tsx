@@ -155,6 +155,8 @@ function Body({ artifact }: { artifact: Artifact }) {
     }
     case "weather":
       return <WeatherView data={artifact.data as unknown as WeatherData} />;
+    case "auto":
+      return <AutoView value={(artifact.data as { value: unknown }).value} depth={0} />;
     default:
       return (
         <pre className="overflow-x-auto text-xs text-steel">
@@ -215,4 +217,102 @@ function WeatherView({ data }: { data: WeatherData }) {
       </div>
     </div>
   );
+}
+
+// ── Universal renderer: infer a sensible layout for ANY data shape ─────────────────────────────
+const _MAX_DEPTH = 4;
+const _MAX_ROWS = 60;
+const _MAX_COLS = 8;
+const _MAX_ITEMS = 100;
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+const isScalar = (v: unknown) => v === null || typeof v !== "object";
+const cell = (v: unknown) =>
+  v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+
+function AutoView({ value, depth }: { value: unknown; depth: number }): React.JSX.Element {
+  if (depth >= _MAX_DEPTH) {
+    return <pre className="overflow-x-auto text-xs text-steel">{cell(value)}</pre>;
+  }
+  // Arrays
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <div className="label">(empty)</div>;
+    if (value.every(isPlainObject)) {
+      const cols = [...new Set(value.flatMap((o) => Object.keys(o as object)))].slice(0, _MAX_COLS);
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs tabular">
+            <thead><tr className="label">
+              {cols.map((c) => <th key={c} className="py-1 pr-4 font-normal">{c}</th>)}
+            </tr></thead>
+            <tbody className="text-ink">
+              {value.slice(0, _MAX_ROWS).map((row, ri) => (
+                <tr key={ri} className="border-t border-teal/5">
+                  {cols.map((c) => <td key={c} className="py-1 pr-4">{cell((row as Record<string, unknown>)[c])}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {value.length > _MAX_ROWS && <div className="label mt-1">+{value.length - _MAX_ROWS} more</div>}
+        </div>
+      );
+    }
+    if (value.every((v) => typeof v === "number")) {
+      const nums = value as number[];
+      const max = Math.max(...nums.map(Math.abs), 1);
+      return (
+        <div className="space-y-1">
+          {nums.slice(0, _MAX_ITEMS).map((n, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="h-2 bg-teal/40" style={{ width: `${(Math.abs(n) / max) * 100}%` }} />
+              <span className="text-xs text-ink tabular">{n}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <ul className="space-y-1">
+        {value.slice(0, _MAX_ITEMS).map((v, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="text-teal/70">▸</span>
+            <span className="min-w-0 flex-1">{isScalar(v)
+              ? <span className="text-ink">{cell(v)}</span>
+              : <AutoView value={v} depth={depth + 1} />}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  // Objects
+  if (isPlainObject(value)) {
+    const entries = Object.entries(value);
+    if (entries.every(([, v]) => isScalar(v))) {
+      return (
+        <div className="space-y-1">
+          {entries.map(([k, v]) => (
+            <div key={k} className="flex gap-3 border-t border-teal/5 py-1 first:border-0">
+              <span className="label w-32 shrink-0 truncate">{k}</span>
+              <span className="min-w-0 flex-1 break-words text-sm text-ink">{cell(v)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-2">
+        {entries.map(([k, v]) => (
+          <div key={k}>
+            <div className="label !text-teal">{k}</div>
+            <AutoView value={v} depth={depth + 1} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  // Scalars
+  if (typeof value === "number") return <div className="text-2xl text-ink tabular">{value}</div>;
+  if (typeof value === "string") return <MiniMarkdown text={value} />;
+  return <span className="text-ink">{cell(value)}</span>;
 }
