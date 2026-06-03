@@ -27,7 +27,7 @@ from jarvis import db
 from jarvis.agents import conversation as convo
 from jarvis.conversation.store import history_for_display, resume_or_start
 from jarvis.gateway import presence, sessions
-from jarvis.gateway.auth import AuthError, Principal, authenticate
+from jarvis.gateway.auth import AuthError, Principal
 from jarvis.gateway.deps import bearer_token as _bearer_token
 from jarvis.gateway.deps import principal as _principal
 from jarvis.gateway.deps import require as _require
@@ -307,11 +307,15 @@ async def _send_presence(socket: WebSocket, state: str) -> None:
 
 async def _serve_ws(socket: WebSocket) -> None:
     # Auth from the Authorization header or a `token` query param (browsers can't set WS headers).
+    # Same resolver as REST: a session token (the app passes ?token=<session>) → operator; else if a
+    # passphrase is configured, reject; else open-dev. Keeps chat gated whenever the app is.
+    from jarvis.gateway.deps import resolve_principal
+
     auth_header = socket.headers.get("authorization")
-    if auth_header is None and (qtok := socket.query_params.get("token")):
-        auth_header = f"Bearer {qtok}"
+    qtok = socket.query_params.get("token")
+    token = qtok or _bearer_token(auth_header)
     try:
-        principal = authenticate(auth_header)
+        principal = resolve_principal(token, auth_header)
     except AuthError:
         await socket.close(code=4401)
         return

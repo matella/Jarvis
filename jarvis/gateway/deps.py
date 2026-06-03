@@ -21,15 +21,33 @@ def bearer_token(authorization: str | None) -> str | None:
     return None
 
 
-def principal(request: Request, authorization: str | None = Header(default=None)) -> Principal:
+def login_required() -> bool:
+    """True once a session passphrase is configured — then a valid session is mandatory (no
+    open-dev fallback). Unset → backward-compatible static-token / open-dev behavior."""
+    from jarvis.security.secrets import get_provider
+
+    return bool(get_provider().get("APP_PASSPHRASE_HASH"))
+
+
+def resolve_principal(token: str | None, authorization: str | None) -> Principal:
+    """Shared auth core (REST + WS): a valid DB-backed session token → the operator; else, if login
+    is required, reject; else fall back to the static `gateway_token` / open-dev mode. Raises
+    AuthError on failure (callers map it to 401 / a WS close)."""
     s = get_settings()
-    token = request.cookies.get(s.app_session_cookie) or bearer_token(authorization)
     if token:
         with db.connect() as conn:
             if sessions.resolve_session(conn, token):
                 return Principal(actor=s.gateway_actor, scopes=ALL_SCOPES)
+    if login_required():
+        raise AuthError("login required")
+    return authenticate(authorization)
+
+
+def principal(request: Request, authorization: str | None = Header(default=None)) -> Principal:
+    s = get_settings()
+    token = request.cookies.get(s.app_session_cookie) or bearer_token(authorization)
     try:
-        return authenticate(authorization)
+        return resolve_principal(token, authorization)
     except AuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
