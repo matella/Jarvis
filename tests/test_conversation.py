@@ -140,6 +140,28 @@ def test_composes_with_claude_gate(monkeypatch) -> None:
     assert convo._composes_with_claude(conn=None) is False         # global local → local
 
 
+def test_present_weather_emits_weather_artifact(monkeypatch) -> None:
+    monkeypatch.setattr(convo, "extract_location", lambda t: "Brussels")
+    monkeypatch.setattr(convo, "weather_view", lambda loc: {
+        "title": "Weather · Brussels", "data": {
+            "location": "Brussels", "unit": "°C",
+            "current": {"temp": 14, "feels": 12, "code": 3, "label": "Overcast"}, "daily": [],
+        }})
+    r = convo._present_weather(conn=None, session=None, utterance="weather in Brussels", store=None)
+    assert r.route is TurnRoute.answer
+    assert r.artifacts and r.artifacts[0].kind == "weather"
+    assert "Brussels" in r.message and "14°C" in r.message
+
+
+def test_present_weather_falls_back_to_reason_when_no_data(monkeypatch) -> None:
+    monkeypatch.setattr(convo, "extract_location", lambda t: None)
+    monkeypatch.setattr(convo, "_operator_city", lambda conn: None)
+    sentinel = TurnResult(route=TurnRoute.answer, message="searched")
+    monkeypatch.setattr(convo, "_reason", lambda *a, **k: sentinel)
+    out = convo._present_weather(conn=None, session=None, utterance="weather", store=None)
+    assert out is sentinel  # unresolved place → normal reasoning/search, never a dead end
+
+
 def test_decide_falls_back_to_answer_on_garbage(monkeypatch) -> None:
     # A non-JSON model reply degrades to a plain answer rather than crashing the turn.
     # _decide now goes through the scheduler → router.chat; patch the underlying router call.

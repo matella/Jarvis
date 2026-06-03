@@ -27,8 +27,10 @@ from jarvis.events.models import Event, Severity, utcnow
 from jarvis.events.stream import emit_event
 from jarvis.intents.models import Intent, IntentReasoning, Risk
 from jarvis.intents.repository import insert_intent
-from jarvis.memory.facts import facts_block, set_fact
+from jarvis.memory.facts import facts_block, list_facts, set_fact
 from jarvis.tools.registry import ADVISORY_TYPES, get_tool, valid_intent_types
+from jarvis.weather import looks_like_weather, weather_view
+from jarvis.weather.provider import extract_location
 
 _WINDOW_HOURS = 24
 _AFFIRMATIVE = {"yes", "y", "yes please", "yep", "yeah", "do it", "go ahead", "confirm",
@@ -353,6 +355,8 @@ def respond(
         result = _capture_reminder(conn, session, utterance, store=store)
     elif _looks_like_remember(utterance):
         result = _capture_fact(conn, session, utterance, store=store)
+    elif looks_like_weather(utterance):
+        result = _present_weather(conn, session, utterance, store=store)
     else:
         result = _reason(conn, session, utterance, store=store)
 
@@ -370,6 +374,32 @@ def respond(
         )
     )
     return result
+
+
+def _operator_city(conn: psycopg.Connection) -> str | None:
+    """Fall back to the operator's stored city fact when a weather request names no place."""
+    for f in list_facts(conn):
+        if f.key in ("city", "location", "hometown"):
+            return f.value
+    return None
+
+
+def _present_weather(
+    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
+) -> TurnResult:
+    """Deterministic weather presenter: resolve a place → fetch open-meteo → a `weather` artifact
+    the app renders as a card. Falls back to reasoning/search if no place resolves or fetch dies."""
+    location = extract_location(utterance) or _operator_city(conn)
+    view = weather_view(location) if location else None
+    if view is None:
+        return _reason(conn, session, utterance, store=store)  # let search answer it as text
+    cur = view["data"]["current"]
+    temp = f"{cur['temp']}°C" if cur["temp"] is not None else "—"
+    message = f"{view['data']['location']}: {temp}, {cur['label'].lower()}."
+    return TurnResult(
+        route=TurnRoute.answer, message=message,
+        artifacts=[Artifact(kind="weather", title=view["title"], data=view["data"])],
+    )
 
 
 def _reason(

@@ -153,6 +153,8 @@ function Body({ artifact }: { artifact: Artifact }) {
         />
       );
     }
+    case "weather":
+      return <WeatherView data={artifact.data as unknown as WeatherData} />;
     default:
       return (
         <pre className="overflow-x-auto text-xs text-steel">
@@ -160,4 +162,57 @@ function Body({ artifact }: { artifact: Artifact }) {
         </pre>
       );
   }
+}
+
+// ── Weather presenter card ───────────────────────────────────────────────────────────────────
+interface WeatherDay { date: string; hi: number; lo: number; code: number; label: string }
+interface WeatherData {
+  location: string;
+  unit: string;
+  current: { temp: number | null; feels: number | null; code: number; label: string };
+  daily: WeatherDay[];
+}
+
+function weatherIcon(code: number): string {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "🌤️";
+  if (code === 3) return "☁️";
+  if (code <= 48) return "🌫️";
+  if (code <= 57) return "🌦️";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "🌨️";
+  if (code <= 82) return "🌧️";
+  if (code <= 86) return "🌨️";
+  return "⛈️"; // 95+ thunderstorm
+}
+
+function WeatherView({ data }: { data: WeatherData }) {
+  const c = data.current;
+  return (
+    <div>
+      <div className="flex items-center gap-3">
+        <span className="text-4xl">{weatherIcon(c.code)}</span>
+        <div>
+          <div className="text-2xl text-ink">
+            {c.temp ?? "—"}{data.unit}
+            <span className="ml-2 text-sm text-steel">{c.label}</span>
+          </div>
+          {c.feels != null && <div className="label">feels {c.feels}{data.unit}</div>}
+        </div>
+      </div>
+      <div className="mt-3 flex gap-2 overflow-x-auto">
+        {data.daily?.map((d) => (
+          <div key={d.date}
+            className="bracket min-w-[60px] border border-teal/10 px-2 py-1.5 text-center">
+            <div className="label">
+              {new Date(d.date).toLocaleDateString(undefined, { weekday: "short" })}
+            </div>
+            <div className="text-lg" title={d.label}>{weatherIcon(d.code)}</div>
+            <div className="text-xs text-ink">{d.hi}°</div>
+            <div className="text-xs text-steel">{d.lo}°</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
