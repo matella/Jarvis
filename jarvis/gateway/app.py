@@ -10,29 +10,31 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 
 import jarvis.connectors  # noqa: F401 — registers connector act-Tools (mail.send, ha.set_state)
+import jarvis.modules.builtin_tools  # noqa: F401 — registers personal-OS module tools (task.*, …)
 from jarvis import db
 from jarvis.agents import conversation as convo
 from jarvis.conversation.store import history_for_display, resume_or_start
-from jarvis.gateway import presence
+from jarvis.gateway import presence, sessions
 from jarvis.gateway.auth import AuthError, Principal, authenticate
-
-
-def _principal(authorization: str | None = Header(default=None)) -> Principal:
-    try:
-        return authenticate(authorization)
-    except AuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-
-
-def _require(principal: Principal, scope: str) -> None:
-    if not principal.has(scope):
-        raise HTTPException(status_code=403, detail=f"missing scope: {scope}")
+from jarvis.gateway.deps import bearer_token as _bearer_token
+from jarvis.gateway.deps import principal as _principal
+from jarvis.gateway.deps import require as _require
 
 
 def create_app() -> FastAPI:
+    from jarvis.gateway.modules_api import router as modules_router
     from jarvis.plugins.loader import load_plugins
 
     load_plugins()  # register external tool plugins (no-op if PLUGINS_DIR unset)
@@ -52,11 +54,47 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.include_router(modules_router)  # personal-OS module REST (tasks/notes/docs/… + reads)
+
     @app.get("/health")
     def health() -> dict[str, Any]:
         from jarvis.ops.health import health as health_snapshot
 
         return health_snapshot()
+
+    @app.post("/api/login")
+    def login(request: Request, response: Response, body: dict[str, Any]) -> dict[str, Any]:
+        # Unauthenticated by design: the passphrase IS the credential. Single operator,
+        # Tailscale-only. The minted token is set as an HttpOnly cookie (browser) AND returned in
+        # the body so the cross-origin native app can store it and send it as a bearer.
+        from jarvis.security.secrets import get_provider
+
+        s = get_settings()
+        stored = get_provider().get("APP_PASSPHRASE_HASH")
+        if not sessions.verify_passphrase(str(body.get("passphrase", "")), stored):
+            raise HTTPException(status_code=401, detail="invalid passphrase")
+        with db.connect() as conn:
+            token = sessions.mint_session(
+                conn, ttl_days=s.app_session_ttl_days,
+                user_agent=request.headers.get("user-agent"),
+            )
+        response.set_cookie(
+            s.app_session_cookie, token, httponly=True, samesite="lax",
+            secure=request.url.scheme == "https", max_age=s.app_session_ttl_days * 86400, path="/",
+        )
+        return {"ok": True, "token": token}
+
+    @app.post("/api/logout")
+    def logout(
+        request: Request, response: Response, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        cookie_name = get_settings().app_session_cookie
+        token = request.cookies.get(cookie_name) or _bearer_token(authorization)
+        if token:
+            with db.connect() as conn:
+                sessions.revoke_session(conn, token)
+        response.delete_cookie(cookie_name, path="/")
+        return {"ok": True}
 
     @app.get("/api/events")
     def events(n: int = 20, principal: Principal = Depends(_principal)) -> list[dict]:

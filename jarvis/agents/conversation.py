@@ -18,6 +18,7 @@ from typing import Any
 import psycopg
 from pydantic import BaseModel, Field, ValidationError
 
+import jarvis.modules.builtin_tools  # noqa: F401 — register personal-OS module tools before routing
 from jarvis import ids
 from jarvis.config import get_settings
 from jarvis.conversation.store import Session, add_message, recent_messages

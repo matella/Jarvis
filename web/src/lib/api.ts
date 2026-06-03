@@ -48,8 +48,10 @@ function authHeaders(): HeadersInit {
 }
 
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${getGatewayUrl()}${path}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const res = await fetch(`${getGatewayUrl()}${path}`, {
+    headers: authHeaders(), credentials: "include",
+  });
+  if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
   return (await res.json()) as T;
 }
 
@@ -62,15 +64,31 @@ export interface HealthSnapshot {
   degraded: boolean;
 }
 
-async function postJSON<T = { ok: boolean }>(path: string, body: unknown): Promise<T> {
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function bodyJSON<T>(method: string, path: string, body: unknown): Promise<T> {
   const res = await fetch(`${getGatewayUrl()}${path}`, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(body),
+    credentials: "include", // browser also carries the HttpOnly session cookie
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new ApiError(res.status, detail?.detail ?? `${res.status} ${res.statusText}`);
+  }
   return (await res.json().catch(() => ({}))) as T;
 }
+
+const postJSON = <T = { ok: boolean }>(path: string, body: unknown = {}) =>
+  bodyJSON<T>("POST", path, body);
+const patchJSON = <T>(path: string, body: unknown) => bodyJSON<T>("PATCH", path, body);
+const putJSON = <T>(path: string, body: unknown) => bodyJSON<T>("PUT", path, body);
+const delJSON = <T = { ok: boolean }>(path: string) => bodyJSON<T>("DELETE", path, undefined);
 
 export interface Topology {
   nodes: string[];
@@ -92,6 +110,12 @@ export interface IntentDetail {
   context: { prompt: string; model: string } | null;
 }
 
+// Personal-OS module record shapes (loose — the panels read a subset of each).
+export interface Rec {
+  id: string;
+  [k: string]: unknown;
+}
+
 export const api = {
   health: () => getJSON<HealthSnapshot>("/health"),
   events: (n = 20) => getJSON<Record<string, unknown>[]>(`/api/events?n=${n}`),
@@ -107,6 +131,89 @@ export const api = {
     ),
   feedback: (targetType: string, targetId: string, rating: 1 | -1) =>
     postJSON("/feedback", { target_type: targetType, target_id: targetId, rating }),
+
+  // ── auth (session login; the returned token doubles as the bearer for the native app) ──
+  login: async (passphrase: string) => {
+    const r = await postJSON<{ ok: boolean; token: string }>("/api/login", { passphrase });
+    if (r.token) setToken(r.token);
+    return r;
+  },
+  logout: async () => {
+    await postJSON("/api/logout").catch(() => {});
+    setToken("");
+  },
+
+  // ── personal-OS modules ──
+  tasks: {
+    list: () => getJSON<Rec[]>("/api/tasks"),
+    create: (b: Record<string, unknown>) => postJSON<Rec>("/api/tasks", b),
+    update: (id: string, b: Record<string, unknown>) => patchJSON<Rec>(`/api/tasks/${id}`, b),
+    complete: (id: string) => postJSON<Rec>(`/api/tasks/${id}/complete`),
+    remove: (id: string) => delJSON(`/api/tasks/${id}`),
+  },
+  notes: {
+    list: () => getJSON<Rec[]>("/api/notes"),
+    create: (b: Record<string, unknown>) => postJSON<Rec>("/api/notes", b),
+    update: (id: string, b: Record<string, unknown>) => patchJSON<Rec>(`/api/notes/${id}`, b),
+    remove: (id: string) => delJSON(`/api/notes/${id}`),
+  },
+  documents: {
+    list: () => getJSON<Rec[]>("/api/documents"),
+    get: (id: string) => getJSON<{ document: Rec; versions: Rec[] }>(`/api/documents/${id}`),
+    create: (b: Record<string, unknown>) => postJSON<Rec>("/api/documents", b),
+    update: (id: string, b: Record<string, unknown>) => patchJSON<Rec>(`/api/documents/${id}`, b),
+    aiEdit: (id: string, instruction: string, selection?: string) =>
+      postJSON<{ proposal: string }>(`/api/documents/${id}/ai-edit`, { instruction, selection }),
+    restore: (id: string, versionId: string) =>
+      postJSON<Rec>(`/api/documents/${id}/restore`, { version_id: versionId }),
+  },
+  recipes: {
+    list: () => getJSON<Rec[]>("/api/recipes"),
+    create: (b: Record<string, unknown>) => postJSON<Rec>("/api/recipes", b),
+    remove: (id: string) => delJSON(`/api/recipes/${id}`),
+    importUrl: (url: string) => postJSON<Rec>("/api/recipes/import", { url }),
+    shoppingList: (id: string) => postJSON<Rec>(`/api/recipes/${id}/shopping-list`),
+  },
+  calendar: {
+    agenda: (start: string, end: string) =>
+      getJSON<Rec[]>(`/api/calendar?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
+    create: (b: Record<string, unknown>) => postJSON<Rec>("/api/calendar", b),
+    remove: (id: string) => delJSON(`/api/calendar/${id}`),
+  },
+  research: {
+    list: () => getJSON<Rec[]>("/api/research"),
+    run: (query: string, depth = "standard") =>
+      postJSON<Rec>("/api/research", { query, depth }),
+  },
+  mail: {
+    list: () => getJSON<Rec[]>("/api/mail"),
+    draft: (id: string, instruction: string) =>
+      postJSON<{ draft: string }>(`/api/mail/${id}/draft`, { instruction }),
+  },
+  models: {
+    prefs: () => getJSON<Rec[]>("/api/models/prefs"),
+    setPref: (action: string, backend: string) => putJSON<Rec>("/api/models/prefs", { action, backend }),
+    preset: (name: string) => postJSON<{ applied: number }>("/api/models/preset", { name }),
+  },
+  code: {
+    list: () => getJSON<Rec[]>("/api/code"),
+    get: (id: string) => getJSON<Rec>(`/api/code/${id}`),
+    start: (repoPath: string, task: string) =>
+      postJSON<Rec>("/api/code/start", { repo_path: repoPath, task }),
+    apply: (id: string) => postJSON<Rec>(`/api/code/${id}/apply`),
+    discard: (id: string) => postJSON<Rec>(`/api/code/${id}/discard`),
+  },
+  facts: {
+    list: () => getJSON<{ key: string; value: string }[]>("/api/facts"),
+    set: (key: string, value: string) =>
+      postJSON<{ key: string; value: string }>("/api/facts", { key, value }),
+  },
+  routines: {
+    list: () => getJSON<Rec[]>("/api/routines"),
+    run: (id: string) => postJSON<{ preview: string }>(`/api/routines/${id}/run`),
+    enable: (id: string) => postJSON(`/api/routines/${id}/enable`),
+    disable: (id: string) => postJSON(`/api/routines/${id}/disable`),
+  },
 };
 
 export function wsUrl(): string {

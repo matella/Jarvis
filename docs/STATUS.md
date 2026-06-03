@@ -236,6 +236,54 @@ framework). Sub-projects each get spec → plan → build.
   8. `code-opencode.md` (spike headless OpenCode first; heaviest Hard-Rule-#1 reconciliation)
   All dated `2026-06-02-` under `docs/specs/`.
 
+### BUILD — branch `feat/personal-os-arc` (NOT merged — operator review pending)
+All 10 module **backends + the gateway REST API + the React app shell** are built: **338 py unit
+tests + 22 web vitest green, lint + tsc + production build clean**. Modules are usable via chat (run
+`jarvis mode semi_autonomous`) AND via the app's **workspace** surface (4th TopBar tab: login →
+left nav → 10 panels). Repo round-trips + real-git apply are `@pytest.mark.integration` (run on box).
+Backend pattern: `docs/MODULE_TEMPLATE.md`.
+
+**Frontend DONE** (`web/`): `lib/api.ts` (login + module methods; session token = bearer), `LoginGate`
+(passphrase; open dev mode just works), `Workspace` + 10 panels (tasks/notes/docs/research/recipes/
+calendar/mail/code/models/memories) over `gateway/modules_api.py` (operator-direct CRUD; gated
+actions reuse the tools). **REST DONE**: `gateway/deps.py` + `gateway/modules_api.py`.
+
+**DONE (backend, tested, committed):**
+- **Shell foundation:** session login (`0019_app_sessions`, `gateway/sessions.py` scrypt+token-hash,
+  `/api/login`+`/api/logout`, `_principal` cookie|bearer + static fallback, `make app-passphrase`);
+  `tools/grading.py` (Evolution #2 auto-run-vs-gated); `jarvis/modules/` `awareness`+`search` hooks
+  + `builtin_tools` registrar (imported by gateway + conversation agent).
+- **Tasks** `0020` · **Notes** `0021` · **Documents** `0022` (+versions, `ai.propose_edit` co-write)
+  · **Research** `0026` (bounded harness, gated `research.run`) · **Recipes** `0023` (URL import,
+  scaler, recipe→shopping-list→tasks) · **Mail** `0024` (cache+triage+compose) · **Calendar** `0025`
+  (local truth + Google read-mirror) · **Cookbook** `0027` (per-action backend + presets; wired into
+  research+postmortem; `jarvis model prefs|pref|preset`) · **Code/OpenCode** `0028` (sandboxed
+  worktree → diff → gated apply; allowlist-only).
+- `.env.example`, `MAP.md`, `docs/MODULE_TEMPLATE.md` updated.
+
+**ALSO DONE since:** daily-brief `day_brief` routine action (calendar+tasks+mail+research+homelab,
+best-effort) + Routines UI panel (11th) + `/api/routines` + live **mail-sync** code
+(`jarvis/mail/sync.py`, run via `jarvis connectors mail-sync`) + `make google-oauth` helper
+(`scripts/google_oauth.py`). **Everything buildable-without-creds is now built.**
+
+**ON HOLD — only live config/runs remain (operator provides; assistant drives the box):**
+- **Mail:** set `IMAP_HOST/SMTP_HOST` + `MAIL_USERNAME`/`MAIL_PASSWORD` (app password) in box `.env`
+  → `jarvis connectors mail-sync` populates the cache+triage (the IMAP spike = confirm it connects).
+- **Google Calendar:** create an OAuth client → `make google-oauth` (browser machine) → paste
+  `GOOGLE_OAUTH_REFRESH_TOKEN` (+id/secret) into `.env` → `calendar.google.sync()` (live run).
+- **OpenCode:** confirm `opencode --version` on the box + set `CODE_REPO_ALLOWLIST`; spike the
+  headless command, then replace `code.harness._held_runner` with the real `opencode run` invocation.
+- **Login:** `make app-passphrase` → `APP_PASSPHRASE_HASH` in `.env`.
+
+**NOTED FOLLOW-UPS (additive):** Tasks proactive due-nudge worker (reuse reminder poll);
+capability-summary labels module write-tools "read-only" (cosmetic); Cmd-K wiring of module search
++ theme presets in the workspace.
+
+**GO-LIVE:** review branch → `make app-passphrase` → merge `feat/personal-os-arc` → on box
+`git pull && make deploy` (runs migrations 0019–0028) → set the secrets above → `jarvis mode
+semi_autonomous` → use via chat OR the app's **workspace** tab (login → 11 panels). Run mail-sync /
+google-oauth / opencode spike to light up the three live integrations.
+
 ## Everyday-AI roadmap (post-backlog) — in progress
 Goal: turn Jarvis from "a console I open" into "an assistant that knows me and reaches me".
 Order: **1) notifications keystone → 2) memory (session history + facts) → 3) mail/RSS connectors.**

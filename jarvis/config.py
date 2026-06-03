@@ -287,9 +287,13 @@ class Settings(BaseSettings):
     # (e.g. WEBHOOK_SECRET_GITHUB). Empty signature config → that source is rejected.
     webhook_require_signature: bool = True
 
+    # Code module (OpenCode) — repos a coding session may target. Opt-in allowlist (empty = none);
+    # the Jarvis repo is refused by default (no self-modification). Absolute paths on the box.
+    code_repo_allowlist: Annotated[list[str], NoDecode] = []
+
     @field_validator(
         "connectors_enabled", "feed_urls", "ha_watch_entities", "calendar_ics_urls",
-        "gateway_cors_origins", mode="before"
+        "gateway_cors_origins", "code_repo_allowlist", mode="before"
     )
     @classmethod
     def _split_list_csv(cls, v: object) -> object:
@@ -339,6 +343,11 @@ class Settings(BaseSettings):
     # set a token to require it. Real per-user identities flow into the audit log as actor.
     gateway_token: str = ""
     gateway_actor: str = "local"
+    # Session login (personal-OS shell). The passphrase hash is a SECRET read via SecretsProvider
+    # (`APP_PASSPHRASE_HASH`, format `scrypt$<salt>$<hash>`, mint with `make app-passphrase`)
+    # — never a config field, never in DB/git/logs. Unset → login off (bearer-token fallback).
+    app_session_ttl_days: int = 30
+    app_session_cookie: str = "jarvis_session"
     # CORS — allow the native (Capacitor) app + dev origins to call the REST API cross-origin.
     # The bundled app's origin is capacitor://localhost (Android) / ionic://localhost; localhost
     # covers `cap run` + dev. Add your console's https domain if you serve it from another origin.

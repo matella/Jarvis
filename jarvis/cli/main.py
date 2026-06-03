@@ -953,6 +953,15 @@ def connectors_poll(name: str = typer.Argument(..., help="feeds|mail")) -> None:
     console.print(f"{name}: emitted [bold]{count}[/bold] events")
 
 
+@connectors_app.command("mail-sync")
+def connectors_mail_sync(max_messages: int = 50) -> None:
+    """Mirror recent mail into the cache + triage it (the inbox the app's Mail panel reads)."""
+    from jarvis.mail.sync import sync_account
+
+    n = sync_account(max_messages=max_messages)
+    console.print(f"mail: synced [bold]{n}[/bold] messages to the cache")
+
+
 @routine_app.command("add")
 def routine_add(
     name: str,
@@ -1194,6 +1203,42 @@ def model_status() -> None:
     if fb:
         console.print(f"last fallback  : {_short(fb['occurred_at'])} — "
                       f"{fb['payload'].get('failure_class', '?')}")
+
+
+@model_app.command("prefs")
+def model_prefs() -> None:
+    """Show the model cookbook — per-action backend choices."""
+    from jarvis.cookbook import repository
+
+    with db.connect() as conn:
+        prefs = repository.list_prefs(conn)
+    if not prefs:
+        console.print("no per-action prefs set (everything uses the global default)")
+        return
+    for p in prefs:
+        tag = f" [{p.preset_name}]" if p.preset_name else ""
+        console.print(f"{p.scope.value}:{p.scope_key} → [bold]{p.backend}[/bold]{tag}")
+
+
+@model_app.command("pref")
+def model_pref(action: str = typer.Argument(...), backend: str = typer.Argument(...)) -> None:
+    """Set the backend for an action key, e.g. `jarvis model pref research.synthesize claude`."""
+    from jarvis.cookbook.models import ModelPref, PrefScope
+    from jarvis.cookbook.repository import set_pref
+
+    with db.connect(autocommit=True) as conn:
+        set_pref(conn, ModelPref(scope=PrefScope.action, scope_key=action, backend=backend))
+    console.print(f"{action} → [bold]{backend}[/bold]")
+
+
+@model_app.command("preset")
+def model_preset(name: str = typer.Argument(..., help="quality | frugal | balanced")) -> None:
+    """Apply a named cookbook preset (writes the per-action rows)."""
+    from jarvis.cookbook.repository import apply_preset
+
+    with db.connect(autocommit=True) as conn:
+        n = apply_preset(conn, name)
+    console.print(f"preset [bold]{name}[/bold] applied ({n} actions)")
 
 
 @obs_app.command("prometheus")

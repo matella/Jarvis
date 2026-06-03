@@ -54,6 +54,7 @@ select = ["E", "F", "I", "UP", "B"]
 # FastAPI's dependency-injection idiom is `param = Depends(...)` in defaults (B008 is a false
 # positive here); the gateway is the only place this pattern appears.
 "jarvis/gateway/app.py" = ["B008"]
+"jarvis/gateway/modules_api.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"

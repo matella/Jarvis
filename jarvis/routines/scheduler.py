@@ -65,11 +65,49 @@ def run_action(conn: psycopg.Connection, routine: Routine) -> str:
         return summarize(timedelta(hours=action.hours)).summary
     if action.kind is ActionKind.briefing:
         return _briefing_text(conn, action.hours)
+    if action.kind is ActionKind.day_brief:
+        return _day_brief_text(conn, action.hours)
     if action.kind is ActionKind.search:
         from jarvis.search.rag import answer_with_search
 
         return answer_with_search(action.query)[0]
     return "(no action)"
+
+
+def _day_brief_text(conn: psycopg.Connection, hours: int) -> str:
+    """Cross-module morning brief: calendar today + tasks due + important mail + recent research,
+    then homelab health. Each section is best-effort so an empty/missing module never breaks it."""
+    from jarvis.calendar import repository as cal
+    from jarvis.mail import repository as mail
+    from jarvis.research import repository as research
+    from jarvis.tasks import repository as tasks
+
+    now = utcnow()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    lines = ["☀️ Daily brief"]
+
+    def section(title: str, produce) -> None:  # type: ignore[no-untyped-def]
+        try:
+            items = list(produce())
+        except Exception:  # noqa: BLE001 — a quiet/missing module must not sink the brief
+            return
+        if items:
+            lines.extend(["", title, *(f"  {x}" for x in items)])
+
+    section("Today:", lambda: [
+        f"{e.starts_at:%H:%M} {e.title}" + ("" if not e.is_mirror else f" ({e.source.value})")
+        for e in cal.agenda(conn, start, end)
+    ])
+    section("Due:", lambda: [f"- {t.title}" for t in tasks.due_before(conn, end)])
+    section("Important mail:", lambda: [
+        f"- {m.subject} ({m.from_addr})" for m in mail.important(conn, limit=5)
+    ])
+    section("Recent research:", lambda: [
+        f"- {r.query}" for r in research.recent(conn, limit=3) if r.status.value == "done"
+    ])
+    lines += ["", _briefing_text(conn, hours)]
+    return "\n".join(lines)
 
 
 def run_routine(routine: Routine, *, notify: bool = True) -> str:
