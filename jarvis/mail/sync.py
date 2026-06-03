@@ -131,12 +131,18 @@ def sync_account(*, max_messages: int = 50) -> int:  # pragma: no cover — live
             imap.login(provider.required(acct.user_secret), provider.required(acct.pass_secret))
             imap.select("INBOX")
             _typ, data = imap.search(None, "ALL")
-            uids = data[0].split()[-max_messages:]
+            candidate = [u.decode() for u in data[0].split()[-max_messages:]]
+            # Only DOWNLOAD messages we don't already have — a periodic re-poll then transfers (and
+            # triages) nothing for seen mail, so it's cheap on bandwidth + GPU.
+            with db.connect() as conn:
+                seen = repository.existing_uids(conn, acct.label, candidate)
             batch: list[tuple[str, bytes]] = []
-            for uid in uids:
-                _t, msg_data = imap.fetch(uid, "(RFC822)")
+            for uid in candidate:
+                if uid in seen:
+                    continue
+                _t, msg_data = imap.fetch(uid.encode(), "(RFC822)")
                 raw = msg_data[0][1] if msg_data and msg_data[0] else b""
                 if isinstance(raw, bytes):
-                    batch.append((uid.decode(), raw))
+                    batch.append((uid, raw))
             total += ingest_raw(batch, account=acct.label)
     return total
