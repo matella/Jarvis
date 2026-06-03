@@ -129,6 +129,12 @@ services:
     container_name: jarvis-daemon
     restart: unless-stopped
     command: ["jarvis", "run"]
+    # The daemon runs the periodic connector polls (mail/calendar sync) + routines, so it needs the
+    # same .env (CONNECTORS_ENABLED, MAIL_*, GOOGLE_OAUTH_*, NTFY_TOPIC, …). The explicit
+    # `environment:` below still overrides the infra keys (POSTGRES_HOST=postgres, etc.).
+    env_file:
+      - path: .env
+        required: false
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-jarvis}
