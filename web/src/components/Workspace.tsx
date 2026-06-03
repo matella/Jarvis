@@ -172,26 +172,101 @@ function ResearchPanel() {
   );
 }
 
-function MailPanel() {
-  const { data, error } = useAsync(() => api.mail.list());
+function MailReader({ msg, onSent }: { msg: Rec; onSent: () => void }) {
+  const t = msg.triage as Rec | null;
+  const to = str(msg, "from_addr");
+  const subject = "Re: " + str(msg, "subject");
+  const [replying, setReplying] = useState(false);
+  const [instr, setInstr] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState<"" | "draft" | "send">("");
+
+  const draft = async () => {
+    setBusy("draft");
+    try { setBody((await api.mail.draft(msg.id, instr || "Write a concise, polite reply")).draft); }
+    finally { setBusy(""); }
+  };
+  const send = async () => {
+    if (!window.confirm(`Send this email to ${to}?`)) return;
+    setBusy("send");
+    try { await api.mail.send(to, subject, body); setReplying(false); setBody(""); onSent(); }
+    finally { setBusy(""); }
+  };
+
   return (
-    <PanelShell title="Mail" error={error}>
-      <ul className="space-y-1">
-        {(data ?? []).map((m) => {
-          const t = m.triage as Rec | null;
-          const important = !!(t && (t.importance === "high" || t.needs_reply));
-          return (
-            <li key={m.id} className="border border-edge px-3 py-2">
-              <div className="flex justify-between">
-                <span className="text-ink">{str(m, "subject") || "(no subject)"}</span>
-                {important && <span className="text-[#ff7a45]">●</span>}
-              </div>
-              <div className="label">{str(m, "from_addr")}</div>
-            </li>
-          );
-        })}
-        {data?.length === 0 && <li className="label">inbox empty (sync runs once IMAP is configured)</li>}
-      </ul>
+    <div className="flex h-full flex-col">
+      <div className="mb-2 border-b border-edge pb-2">
+        <div className="text-ink">{str(msg, "subject") || "(no subject)"}</div>
+        <div className="label">from {str(msg, "from_addr")}
+          {str(msg, "received_at") && " · " + str(msg, "received_at").slice(0, 16).replace("T", " ")}</div>
+        {t?.summary ? <div className="label !text-teal mt-1">⌁ {String(t.summary)}</div> : null}
+      </div>
+      <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words font-sans text-sm text-ink">
+        {str(msg, "body_text") || str(msg, "snippet") || "(no text body)"}
+      </pre>
+      <div className="mt-2 border-t border-edge pt-2">
+        {!replying ? (
+          <Btn kind="accent" onClick={() => setReplying(true)}>reply</Btn>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <TextInput value={instr} placeholder="how to reply (e.g. 'accept, propose Friday')"
+                className="flex-1" onChange={(e) => setInstr(e.target.value)} />
+              <Btn onClick={draft} disabled={busy !== ""}>{busy === "draft" ? "…" : "AI draft"}</Btn>
+            </div>
+            <textarea value={body} onChange={(e) => setBody(e.target.value)}
+              placeholder={`Reply to ${to}…`}
+              className="h-40 w-full border border-edge bg-void p-2 text-sm text-ink outline-none focus:border-teal" />
+            <div className="flex gap-2">
+              <Btn kind="accent" onClick={send} disabled={busy !== "" || !body.trim()}>
+                {busy === "send" ? "sending…" : "send"}</Btn>
+              <Btn onClick={() => setReplying(false)}>cancel</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MailPanel() {
+  const { data, error, reload } = useAsync(() => api.mail.list());
+  const [sel, setSel] = useState<Rec | null>(null);
+  const [q, setQ] = useState("");
+  const open = async (id: string) => setSel(await api.mail.get(id));
+  const list = (data ?? []).filter((m) => {
+    const needle = q.toLowerCase();
+    return !needle || str(m, "subject").toLowerCase().includes(needle)
+      || str(m, "from_addr").toLowerCase().includes(needle);
+  });
+  return (
+    <PanelShell title="Mail" error={error}
+      toolbar={<TextInput value={q} placeholder="search inbox…" onChange={(e) => setQ(e.target.value)} />}>
+      <div className="flex h-full min-h-0 gap-3">
+        <ul className="w-2/5 min-w-0 shrink-0 space-y-1 overflow-auto">
+          {list.map((m) => {
+            const t = m.triage as Rec | null;
+            const important = !!(t && (t.importance === "high" || t.needs_reply));
+            return (
+              <li key={m.id}>
+                <button onClick={() => open(m.id)}
+                  className={`block w-full border px-2 py-1.5 text-left transition ${
+                    sel?.id === m.id ? "border-teal/40 bg-teal/10" : "border-edge hover:border-steel"}`}>
+                  <div className="flex justify-between gap-2">
+                    <span className="truncate text-ink">{str(m, "subject") || "(no subject)"}</span>
+                    {important && <span className="text-[#ff7a45]">●</span>}
+                  </div>
+                  <div className="label truncate">{str(m, "from_addr")}</div>
+                </button>
+              </li>
+            );
+          })}
+          {data?.length === 0 && <li className="label">inbox empty (syncs every few minutes)</li>}
+        </ul>
+        <div className="min-w-0 flex-1 overflow-hidden border-l border-edge pl-3">
+          {sel ? <MailReader msg={sel} onSent={reload} /> : <div className="label">select a message</div>}
+        </div>
+      </div>
     </PanelShell>
   );
 }

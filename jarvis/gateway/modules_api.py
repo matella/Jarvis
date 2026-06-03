@@ -325,6 +325,24 @@ def list_mail(p: Principal = Depends(_principal)) -> list[dict]:
         return _dump_all(repository.recent(conn))
 
 
+@router.get("/mail/{mail_id}")
+def get_mail(mail_id: str, p: Principal = Depends(_principal)) -> dict:
+    _require(p, "read")
+    from jarvis.mail import repository
+    with db.connect() as conn:
+        msg = repository.get(conn, mail_id)
+    if msg is None:
+        raise HTTPException(404, "message not found")
+    return _dump(msg)  # includes the full body_text + to_addrs + triage
+
+
+@router.post("/mail/send")
+def send_mail(body: dict, p: Principal = Depends(_principal)) -> dict:
+    _require(p, "chat")  # gated tool; the authenticated operator clicking Send is the consent
+    return _run_tool("mail.send", {"to": body.get("to"), "subject": body.get("subject"),
+                                   "body": body.get("body")})
+
+
 @router.post("/mail/{mail_id}/draft")
 def draft_mail(mail_id: str, body: dict, p: Principal = Depends(_principal)) -> dict:
     _require(p, "chat")

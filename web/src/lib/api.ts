@@ -187,8 +187,11 @@ export const api = {
   },
   mail: {
     list: () => getJSON<Rec[]>("/api/mail"),
+    get: (id: string) => getJSON<Rec>(`/api/mail/${id}`),
     draft: (id: string, instruction: string) =>
       postJSON<{ draft: string }>(`/api/mail/${id}/draft`, { instruction }),
+    send: (to: string, subject: string, body: string) =>
+      postJSON<{ sent_to: string }>("/api/mail/send", { to, subject, body }),
   },
   models: {
     prefs: () => getJSON<Rec[]>("/api/models/prefs"),

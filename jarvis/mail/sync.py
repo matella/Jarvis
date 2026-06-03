@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import datetime
 from email import message_from_bytes, policy
 from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
 from typing import Any
 
 import psycopg
@@ -27,19 +28,68 @@ _BODY_LIMIT = 20_000
 _SNIPPET = 280
 
 
-def _body_text(msg: Any) -> str:
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() == "text/plain":
-                try:
-                    return part.get_content()
-                except Exception:  # noqa: BLE001
-                    return ""
-        return ""
+class _TextExtractor(HTMLParser):
+    """Minimal HTML→text: collect text nodes, drop script/style, break on block tags."""
+
+    _SKIP = {"script", "style", "head"}
+    _BREAK = {"p", "br", "div", "tr", "li", "h1", "h2", "h3", "h4", "ul", "ol", "table"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._out: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag: str, attrs: object) -> None:
+        if tag in self._SKIP:
+            self._skip += 1
+        elif tag in self._BREAK:
+            self._out.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._SKIP and self._skip:
+            self._skip -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip and data.strip():
+            self._out.append(data)
+
+    def text(self) -> str:
+        import re
+
+        joined = "".join(self._out)
+        return re.sub(r"\n{3,}", "\n\n", joined).strip()
+
+
+def _html_to_text(html: str) -> str:
+    parser = _TextExtractor()
     try:
-        return msg.get_content() or ""
+        parser.feed(html)
+    except Exception:  # noqa: BLE001 — malformed HTML still yields whatever parsed
+        pass
+    return parser.text()
+
+
+def _part_text(part: Any) -> str:
+    try:
+        content = part.get_content()
     except Exception:  # noqa: BLE001
         return ""
+    return content if isinstance(content, str) else ""
+
+
+def _body_text(msg: Any) -> str:
+    """Prefer text/plain; fall back to HTML→text so HTML-only emails still show a readable body."""
+    if msg.is_multipart():
+        plain, html = "", ""
+        for part in msg.walk():
+            ctype = part.get_content_type()
+            if ctype == "text/plain" and not plain:
+                plain = _part_text(part)
+            elif ctype == "text/html" and not html:
+                html = _part_text(part)
+        return plain or _html_to_text(html)
+    body = _part_text(msg)
+    return _html_to_text(body) if msg.get_content_type() == "text/html" else body
 
 
 def _received_at(msg: Any) -> datetime | None:

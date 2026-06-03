@@ -97,3 +97,30 @@ def test_routine_enable_disable(client: TestClient, monkeypatch: pytest.MonkeyPa
 
 def test_routine_unknown_op_is_400(client: TestClient) -> None:
     assert client.post("/api/routines/rtn_1/frobnicate").status_code == 400
+
+
+def test_get_mail_returns_full_body(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from jarvis.mail.models import CachedMessage
+    msg = CachedMessage(account="default", uid="1", from_addr="a@b.com", subject="Hi",
+                        body_text="the full body text")
+    monkeypatch.setattr("jarvis.mail.repository.get", lambda conn, mid: msg)
+    resp = client.get("/api/mail/mail_1")
+    assert resp.status_code == 200 and resp.json()["body_text"] == "the full body text"
+    monkeypatch.setattr("jarvis.mail.repository.get", lambda conn, mid: None)
+    assert client.get("/api/mail/nope").status_code == 404
+
+
+def test_send_mail_reuses_gated_tool(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list = []
+
+    class _Tool:
+        timeout_seconds = 30
+
+        def run(self, target, *, timeout_s):
+            sent.append(target)
+            return {"sent_to": target["to"]}
+
+    monkeypatch.setattr("jarvis.tools.registry.get_tool", lambda name: _Tool())
+    resp = client.post("/api/mail/send", json={"to": "x@y.com", "subject": "Re: hi", "body": "ok"})
+    assert resp.status_code == 200 and resp.json()["sent_to"] == "x@y.com"
+    assert sent[0] == {"to": "x@y.com", "subject": "Re: hi", "body": "ok"}

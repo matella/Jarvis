@@ -29,6 +29,23 @@ def test_parse_full_keeps_real_sender_and_subject() -> None:
     assert msg.message_id == "<abc@b.com>" and msg.entity_ref.startswith("mail:")
 
 
+def test_html_only_email_yields_readable_body() -> None:
+    m = EmailMessage()
+    m["From"] = "n@news.com"
+    m["Subject"] = "Newsletter"
+    m.set_content("<html><body><p>Hello there</p><script>track()</script>"
+                  "<div>Second line</div></body></html>", subtype="html")
+    msg = sync.parse_full(m.as_bytes(), uid="1", account="default")
+    assert "Hello there" in msg.body_text and "Second line" in msg.body_text
+    assert "track()" not in msg.body_text  # script/style dropped
+
+
+def test_html_to_text_is_resilient() -> None:
+    assert "Hi" in sync._html_to_text("<p>Hi</p>")
+    assert sync._html_to_text("") == ""
+    assert "Bye" in sync._html_to_text("<div>Bye<broken")  # malformed still yields text
+
+
 def test_ingest_raw_upserts_triages_and_emits(monkeypatch: pytest.MonkeyPatch) -> None:
     upserted: list[CachedMessage] = []
     events: list = []
