@@ -71,6 +71,21 @@ def recent(conn: psycopg.Connection, *, account: str | None = None, limit: int =
     return [_row_to_msg(r) for r in rows]
 
 
+def find(conn: psycopg.Connection, terms: str, *, limit: int = 10) -> list[CachedMessage]:
+    """Keyword search across sender/subject/snippet/body, newest first — for 'my mail about X' /
+    'last email from Y'. Case-insensitive substring match; empty terms → newest mail."""
+    terms = terms.strip()
+    if not terms:
+        return recent(conn, limit=limit)
+    like = f"%{terms}%"
+    rows = conn.execute(
+        f"SELECT {_COLS} FROM mail_cache WHERE subject ILIKE %s OR from_addr ILIKE %s "
+        "OR snippet ILIKE %s OR body_text ILIKE %s ORDER BY received_at DESC NULLS LAST LIMIT %s",
+        (like, like, like, like, limit),
+    ).fetchall()
+    return [_row_to_msg(r) for r in rows]
+
+
 def important(conn: psycopg.Connection, *, limit: int = 20) -> list[CachedMessage]:
     """High-importance or needs-reply mail — feeds the daily brief."""
     rows = conn.execute(

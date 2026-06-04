@@ -204,3 +204,55 @@ def test_decide_falls_back_to_answer_on_garbage(monkeypatch) -> None:
     d = convo._decide("p", correlation_id="corr_x", context_ref="ctx_x")
     assert d.route == "answer"
     assert "not json" in d.message
+
+
+def test_looks_like_mail_detects_questions() -> None:
+    assert convo._looks_like_mail("what was my last mail about the Lotto?") is True
+    assert convo._looks_like_mail("any email from the bank?") is True
+    assert convo._looks_like_mail("check my inbox") is True
+    assert convo._looks_like_mail("what's the weather") is False
+    assert convo._looks_like_mail("remind me to call mum") is False
+
+
+def test_mail_topic_extraction() -> None:
+    assert convo._mail_topic("what was my last mail about the Lotto?") == "Lotto"
+    assert convo._mail_topic("any email from the bank") == "bank"
+    assert convo._mail_topic("show me my inbox") == ""  # no topic → recent
+    assert convo._mail_topic("mail regarding my tax return") == "tax return"
+
+
+class _FakeMsg:
+    def __init__(self, frm, subject, snippet="", received_at=None):
+        self.from_addr, self.subject, self.snippet = frm, subject, snippet
+        self.received_at, self.triage = received_at, None
+
+
+def test_present_mail_searches_by_topic(monkeypatch) -> None:
+    from jarvis.mail import repository as r
+
+    monkeypatch.setattr(convo.capabilities, "available", lambda name: True)
+    hit = _FakeMsg("lotto@belgium.be", "Your Lotto results", "You matched 3 numbers")
+    monkeypatch.setattr(r, "find", lambda conn, terms, limit=10: [hit] if "Lotto" in terms else [])
+    out = convo._present_mail(conn=None, session=None,
+                              utterance="what was my last mail about the Lotto?", store=None)
+    assert out.route is TurnRoute.answer
+    assert "Lotto" in out.message and "lotto@belgium.be" in out.message
+    assert out.artifacts and out.artifacts[0].title == "Mail · Lotto"
+
+
+def test_present_mail_accurate_when_no_match(monkeypatch) -> None:
+    from jarvis.mail import repository as r
+
+    monkeypatch.setattr(convo.capabilities, "available", lambda name: True)
+    monkeypatch.setattr(r, "find", lambda conn, terms, limit=10: [])
+    out = convo._present_mail(conn=None, session=None,
+                              utterance="any mail about the Lotto?", store=None)
+    # Accurate 'nothing found' — NOT a stored-facts denial.
+    assert "don't see any mail" in out.message and "Lotto" in out.message
+
+
+def test_present_mail_not_connected(monkeypatch) -> None:
+    monkeypatch.setattr(convo.capabilities, "available", lambda name: False)
+    monkeypatch.setattr(convo.capabilities, "remedy", lambda name: "add IMAP host")
+    out = convo._present_mail(conn=None, session=None, utterance="check my mail", store=None)
+    assert "isn't connected yet" in out.message and "IMAP" in out.message

@@ -254,8 +254,12 @@ def _build_prompt(
         "- If the user asks about the WEATHER or forecast — any phrasing, typos, or a follow-up "
         "like \"and for tomorrow?\" / \"this weekend?\" — set route=\"weather\". Put the place in "
         "location if they named one; leave it blank to use their saved city.\n"
-        "- If the user asks to SHOW / LIST / DISPLAY / VISUALIZE their own data (tasks, notes, "
-        "inbox/mail, calendar, recipes, research, torrents), set route=\"present\".\n"
+        "- If the user asks to SHOW / LIST / DISPLAY / VISUALIZE their own data, OR asks a "
+        "question about their own stored data — tasks, notes, calendar, recipes, research, "
+        "torrents, and "
+        "especially their MAIL/email/inbox (e.g. \"what was my last mail about the lotto?\", \"any "
+        "email from the bank?\") — set route=\"present\". These come from synced data, NOT from "
+        "remembered facts.\n"
         "- Otherwise — including who/what you are, your status, the homelab, explanations, and "
         "RECALLING a fact you already know about the operator (use the facts below verbatim) — set "
         "route=\"answer\" and put your grounded reply in message; cite events/state you used.\n"
@@ -371,6 +375,10 @@ def respond(
         result = _present_weather(conn, session, utterance, store=store)
     elif _looks_like_show(utterance):
         result = _present_data(conn, session, utterance, store=store)
+    elif _looks_like_mail(utterance):
+        # Mail questions ("what was my last mail about X", "any email from Y") — search the inbox,
+        # don't let the first-person phrasing fall through to the facts-only recall path.
+        result = _present_mail(conn, session, utterance, store=store)
     else:
         result = _reason(conn, session, utterance, store=store)
 
@@ -402,6 +410,68 @@ def _looks_like_show(text: str) -> bool:
     return bool(re.search(r"\b(show|list|display|visuali[sz]e)\b", text, re.I))
 
 
+_MAIL_RE = re.compile(r"\b(e-?mails?|mails?|inbox|mailbox)\b", re.I)
+_MAIL_ABOUT_RE = re.compile(
+    r"\b(?:about|regarding|re|concerning|on the (?:subject|topic) of)\b[:\s]+(.+?)[?.!]*$", re.I
+)
+_MAIL_FROM_RE = re.compile(r"\bfrom\s+(.+?)[?.!]*$", re.I)
+_MAIL_STOPWORDS = {"the", "my", "a", "an", "any", "some", "that", "this"}
+
+
+def _looks_like_mail(text: str) -> bool:
+    """A mail question/request — distinct from a fact recall. Reminders/remember are matched
+    earlier in respond(), so 'remind me to email X' never reaches here."""
+    return bool(_MAIL_RE.search(text))
+
+
+def _mail_topic(text: str) -> str:
+    """Pull the search topic from 'mail about <X>' / 'email from <Y>'; '' → show recent inbox."""
+    m = _MAIL_ABOUT_RE.search(text) or _MAIL_FROM_RE.search(text)
+    if not m:
+        return ""
+    words = m.group(1).strip().split()
+    while words and words[0].lower() in _MAIL_STOPWORDS:
+        words.pop(0)
+    return " ".join(words)
+
+
+def _present_mail(
+    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
+) -> TurnResult:
+    """Answer mail questions from the synced inbox: keyword-search on a topic, else the latest.
+    Gives an accurate 'no such mail' when the inbox has nothing — never falls back to stored facts.
+    """
+    if not capabilities.available("email"):
+        return _not_connected("Email", capabilities.remedy("email"))
+    from jarvis.mail import repository as r
+
+    topic = _mail_topic(utterance)
+    msgs = r.find(conn, topic, limit=10) if topic else r.recent(conn, limit=20)
+    if not msgs:
+        where = f' about “{topic}”' if topic else ""
+        return TurnResult(
+            route=TurnRoute.answer,
+            message=f"I don't see any mail{where} in your synced inbox.",
+        )
+    rows = [{"from": m.from_addr, "subject": m.subject,
+             "date": m.received_at.strftime("%d %b %H:%M") if m.received_at else "",
+             "importance": m.triage.importance.value if m.triage else "-"} for m in msgs]
+    wants_one = bool(topic) or re.search(r"\b(last|latest|recent|most recent)\b", utterance, re.I)
+    if wants_one:
+        top = msgs[0]
+        when = f" ({top.received_at.strftime('%d %b')})" if top.received_at else ""
+        about = f' about “{topic}”' if topic else ""
+        message = f"Your latest mail{about} — from {top.from_addr}, “{top.subject}”{when}."
+        snippet = (top.triage.summary if top.triage and top.triage.summary else top.snippet)
+        if snippet:
+            message += f" {snippet[:220].strip()}"
+        title = f"Mail · {topic}" if topic else "Latest mail"
+        return TurnResult(route=TurnRoute.answer, message=message,
+                          artifacts=[auto_artifact(title, rows)])
+    return TurnResult(route=TurnRoute.answer, message="Here's your inbox:",
+                      artifacts=[auto_artifact("Inbox", rows)])
+
+
 def _present_data(
     conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
 ) -> TurnResult:
@@ -422,13 +492,7 @@ def _present_data(
         title = "Notes"
         data = [{"title": x.title, "tags": ", ".join(x.tags)} for x in r.recent(conn)]
     elif re.search(r"\b(mail|inbox|email)", t):
-        if not capabilities.available("email"):
-            return _not_connected("Email", capabilities.remedy("email"))
-        from jarvis.mail import repository as r
-        title = "Inbox"
-        data = [{"from": m.from_addr, "subject": m.subject,
-                 "importance": m.triage.importance.value if m.triage else "-"}
-                for m in r.recent(conn, limit=20)]
+        return _present_mail(conn, session, utterance, store=store)
     elif re.search(r"\b(calendar|agenda|schedule|event)", t):
         if not capabilities.available("calendar"):
             return _not_connected("Calendar", capabilities.remedy("calendar"))
