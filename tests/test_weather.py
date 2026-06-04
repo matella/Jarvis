@@ -64,10 +64,14 @@ def test_geocode_falls_back_to_comma_parts() -> None:
 
 def test_weather_view_none_when_place_unknown() -> None:
     view = provider.weather_view("Nowhereville", fetch_fn=_fake_fetch({"results": []}, {}))
-    assert view is None
+    assert view is None  # genuinely not found → None (the caller says "couldn't find it")
 
 
-def test_weather_view_none_on_fetch_error() -> None:
+def test_weather_view_raises_unavailable_on_fetch_error() -> None:
+    import pytest
+
     def boom(url: str) -> dict:
-        raise RuntimeError("egress blocked")
-    assert provider.weather_view("Brussels", fetch_fn=boom) is None
+        raise RuntimeError("HTTP 429 Too Many Requests")
+    # Service failure ≠ "no access" → WeatherUnavailable (the caller says "try again"), not None.
+    with pytest.raises(provider.WeatherUnavailable):
+        provider.weather_view("Brussels", fetch_fn=boom)

@@ -93,7 +93,17 @@ def _observability_section() -> str:
         " Inbound webhooks (e.g. Jellyseerr media requests/availability) also reach you as events. "
         "You only ever see the DATA these emit — never service URLs, ports, or credentials."
     )
-    return "\n\nWHAT YOU CAN OBSERVE:\n- " + line
+    abilities = (
+        "BUILT-IN ABILITIES (always available — do NOT claim you lack these): show the WEATHER "
+        "and 5-day forecast for any city; manage the operator's tasks, notes, recipes and "
+        "documents; run deep web research; search the web for current info. Email and calendar are "
+        "available when their connectors are listed above. Before telling the operator you can't "
+        "do or access something, check this list and your data sources — only say you lack it when "
+        "it is genuinely not here, and then briefly suggest how to enable it (e.g. set a "
+        "connector or credential). When the weather service is momentarily down, say it's "
+        "temporarily unavailable — never that you have no weather access."
+    )
+    return "\n\nWHAT YOU CAN OBSERVE:\n- " + line + "\n- " + abilities
 
 
 def system_prompt() -> str:

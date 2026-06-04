@@ -53,24 +53,46 @@ def _label(code: int | None) -> str:
     return WMO.get(int(code), "—") if code is not None else "—"
 
 
+class WeatherUnavailable(Exception):
+    """The place resolved but the weather service didn't answer (rate-limited / down / timeout).
+    Distinct from 'place not found' (None) so the caller can say so accurately, not 'no access'."""
+
+
+# Short in-process cache: open-meteo data updates ~15 min, and the free tier rate-limits (HTTP 429),
+# so caching avoids hammering it AND makes repeat asks instant. Per process; bypassed when a custom
+# `fetch_fn` is injected (tests).
+_CACHE_TTL = 900.0
+_cache: dict[str, tuple[float, dict]] = {}
+
+
 def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None:
-    """Fetch current + 5-day forecast for `location`. Returns artifact {title, data} or None if the
-    place can't be geocoded / the fetch fails. Pure aside from `fetch_fn` (injected in tests)."""
+    """Current + 5-day forecast for `location`. Returns {title, data}, None if the place can't be
+    geocoded, or raises WeatherUnavailable if the service fails. Cached ~15 min (default fetch)."""
+    use_cache = fetch_fn is None
+    if use_cache:
+        import time
+        key = location.strip().lower()
+        hit = _cache.get(key)
+        if hit and time.monotonic() - hit[0] < _CACHE_TTL:
+            return hit[1]
     fetch_fn = fetch_fn or _default_fetch
     try:
         place = _geocode(fetch_fn, location)
-        if place is None:
-            return None
-        lat, lon = place["latitude"], place["longitude"]
-        label = ", ".join(p for p in (place.get("name"), place.get("country")) if p)
-        params = (
-            f"latitude={lat}&longitude={lon}&timezone=auto&forecast_days=5"
-            "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m"
-            "&daily=weather_code,temperature_2m_max,temperature_2m_min"
-        )  # open-meteo defaults: °C + km/h (metric — what we display)
+    except Exception as exc:  # noqa: BLE001 — geocoding service failed (network/429/timeout)
+        raise WeatherUnavailable(str(exc)) from exc
+    if place is None:
+        return None  # genuinely couldn't find the place
+    lat, lon = place["latitude"], place["longitude"]
+    label = ", ".join(p for p in (place.get("name"), place.get("country")) if p)
+    params = (
+        f"latitude={lat}&longitude={lon}&timezone=auto&forecast_days=5"
+        "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m"
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min"
+    )  # open-meteo defaults: °C + km/h (metric — what we display)
+    try:
         fc = fetch_fn(f"{_FORECAST}?{params}")
-    except Exception:  # noqa: BLE001 — a fetch/parse failure degrades to "no card" (caller falls back)
-        return None
+    except Exception as exc:  # noqa: BLE001 — forecast service failed → not "no access", just down
+        raise WeatherUnavailable(str(exc)) from exc
 
     cur = fc.get("current") or {}
     daily = fc.get("daily") or {}
@@ -81,7 +103,7 @@ def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None
          "code": daily["weather_code"][i], "label": _label(daily["weather_code"][i])}
         for i in range(len(days))
     ]
-    return {
+    view = {
         "title": f"Weather · {label}",
         "data": {
             "location": label,
@@ -100,6 +122,10 @@ def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None
             "daily": forecast,
         },
     }
+    if use_cache:
+        import time
+        _cache[location.strip().lower()] = (time.monotonic(), view)
+    return view
 
 
 def _geocode(fetch_fn: Fetch, location: str) -> dict | None:

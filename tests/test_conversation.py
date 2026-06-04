@@ -172,14 +172,24 @@ def test_present_weather_no_location_asks_for_city(monkeypatch) -> None:
     assert out.route is TurnRoute.answer and "city" in out.message.lower() and not out.artifacts
 
 
-def test_present_weather_falls_back_to_reason_on_fetch_failure(monkeypatch) -> None:
+def test_present_weather_service_down_says_temporary_not_no_access(monkeypatch) -> None:
+    # Rate-limited / down → accurate "try again" message, NOT a misleading "no access" answer.
+    def boom(loc):
+        raise convo.WeatherUnavailable("429")
+    monkeypatch.setattr(convo, "extract_location", lambda t: "Rocourt")
+    monkeypatch.setattr(convo, "weather_view", boom)
+    out = convo._present_weather(conn=None, session=None, utterance="weather", store=None)
+    assert out.route is TurnRoute.answer and not out.artifacts
+    assert "Rocourt" in out.message and "no" not in out.message.lower().split()[:3]
+    assert "again" in out.message.lower() or "respond" in out.message.lower()
+
+
+def test_present_weather_place_not_found(monkeypatch) -> None:
     monkeypatch.setattr(convo, "extract_location", lambda t: "Atlantis")
-    monkeypatch.setattr(convo, "weather_view", lambda loc: None)  # place given but fetch fails
-    sentinel = TurnResult(route=TurnRoute.answer, message="searched")
-    monkeypatch.setattr(convo, "_reason", lambda *a, **k: sentinel)
+    monkeypatch.setattr(convo, "weather_view", lambda loc: None)  # genuinely unfindable
     out = convo._present_weather(conn=None, session=None, utterance="weather in Atlantis",
                                  store=None)
-    assert out is sentinel
+    assert out.route is TurnRoute.answer and "find" in out.message.lower()
 
 
 def test_decide_falls_back_to_answer_on_garbage(monkeypatch) -> None:

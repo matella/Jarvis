@@ -31,7 +31,7 @@ from jarvis.memory.facts import facts_block, list_facts, set_fact
 from jarvis.present import auto_artifact
 from jarvis.tools.registry import ADVISORY_TYPES, get_tool, valid_intent_types
 from jarvis.weather import looks_like_weather, weather_view
-from jarvis.weather.provider import extract_location
+from jarvis.weather.provider import WeatherUnavailable, extract_location
 
 _WINDOW_HOURS = 24
 _AFFIRMATIVE = {"yes", "y", "yes please", "yep", "yeah", "do it", "go ahead", "confirm",
@@ -469,9 +469,21 @@ def _present_weather(
             message="Which city's weather? Tip: say \"remember my city is Brussels\" and I'll "
                     "use it by default.",
         )
-    view = weather_view(location)
-    if view is None:  # place given but the fetch failed → let search answer it
-        return _reason(conn, session, utterance, store=store)
+    try:
+        view = weather_view(location)
+    except WeatherUnavailable:
+        # I HAVE weather — the service is just briefly down/rate-limited. Say so accurately +
+        # offer the remedy, instead of falsely claiming "no access".
+        return TurnResult(
+            route=TurnRoute.answer,
+            message=f"I can pull the weather for {location}, but the weather service didn't "
+                    "respond just now (it briefly rate-limited me). Ask again in a minute.",
+        )
+    if view is None:  # the place genuinely couldn't be found
+        return TurnResult(
+            route=TurnRoute.answer,
+            message=f"I couldn't find “{location}” on the map — try a nearby town or city?",
+        )
     cur = view["data"]["current"]
     temp = f"{cur['temp']}°C" if cur["temp"] is not None else "—"
     message = f"{view['data']['location']}: {temp}, {cur['label'].lower()}."
