@@ -171,7 +171,8 @@ interface WeatherDay { date: string; hi: number; lo: number; code: number; label
 interface WeatherData {
   location: string;
   unit: string;
-  current: { temp: number | null; feels: number | null; code: number; label: string };
+  wind_unit?: string;
+  current: { temp: number | null; feels: number | null; wind?: number | null; code: number; label: string };
   daily: WeatherDay[];
 }
 
@@ -199,7 +200,10 @@ function WeatherView({ data }: { data: WeatherData }) {
             {c.temp ?? "—"}{data.unit}
             <span className="ml-2 text-sm text-steel">{c.label}</span>
           </div>
-          {c.feels != null && <div className="label">feels {c.feels}{data.unit}</div>}
+          <div className="label">
+            {c.feels != null && <>feels {c.feels}{data.unit}</>}
+            {c.wind != null && <> · wind {c.wind} {data.wind_unit ?? "km/h"}</>}
+          </div>
         </div>
       </div>
       <div className="mt-3 flex gap-2 overflow-x-auto">

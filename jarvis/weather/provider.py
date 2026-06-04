@@ -57,18 +57,16 @@ def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None
     place can't be geocoded / the fetch fails. Pure aside from `fetch_fn` (injected in tests)."""
     fetch_fn = fetch_fn or _default_fetch
     try:
-        geo = fetch_fn(f"{_GEOCODE}?name={location}&count=1&language=en&format=json")
-        results = geo.get("results") or []
-        if not results:
+        place = _geocode(fetch_fn, location)
+        if place is None:
             return None
-        place = results[0]
         lat, lon = place["latitude"], place["longitude"]
         label = ", ".join(p for p in (place.get("name"), place.get("country")) if p)
         params = (
             f"latitude={lat}&longitude={lon}&timezone=auto&forecast_days=5"
-            "&current=temperature_2m,apparent_temperature,weather_code"
+            "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m"
             "&daily=weather_code,temperature_2m_max,temperature_2m_min"
-        )
+        )  # open-meteo defaults: °C + km/h (metric — what we display)
         fc = fetch_fn(f"{_FORECAST}?{params}")
     except Exception:  # noqa: BLE001 — a fetch/parse failure degrades to "no card" (caller falls back)
         return None
@@ -87,14 +85,36 @@ def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None
         "data": {
             "location": label,
             "unit": "°C",
+            "wind_unit": "km/h",
             "current": {
                 "temp": round(cur.get("temperature_2m")) if cur.get("temperature_2m") is not None
                 else None,
                 "feels": round(cur.get("apparent_temperature"))
                 if cur.get("apparent_temperature") is not None else None,
+                "wind": round(cur.get("wind_speed_10m")) if cur.get("wind_speed_10m") is not None
+                else None,
                 "code": cur.get("weather_code"),
                 "label": _label(cur.get("weather_code")),
             },
             "daily": forecast,
         },
     }
+
+
+def _geocode(fetch_fn: Fetch, location: str) -> dict | None:
+    """Resolve a place to lat/lon. Tries the full string, then comma-parts (so 'Rocourt, Liège,
+    Belgium' still resolves via 'Rocourt' / 'Liège'). URL-encodes the name (spaces/accents)."""
+    import urllib.parse
+
+    candidates = [location, *[p.strip() for p in location.split(",")]]
+    seen: set[str] = set()
+    for name in candidates:
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        q = urllib.parse.quote(name)
+        geo = fetch_fn(f"{_GEOCODE}?name={q}&count=1&language=en&format=json")
+        results = geo.get("results") or []
+        if results:
+            return results[0]
+    return None
