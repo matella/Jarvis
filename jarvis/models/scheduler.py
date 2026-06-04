@@ -283,13 +283,18 @@ def _run_local(role, messages, priority, budget_key, budget_limit, kwargs) -> di
 
 def _run_claude(role, messages, fmt, priority, budget_key, budget_limit, kwargs) -> dict:
     from jarvis.models.backends import claude as claude_mod
+    from jarvis.models.router import _with_persona
 
     s = get_settings()
     cid = kwargs.get("correlation_id") or ids.new_id(ids.CORRELATION)
     ctx = kwargs.get("context_ref")
     started = time.monotonic()
     try:
-        resp = claude_mod.claude_backend(role, messages, fmt=fmt, timeout=s.claude_call_timeout)
+        # Prepend the Jarvis identity (as the local path does) so Claude answers AS Jarvis, not its
+        # own default "Claude Code" persona. claude.py strips the tool-only sections from it.
+        resp = claude_mod.claude_backend(
+            role, _with_persona(messages), fmt=fmt, timeout=s.claude_call_timeout
+        )
         if fmt is not None:
             _validate_schema(resp["message"]["content"], fmt)  # raises _SchemaMiss on a miss
         _budget.record(now=time.time())
