@@ -19,7 +19,7 @@ import psycopg
 from pydantic import BaseModel, Field, ValidationError
 
 import jarvis.modules.builtin_tools  # noqa: F401 — register personal-OS module tools before routing
-from jarvis import ids
+from jarvis import capabilities, ids
 from jarvis.config import get_settings
 from jarvis.conversation.store import Session, add_message, recent_messages
 from jarvis.core.assembly import assemble_context
@@ -390,6 +390,14 @@ def respond(
     return result
 
 
+def _not_connected(label: str, remedy: str) -> TurnResult:
+    """Accurate 'not set up yet' + remedy — instead of an empty card or a confabulated denial."""
+    return TurnResult(
+        route=TurnRoute.answer,
+        message=f"{label} isn't connected yet — so I can't show it. To enable it: {remedy}.",
+    )
+
+
 def _looks_like_show(text: str) -> bool:
     return bool(re.search(r"\b(show|list|display|visuali[sz]e)\b", text, re.I))
 
@@ -414,12 +422,16 @@ def _present_data(
         title = "Notes"
         data = [{"title": x.title, "tags": ", ".join(x.tags)} for x in r.recent(conn)]
     elif re.search(r"\b(mail|inbox|email)", t):
+        if not capabilities.available("email"):
+            return _not_connected("Email", capabilities.remedy("email"))
         from jarvis.mail import repository as r
         title = "Inbox"
         data = [{"from": m.from_addr, "subject": m.subject,
                  "importance": m.triage.importance.value if m.triage else "-"}
                 for m in r.recent(conn, limit=20)]
     elif re.search(r"\b(calendar|agenda|schedule|event)", t):
+        if not capabilities.available("calendar"):
+            return _not_connected("Calendar", capabilities.remedy("calendar"))
         from jarvis.calendar import repository as r
         evs = r.agenda(conn, utcnow(), utcnow() + timedelta(days=30))
         title = "Agenda"

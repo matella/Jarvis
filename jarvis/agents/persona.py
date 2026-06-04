@@ -93,17 +93,28 @@ def _observability_section() -> str:
         " Inbound webhooks (e.g. Jellyseerr media requests/availability) also reach you as events. "
         "You only ever see the DATA these emit — never service URLs, ports, or credentials."
     )
-    abilities = (
-        "BUILT-IN ABILITIES (always available — do NOT claim you lack these): show the WEATHER "
-        "and 5-day forecast for any city; manage the operator's tasks, notes, recipes and "
-        "documents; run deep web research; search the web for current info. Email and calendar are "
-        "available when their connectors are listed above. Before telling the operator you can't "
-        "do or access something, check this list and your data sources — only say you lack it when "
-        "it is genuinely not here, and then briefly suggest how to enable it (e.g. set a "
-        "connector or credential). When the weather service is momentarily down, say it's "
-        "temporarily unavailable — never that you have no weather access."
+    return "\n\nWHAT YOU CAN OBSERVE:\n- " + line + "\n- " + _abilities_section()
+
+
+def _abilities_section() -> str:
+    """Live capability status → so Jarvis states what it can do accurately, only claims it lacks
+    a thing when genuinely not connected, and offers the remedy. From capabilities.status()."""
+    from jarvis.capabilities import status
+
+    caps = status()
+    on = "; ".join(c.does for c in caps if c.available)
+    off = [c for c in caps if not c.available]
+    out = (
+        "WHAT YOU CAN ACTUALLY DO RIGHT NOW (never deny these — if one momentarily fails, say it's "
+        f"temporarily unavailable and to try again, NOT that you lack access): {on}."
     )
-    return "\n\nWHAT YOU CAN OBSERVE:\n- " + line + "\n- " + abilities
+    if off:
+        items = "; ".join(f"{c.name} — to enable: {c.remedy}" for c in off)
+        out += (
+            " NOT CONNECTED YET (only THESE may you say you can't do — and then offer the remedy): "
+            f"{items}."
+        )
+    return out
 
 
 def system_prompt() -> str:
