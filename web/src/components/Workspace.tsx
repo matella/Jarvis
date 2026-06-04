@@ -271,24 +271,78 @@ function MailPanel() {
   );
 }
 
-function ModelsPanel() {
-  const { data, error, reload } = useAsync(() => api.models.prefs());
-  const preset = async (name: string) => { await api.models.preset(name); reload(); };
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <PanelShell title="Model cookbook" error={error}
-      toolbar={<>
-        {["quality", "balanced", "frugal"].map((p) => (
-          <Btn key={p} onClick={() => preset(p)}>{p}</Btn>
-        ))}
-      </>}>
-      <ul className="space-y-1">
-        {(data ?? []).map((m) => (
-          <li key={m.id} className="flex justify-between border border-edge px-3 py-2 text-ink">
-            <span>{str(m, "scope_key")}</span><span className="text-teal">{str(m, "backend")}</span>
-          </li>
-        ))}
-        {data?.length === 0 && <li className="label">no per-action overrides — using the global default</li>}
-      </ul>
+    <div className="mb-5">
+      <div className="label !text-teal mb-2">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function SettingsPanel() {
+  const { data, error, reload } = useAsync(() => api.settings.get());
+  const prefs = useAsync(() => api.models.prefs());
+  const apply = (fn: () => Promise<unknown>) => async () => { await fn(); reload(); };
+  const modes = ["observe", "approval_required", "semi_autonomous", "maintenance"];
+  const s = data;
+  return (
+    <PanelShell title="Settings" error={error}>
+      {!s ? <div className="label">loading…</div> : (
+        <div className="max-w-2xl">
+          <Section title="Answer backend">
+            <div className="flex items-center gap-2">
+              <Btn kind={s.backend === "local" ? "accent" : "ghost"}
+                onClick={apply(() => api.settings.setBackend("local"))}>local (qwen)</Btn>
+              <Btn kind={s.backend === "claude" ? "accent" : "ghost"}
+                onClick={apply(() => api.settings.setBackend("claude"))}>claude</Btn>
+              <span className="label ml-2">
+                claude {s.claude_available ? "ready" : "unavailable"} · 24h: local {s.usage_24h.local} / claude {s.usage_24h.claude}
+              </span>
+            </div>
+          </Section>
+
+          <Section title="Local models (running on your homelab)">
+            {(["reasoning", "coder", "embedding"] as const).map((role) => (
+              <div key={role} className="mb-2 flex items-center gap-2">
+                <span className="label w-24 shrink-0">{role}</span>
+                <select value={s.models.active[role] ?? ""}
+                  onChange={async (e) => { await api.settings.setModel(role, e.target.value); reload(); }}
+                  className="border border-edge bg-void px-2 py-1 text-sm text-ink outline-none focus:border-teal">
+                  {[s.models.active[role], ...s.models.available.filter((m) => m !== s.models.active[role])]
+                    .filter(Boolean).map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            ))}
+            {s.models.available.length === 0 && <div className="label">(Ollama unreachable — can't list models)</div>}
+          </Section>
+
+          <Section title="Operational mode">
+            <div className="flex flex-wrap gap-2">
+              {modes.map((m) => (
+                <Btn key={m} kind={s.mode === m ? "accent" : "ghost"}
+                  onClick={apply(() => api.settings.setMode(m))}>{m}</Btn>
+              ))}
+            </div>
+          </Section>
+
+          <Section title="Per-action model (cookbook)">
+            <div className="mb-2 flex gap-2">
+              {["quality", "balanced", "frugal"].map((p) => (
+                <Btn key={p} onClick={async () => { await api.models.preset(p); prefs.reload(); }}>{p}</Btn>
+              ))}
+            </div>
+            <ul className="space-y-1">
+              {(prefs.data ?? []).map((m) => (
+                <li key={m.id} className="flex justify-between border border-edge px-3 py-1.5 text-sm text-ink">
+                  <span>{str(m, "scope_key")}</span><span className="text-teal">{str(m, "backend")}</span>
+                </li>
+              ))}
+              {prefs.data?.length === 0 && <li className="label">no per-action overrides — using the backend above</li>}
+            </ul>
+          </Section>
+        </div>
+      )}
     </PanelShell>
   );
 }
@@ -389,7 +443,7 @@ export const MODULES: Module[] = [
   { id: "calendar", label: "Calendar", Panel: CalendarPanel },
   { id: "mail", label: "Mail", Panel: MailPanel },
   { id: "code", label: "Code", Panel: CodePanel },
-  { id: "models", label: "Models", Panel: ModelsPanel },
+  { id: "settings", label: "Settings", Panel: SettingsPanel },
   { id: "routines", label: "Routines", Panel: RoutinesPanel },
   { id: "memories", label: "Memories", Panel: MemoriesPanel },
 ];

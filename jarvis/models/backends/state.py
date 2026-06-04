@@ -34,6 +34,57 @@ def set_backend(conn: psycopg.Connection, backend: Backend) -> None:
     )
 
 
+_MODEL_ROLES = ("reasoning", "coder", "embedding")
+
+
+def _config_model(role: str) -> str:
+    s = get_settings()
+    return {"reasoning": s.model_reasoning, "coder": s.model_coder,
+            "embedding": s.model_embedding}[role]
+
+
+def get_model(conn: psycopg.Connection, role: str) -> str:
+    """The active model for a role — operator override (system_state) or the config default."""
+    if role not in _MODEL_ROLES:
+        raise ValueError(f"unknown model role {role!r}")
+    row = conn.execute(
+        "SELECT value FROM system_state WHERE key = %s", (f"model_{role}",)
+    ).fetchone()
+    return row["value"] if row and row["value"] else _config_model(role)
+
+
+def set_model(conn: psycopg.Connection, role: str, model: str) -> None:
+    if role not in _MODEL_ROLES:
+        raise ValueError(f"unknown model role {role!r}")
+    if not model or not model.strip():
+        raise ValueError("model name must be non-empty")
+    conn.execute(
+        "INSERT INTO system_state (key, value, updated_at) VALUES (%s, %s, now()) "
+        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+        (f"model_{role}", model.strip()),
+    )
+
+
+_model_cache: dict[str, tuple[float, str]] = {}
+
+
+def cached_model(role: str, *, ttl: float = 10.0) -> str:
+    """TTL-cached active model for the inference hot path; degrades to config on any error."""
+    now = time.monotonic()
+    hit = _model_cache.get(role)
+    if hit and now - hit[0] < ttl:
+        return hit[1]
+    from jarvis import db
+
+    try:
+        with db.connect() as conn:
+            val = get_model(conn, role)
+    except Exception:  # noqa: BLE001 — DB blip must never break inference
+        val = _config_model(role)
+    _model_cache[role] = (now, val)
+    return val
+
+
 _cache: tuple[float, Backend] = (0.0, "local")
 
 

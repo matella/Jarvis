@@ -198,6 +198,18 @@ export const api = {
     setPref: (action: string, backend: string) => putJSON<Rec>("/api/models/prefs", { action, backend }),
     preset: (name: string) => postJSON<{ applied: number }>("/api/models/preset", { name }),
   },
+  settings: {
+    get: () => getJSON<{
+      backend: string;
+      claude_available: boolean;
+      mode: string;
+      models: { active: Record<string, string>; available: string[] };
+      usage_24h: { local: number; claude: number };
+    }>("/api/settings"),
+    setBackend: (backend: string) => postJSON("/api/settings/backend", { backend }),
+    setModel: (role: string, model: string) => postJSON("/api/settings/model", { role, model }),
+    setMode: (mode: string) => postJSON("/api/settings/mode", { mode }),
+  },
   code: {
     list: () => getJSON<Rec[]>("/api/code"),
     get: (id: string) => getJSON<Rec>(`/api/code/${id}`),

@@ -23,15 +23,12 @@ _INFERENCE_SEM = threading.Semaphore(1)
 
 
 def model_for_role(role: str) -> str:
-    s = get_settings()
-    table = {
-        "reasoning": s.model_reasoning,
-        "coder": s.model_coder,
-        "embedding": s.model_embedding,
-    }
-    if role not in table:
+    if role not in ("reasoning", "coder", "embedding"):
         raise ValueError(f"unknown model role: {role!r}")
-    return table[role]
+    # Honor an operator override (Settings page → system_state), else the config default.
+    from jarvis.models.backends.state import cached_model
+
+    return cached_model(role)
 
 
 def _emit(event: Event) -> None:

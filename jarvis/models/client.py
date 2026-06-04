@@ -60,6 +60,13 @@ def ps() -> list[str]:
     return [n for n in names if n]
 
 
+def list_models() -> list[str]:
+    """All models pulled on the host (Ollama `/api/tags`) — the homelab's available model menu."""
+    resp = _as_dict(get_client().list())
+    names = [(m.get("model") or m.get("name")) for m in resp.get("models", [])]
+    return sorted(n for n in names if n)
+
+
 def unload(model: str) -> None:
     """Ask Ollama to evict a model now (keep_alive=0). Best-effort."""
     try:

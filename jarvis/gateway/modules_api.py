@@ -493,6 +493,74 @@ def routine_op(routine_id: str, op: str, p: Principal = Depends(_principal)) -> 
     raise HTTPException(400, f"unknown op: {op} (enable|disable|run)")
 
 
+# ── Settings (models · backend · mode) ────────────────────────────────────────────────────────
+@router.get("/settings")
+def get_settings_api(p: Principal = Depends(_principal)) -> dict:
+    _require(p, "read")
+    from jarvis.core.modes import get_mode
+    from jarvis.models.backends.availability import claude_available
+    from jarvis.models.backends.state import get_backend, get_model
+    from jarvis.models.client import list_models
+    try:
+        available = list_models()
+    except Exception:  # noqa: BLE001 — Ollama unreachable → empty menu, the page still loads
+        available = []
+    with db.connect() as conn:
+        backend = get_backend(conn)
+        mode = get_mode(conn).value
+        active = {role: get_model(conn, role) for role in ("reasoning", "coder", "embedding")}
+        rows = conn.execute(
+            "SELECT payload->>'backend' AS b, count(*) AS n FROM events "
+            "WHERE type = 'inference.completed' AND occurred_at > now() - interval '24 hours' "
+            "GROUP BY 1"
+        ).fetchall()
+    usage = {str(r["b"] or "local"): r["n"] for r in rows}
+    return {
+        "backend": backend,
+        "claude_available": claude_available(),
+        "mode": mode,
+        "models": {"active": active, "available": available},
+        "usage_24h": {"local": usage.get("local", 0), "claude": usage.get("claude", 0)},
+    }
+
+
+@router.post("/settings/backend")
+def set_backend_api(body: dict, p: Principal = Depends(_principal)) -> dict:
+    _require(p, "chat")
+    from jarvis.models.backends.state import set_backend
+    try:
+        with db.connect(autocommit=True) as conn:
+            set_backend(conn, body.get("backend"))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"backend": body.get("backend")}
+
+
+@router.post("/settings/model")
+def set_model_api(body: dict, p: Principal = Depends(_principal)) -> dict:
+    _require(p, "chat")
+    from jarvis.models.backends.state import set_model
+    try:
+        with db.connect(autocommit=True) as conn:
+            set_model(conn, str(body.get("role", "")), str(body.get("model", "")))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"role": body.get("role"), "model": body.get("model")}
+
+
+@router.post("/settings/mode")
+def set_mode_api(body: dict, p: Principal = Depends(_principal)) -> dict:
+    _require(p, "chat")
+    from jarvis.core.modes import Mode, set_mode
+    try:
+        mode = Mode(str(body.get("mode", "")))
+    except ValueError as exc:
+        raise HTTPException(400, f"unknown mode: {body.get('mode')!r}") from exc
+    with db.connect(autocommit=True) as conn:
+        set_mode(conn, mode)
+    return {"mode": mode.value}
+
+
 def _run_tool(name: str, target: dict[str, Any]) -> dict[str, Any]:
     """Run a registered tool's deterministic executor on behalf of the authenticated operator.
 
