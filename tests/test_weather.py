@@ -72,6 +72,27 @@ def test_weather_view_raises_unavailable_on_fetch_error() -> None:
 
     def boom(url: str) -> dict:
         raise RuntimeError("HTTP 429 Too Many Requests")
-    # Service failure ≠ "no access" → WeatherUnavailable (the caller says "try again"), not None.
+    # With an injected fetch_fn (tests), failure ≠ "no access" → WeatherUnavailable, no real backup.
     with pytest.raises(provider.WeatherUnavailable):
         provider.weather_view("Brussels", fetch_fn=boom)
+
+
+def test_weather_view_falls_back_to_wttr(monkeypatch) -> None:
+    # open-meteo down (429) → coordinator uses the wttr.in backup so weather still works.
+    provider._cache.clear()
+    def _down(loc, fetch):
+        raise provider.WeatherUnavailable("429")
+    monkeypatch.setattr(provider, "_open_meteo_view", _down)
+    wttr = {
+        "current_condition": [{"temp_C": "15", "FeelsLikeC": "13", "windspeedKmph": "21",
+                               "weatherCode": "122"}],
+        "nearest_area": [{"areaName": [{"value": "Rocourt"}], "country": [{"value": "Belgium"}]}],
+        "weather": [{"date": "2026-06-04", "maxtempC": "18", "mintempC": "9",
+                     "hourly": [{"weatherCode": "113"}]}],
+    }
+    monkeypatch.setattr(provider, "_default_fetch", lambda url: wttr)
+    v = provider.weather_view("Rocourt")  # fetch_fn=None → cache+fallback path
+    assert v is not None and v["data"]["location"] == "Rocourt, Belgium"
+    assert v["data"]["current"]["temp"] == 15 and v["data"]["current"]["wind"] == 21
+    assert v["data"]["current"]["code"] == 3  # WWO 122 (overcast) → WMO 3
+    provider._cache.clear()

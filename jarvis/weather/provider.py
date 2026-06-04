@@ -67,21 +67,36 @@ _cache: dict[str, tuple[float, dict]] = {}
 
 def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None:
     """Current + 5-day forecast for `location`. Returns {title, data}, None if the place can't be
-    geocoded, or raises WeatherUnavailable if the service fails. Cached ~15 min (default fetch)."""
+    found, or raises WeatherUnavailable if every source is down. Tries open-meteo, then wttr.in as a
+    backup (so an open-meteo 429 doesn't kill weather). Cached ~15 min (default fetch path)."""
     use_cache = fetch_fn is None
     if use_cache:
         import time
-        key = location.strip().lower()
-        hit = _cache.get(key)
+        hit = _cache.get(location.strip().lower())
         if hit and time.monotonic() - hit[0] < _CACHE_TTL:
             return hit[1]
-    fetch_fn = fetch_fn or _default_fetch
+    fetch = fetch_fn or _default_fetch
     try:
-        place = _geocode(fetch_fn, location)
+        view = _open_meteo_view(location, fetch)
+    except WeatherUnavailable:
+        if fetch_fn is not None:
+            raise  # tests inject one fetch_fn; don't reach to the real backup
+        view = _wttr_view(location, _default_fetch)  # backup source (raises if it also fails)
+    if view is None:
+        return None  # genuinely couldn't find the place
+    if use_cache:
+        import time
+        _cache[location.strip().lower()] = (time.monotonic(), view)
+    return view
+
+
+def _open_meteo_view(location: str, fetch: Fetch) -> dict | None:
+    try:
+        place = _geocode(fetch, location)
     except Exception as exc:  # noqa: BLE001 — geocoding service failed (network/429/timeout)
         raise WeatherUnavailable(str(exc)) from exc
     if place is None:
-        return None  # genuinely couldn't find the place
+        return None
     lat, lon = place["latitude"], place["longitude"]
     label = ", ".join(p for p in (place.get("name"), place.get("country")) if p)
     params = (
@@ -90,10 +105,9 @@ def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None
         "&daily=weather_code,temperature_2m_max,temperature_2m_min"
     )  # open-meteo defaults: °C + km/h (metric — what we display)
     try:
-        fc = fetch_fn(f"{_FORECAST}?{params}")
-    except Exception as exc:  # noqa: BLE001 — forecast service failed → not "no access", just down
+        fc = fetch(f"{_FORECAST}?{params}")
+    except Exception as exc:  # noqa: BLE001 — forecast service down → not "no access", just down
         raise WeatherUnavailable(str(exc)) from exc
-
     cur = fc.get("current") or {}
     daily = fc.get("daily") or {}
     days = daily.get("time") or []
@@ -103,29 +117,77 @@ def weather_view(location: str, *, fetch_fn: Fetch | None = None) -> dict | None
          "code": daily["weather_code"][i], "label": _label(daily["weather_code"][i])}
         for i in range(len(days))
     ]
-    view = {
+    return {
         "title": f"Weather · {label}",
         "data": {
-            "location": label,
-            "unit": "°C",
-            "wind_unit": "km/h",
+            "location": label, "unit": "°C", "wind_unit": "km/h",
             "current": {
-                "temp": round(cur.get("temperature_2m")) if cur.get("temperature_2m") is not None
+                "temp": round(cur["temperature_2m"]) if cur.get("temperature_2m") is not None
                 else None,
-                "feels": round(cur.get("apparent_temperature"))
+                "feels": round(cur["apparent_temperature"])
                 if cur.get("apparent_temperature") is not None else None,
-                "wind": round(cur.get("wind_speed_10m")) if cur.get("wind_speed_10m") is not None
+                "wind": round(cur["wind_speed_10m"]) if cur.get("wind_speed_10m") is not None
                 else None,
-                "code": cur.get("weather_code"),
-                "label": _label(cur.get("weather_code")),
+                "code": cur.get("weather_code"), "label": _label(cur.get("weather_code")),
             },
             "daily": forecast,
         },
     }
-    if use_cache:
-        import time
-        _cache[location.strip().lower()] = (time.monotonic(), view)
-    return view
+
+
+# wttr.in uses WWO codes; map the common ones to WMO so the frontend icon + label stay consistent.
+_WWO_TO_WMO = {
+    113: 0, 116: 2, 119: 3, 122: 3, 143: 45, 248: 45, 260: 45,
+    176: 61, 263: 51, 266: 51, 293: 61, 296: 61, 353: 80, 299: 63, 302: 65, 356: 81, 359: 82,
+    179: 71, 182: 71, 227: 73, 230: 75, 323: 71, 326: 73, 368: 85, 371: 86, 395: 86,
+    200: 95, 386: 95, 389: 96, 392: 95,
+}
+
+
+def _wmo_from_wwo(code: object) -> int:
+    try:
+        return _WWO_TO_WMO.get(int(code), 3)
+    except (TypeError, ValueError):
+        return 3
+
+
+def _wttr_view(location: str, fetch: Fetch) -> dict | None:
+    """Backup forecast via wttr.in (key-less, separate limits). Maps its j1 JSON to our shape."""
+    import urllib.parse
+
+    try:
+        data = fetch(f"https://wttr.in/{urllib.parse.quote(location)}?format=j1")
+    except Exception as exc:  # noqa: BLE001 — backup also down → genuinely unavailable
+        raise WeatherUnavailable(str(exc)) from exc
+    cc = (data.get("current_condition") or [{}])[0]
+    area = (data.get("nearest_area") or [{}])[0]
+    name = (area.get("areaName") or [{}])[0].get("value")
+    country = (area.get("country") or [{}])[0].get("value")
+    label = ", ".join(p for p in (name, country) if p) or location
+
+    def _num(v: object):  # noqa: ANN202
+        try:
+            return round(float(v))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+
+    daily = []
+    for w in (data.get("weather") or [])[:5]:
+        hourly = w.get("hourly") or []
+        mid = hourly[len(hourly) // 2] if hourly else {}
+        wmo = _wmo_from_wwo(mid.get("weatherCode"))
+        daily.append({"date": w.get("date"), "hi": _num(w.get("maxtempC")),
+                      "lo": _num(w.get("mintempC")), "code": wmo, "label": _label(wmo)})
+    code = _wmo_from_wwo(cc.get("weatherCode"))
+    return {
+        "title": f"Weather · {label}",
+        "data": {
+            "location": label, "unit": "°C", "wind_unit": "km/h",
+            "current": {"temp": _num(cc.get("temp_C")), "feels": _num(cc.get("FeelsLikeC")),
+                        "wind": _num(cc.get("windspeedKmph")), "code": code, "label": _label(code)},
+            "daily": daily,
+        },
+    }
 
 
 def _geocode(fetch_fn: Fetch, location: str) -> dict | None:
