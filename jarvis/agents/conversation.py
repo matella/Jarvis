@@ -93,6 +93,7 @@ class _Decision(BaseModel):
     query: str | None = None  # the search query when route == "search" (web RAG)
     fact_key: str | None = None    # when route == "remember": the fact name (e.g. "city")
     fact_value: str | None = None  # when route == "remember": the fact value (e.g. "Brussels")
+    location: str | None = None    # when route == "weather": the place (else the operator's city)
 
 
 def capability_summary() -> str:
@@ -235,8 +236,8 @@ def _build_prompt(
     )
     search_spec = ' when route="search": query (string);' if search_on else ""
     routes = (
-        '"answer"|"propose"|"search"|"remember"' if search_on
-        else '"answer"|"propose"|"remember"'
+        '"answer"|"propose"|"search"|"remember"|"weather"|"present"' if search_on
+        else '"answer"|"propose"|"remember"|"weather"|"present"'
     )
     parts = [
         "You are Jarvis, an operational-intelligence assistant for a homelab. You reply with ONE "
@@ -250,6 +251,11 @@ def _build_prompt(
         "set route=\"remember\" with fact_key (short, e.g. \"city\") and fact_value (e.g. "
         "\"Brussels\"). Do NOT use remember for questions or one-off chit-chat.\n"
         f"{search_rule}"
+        "- If the user asks about the WEATHER or forecast — any phrasing, typos, or a follow-up "
+        "like \"and for tomorrow?\" / \"this weekend?\" — set route=\"weather\". Put the place in "
+        "location if they named one; leave it blank to use their saved city.\n"
+        "- If the user asks to SHOW / LIST / DISPLAY / VISUALIZE their own data (tasks, notes, "
+        "inbox/mail, calendar, recipes, research, torrents), set route=\"present\".\n"
         "- Otherwise — including who/what you are, your status, the homelab, explanations, and "
         "RECALLING a fact you already know about the operator (use the facts below verbatim) — set "
         "route=\"answer\" and put your grounded reply in message; cite events/state you used.\n"
@@ -279,7 +285,8 @@ def _build_prompt(
 _DECISION_SCHEMA = {
     "type": "object",
     "properties": {
-        "route": {"type": "string", "enum": ["answer", "propose", "search", "remember"]},
+        "route": {"type": "string",
+                  "enum": ["answer", "propose", "search", "remember", "weather", "present"]},
         "message": {"type": "string"},
         "intent_type": {"type": "string"},
         "target": {"type": "object"},
@@ -290,6 +297,7 @@ _DECISION_SCHEMA = {
         "query": {"type": "string"},
         "fact_key": {"type": "string"},
         "fact_value": {"type": "string"},
+        "location": {"type": "string"},
     },
     "required": ["route", "message"],
 }
@@ -304,7 +312,10 @@ def _decide(prompt: str, *, correlation_id: str, context_ref: str) -> _Decision:
     resp = sched_chat(
         "reasoning",
         [{"role": "user", "content": prompt}],
-        priority=Priority.INTERACTIVE, backend="local",  # routing stays grammar-constrained
+        # Route on the ACTIVE backend: when Claude is on it understands intent + follow-ups +
+        # typos far better, and the same call also drafts the answer (one call, not two). Schema is
+        # validated with an automatic fall-back to local, so it never goes dark.
+        priority=Priority.INTERACTIVE, backend=None,
         correlation_id=correlation_id, context_ref=context_ref, format=_DECISION_SCHEMA,
     )
     raw = str(resp["message"]["content"])
@@ -444,11 +455,12 @@ def _operator_city(conn: psycopg.Connection) -> str | None:
 
 
 def _present_weather(
-    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
+    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any,
+    location: str | None = None,
 ) -> TurnResult:
     """Deterministic weather presenter: resolve a place → fetch open-meteo → a `weather` artifact
     the app renders as a card. Falls back to reasoning/search if no place resolves or fetch dies."""
-    location = extract_location(utterance) or _operator_city(conn)
+    location = location or extract_location(utterance) or _operator_city(conn)
     if not location:
         # No city in the question and none on file — ask, rather than fall through to a generic
         # answer (which on Claude wrongly claims there's no weather integration).
@@ -488,6 +500,13 @@ def _reason(
     if decision.route == "remember" and decision.fact_key and decision.fact_value:
         return _remember(conn, decision.fact_key, decision.fact_value)
 
+    # Presenter routes (the smart path, for what the deterministic fast-paths in respond() missed —
+    # follow-ups, typos, paraphrases): the model recognized a weather ask or a "show my X" request.
+    if decision.route == "weather":
+        return _present_weather(conn, session, utterance, store=store, location=decision.location)
+    if decision.route == "present":
+        return _present_data(conn, session, utterance, store=store)
+
     # Only honor a search route when a backend exists AND the question isn't personal — the
     # operator's own info comes from facts, never a web search. Otherwise fall through to answer.
     if (
@@ -526,13 +545,12 @@ def _reason(
     if facts and _is_personal(utterance):
         return TurnResult(route=TurnRoute.answer, message=_recall_answer(facts, utterance))
 
-    # Answer route. "Local routes, Claude composes": when the global backend is claude, generate the
-    # free-text answer via a fresh compose pass (the scheduler routes that INTERACTIVE, schema-less
-    # call to claude) instead of using the local router's draft. On local, keep today's single-call
-    # behavior. _plain_answer also covers the empty-message fall-through ("(no response)" guard).
-    message = decision.message.strip()
-    if _composes_with_claude(conn) or not message:
-        message = _plain_answer(ctx.prompt, _memory_window(conn, session), utterance, facts=facts)
+    # Answer route. The routing call ran on the ACTIVE backend (Claude when on), so `message` is
+    # already that backend's answer — use it directly (one call, not two). Only re-compose if the
+    # model returned an empty message (the "(no response)" guard).
+    message = decision.message.strip() or _plain_answer(
+        ctx.prompt, _memory_window(conn, session), utterance, facts=facts
+    )
     return TurnResult(
         route=TurnRoute.answer, message=message, citations=decision.citations,
     )
@@ -596,12 +614,6 @@ def _capture_reminder(
     return TurnResult(route=TurnRoute.remember, message=f"Reminder set: \"{rem.text}\" — {when}.")
 
 
-def _composes_with_claude(conn: psycopg.Connection) -> bool:
-    """True when the global backend is claude AND it's usable — else compose the answer locally."""
-    from jarvis.models.backends.availability import claude_available
-    from jarvis.models.backends.state import get_backend
-
-    return get_backend(conn) == "claude" and claude_available()
 
 
 def _plain_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> str:

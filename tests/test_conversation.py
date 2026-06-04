@@ -117,27 +117,15 @@ def test_remember_handles_invalid_value_without_storing(monkeypatch) -> None:
     assert result.route is TurnRoute.answer and "couldn't note" in result.message
 
 
-def test_decide_pins_backend_local(monkeypatch) -> None:
-    # routing must stay grammar-constrained on local even when the global backend is claude
+def test_decide_routes_on_active_backend(monkeypatch) -> None:
+    # Routing now uses the resolved/active backend (None) so it routes+answers in one call — Claude
+    # when it's on (smarter intent), with the router's schema-validate-then-fallback to local.
     import jarvis.models.scheduler as sched
     seen = {}
     monkeypatch.setattr(sched, "chat", lambda *a, **k: seen.update(k)
                         or {"message": {"content": '{"route":"answer","message":"hi"}'}})
     convo._decide("p", correlation_id="corr_x", context_ref="ctx_x")
-    assert seen.get("backend") == "local"
-
-
-def test_composes_with_claude_gate(monkeypatch) -> None:
-    import jarvis.models.backends.availability as av
-    import jarvis.models.backends.state as st
-    monkeypatch.setattr(st, "get_backend", lambda conn: "claude")
-    monkeypatch.setattr(av, "claude_available", lambda: True)
-    assert convo._composes_with_claude(conn=None) is True          # claude + available → compose
-    monkeypatch.setattr(av, "claude_available", lambda: False)
-    assert convo._composes_with_claude(conn=None) is False         # claude but unusable → local
-    monkeypatch.setattr(st, "get_backend", lambda conn: "local")
-    monkeypatch.setattr(av, "claude_available", lambda: True)
-    assert convo._composes_with_claude(conn=None) is False         # global local → local
+    assert seen.get("backend") is None  # not pinned local — the active backend routes
 
 
 def test_present_weather_emits_weather_artifact(monkeypatch) -> None:
