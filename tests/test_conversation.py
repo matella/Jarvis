@@ -176,13 +176,22 @@ def test_looks_like_show() -> None:
     assert not convo._looks_like_show("what is the capital of France")
 
 
-def test_present_weather_falls_back_to_reason_when_no_data(monkeypatch) -> None:
+def test_present_weather_no_location_asks_for_city(monkeypatch) -> None:
     monkeypatch.setattr(convo, "extract_location", lambda t: None)
     monkeypatch.setattr(convo, "_operator_city", lambda conn: None)
+    out = convo._present_weather(conn=None, session=None, utterance="weather", store=None)
+    # No place known → ask (don't fall through to a generic 'no integration' answer).
+    assert out.route is TurnRoute.answer and "city" in out.message.lower() and not out.artifacts
+
+
+def test_present_weather_falls_back_to_reason_on_fetch_failure(monkeypatch) -> None:
+    monkeypatch.setattr(convo, "extract_location", lambda t: "Atlantis")
+    monkeypatch.setattr(convo, "weather_view", lambda loc: None)  # place given but fetch fails
     sentinel = TurnResult(route=TurnRoute.answer, message="searched")
     monkeypatch.setattr(convo, "_reason", lambda *a, **k: sentinel)
-    out = convo._present_weather(conn=None, session=None, utterance="weather", store=None)
-    assert out is sentinel  # unresolved place → normal reasoning/search, never a dead end
+    out = convo._present_weather(conn=None, session=None, utterance="weather in Atlantis",
+                                 store=None)
+    assert out is sentinel
 
 
 def test_decide_falls_back_to_answer_on_garbage(monkeypatch) -> None:

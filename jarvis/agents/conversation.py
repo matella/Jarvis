@@ -449,9 +449,17 @@ def _present_weather(
     """Deterministic weather presenter: resolve a place → fetch open-meteo → a `weather` artifact
     the app renders as a card. Falls back to reasoning/search if no place resolves or fetch dies."""
     location = extract_location(utterance) or _operator_city(conn)
-    view = weather_view(location) if location else None
-    if view is None:
-        return _reason(conn, session, utterance, store=store)  # let search answer it as text
+    if not location:
+        # No city in the question and none on file — ask, rather than fall through to a generic
+        # answer (which on Claude wrongly claims there's no weather integration).
+        return TurnResult(
+            route=TurnRoute.answer,
+            message="Which city's weather? Tip: say \"remember my city is Brussels\" and I'll "
+                    "use it by default.",
+        )
+    view = weather_view(location)
+    if view is None:  # place given but the fetch failed → let search answer it
+        return _reason(conn, session, utterance, store=store)
     cur = view["data"]["current"]
     temp = f"{cur['temp']}°C" if cur["temp"] is not None else "—"
     message = f"{view['data']['location']}: {temp}, {cur['label'].lower()}."
