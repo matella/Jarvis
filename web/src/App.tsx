@@ -35,7 +35,16 @@ export default function App() {
   const [insightTab, setInsightTab] = useState<InsightTab>("topology");
   const [inspecting, setInspecting] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dismissedArtifactTurn, setDismissedArtifactTurn] = useState<string | null>(null);
   const palette = useCommandPalette();
+
+  // Presence-mode presenter: the most recent Jarvis turn that carried an artifact (until dismissed).
+  const artifactTurn = useMemo(
+    () => [...turns].reverse().find((t) => t.role === "jarvis" && (t.artifacts?.length ?? 0) > 0),
+    [turns],
+  );
+  const presenceArtifact =
+    artifactTurn && artifactTurn.id !== dismissedArtifactTurn ? artifactTurn.artifacts?.[0] : undefined;
 
   const disabled = conn !== "open";
   const mic = { recording: voice.recording, start: voice.startMic, stop: voice.stopMic };
@@ -70,6 +79,8 @@ export default function App() {
           {surface === "presence" && (
             <PresenceMode
               presence={presence} onSend={send} disabled={disabled} mic={mic} thinking={thinking}
+              artifact={presenceArtifact}
+              onDismiss={() => setDismissedArtifactTurn(artifactTurn?.id ?? null)}
             />
           )}
           {surface === "console" && (
