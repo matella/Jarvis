@@ -255,8 +255,8 @@ def _build_prompt(
         "like \"and for tomorrow?\" / \"this weekend?\" — set route=\"weather\". Put the place in "
         "location if they named one; leave it blank to use their saved city.\n"
         "- If the user asks to SHOW / LIST / DISPLAY / VISUALIZE their own data, OR asks a "
-        "question about their own stored data — tasks, notes, calendar, recipes, research, "
-        "torrents, and "
+        "question about their own stored data — tasks, notes, documents, calendar, recipes, "
+        "research, code sessions, routines, what you remember (memories/facts), torrents, and "
         "especially their MAIL/email/inbox (e.g. \"what was my last mail about the lotto?\", \"any "
         "email from the bank?\") — set route=\"present\". These come from synced data, NOT from "
         "remembered facts.\n"
@@ -510,6 +510,28 @@ def _present_data(
         from jarvis.research import repository as r
         title = "Research"
         data = [{"query": x.query, "status": x.status.value} for x in r.recent(conn, limit=10)]
+    elif re.search(r"\b(documents?|docs?|reports?)\b", t):
+        from jarvis.documents import repository as r
+        title = "Documents"
+        data = [{"title": x.title, "status": x.status.value,
+                 "updated": x.updated_at.isoformat()[:10]} for x in r.recent(conn)]
+    elif re.search(r"\b(code|diff|patch|coding)\b", t):
+        if not capabilities.available("code"):
+            return _not_connected("Code", capabilities.remedy("code"))
+        from jarvis.code import repository as r
+        title = "Code sessions"
+        data = [{"task": x.task, "repo": x.repo_path.rsplit("/", 1)[-1], "status": x.status.value,
+                 "files": len(x.files_changed), "applied": x.applied} for x in r.recent(conn)]
+    elif re.search(r"\b(routine|automation|scheduled)", t):
+        from jarvis.routines.repository import list_routines
+        title = "Routines"
+        data = [{"name": x.name, "action": x.action.kind.value, "schedule": x.schedule.kind.value,
+                 "enabled": x.enabled,
+                 "last_run": x.last_run.isoformat()[:16].replace("T", " ") if x.last_run else "—"}
+                for x in list_routines(conn)]
+    elif re.search(r"\b(memor|fact|what you know|what you remember)", t):
+        title = "What I remember"
+        data = [{"about": f.key.replace("_", " "), "value": f.value} for f in list_facts(conn)]
     elif re.search(r"\b(torrent|download)", t):
         try:
             from jarvis.connectors.qbittorrent import fetch_snapshot

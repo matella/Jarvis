@@ -35,6 +35,8 @@ def status() -> list[Capability]:
         Capability("notes", True, "capture and recall markdown notes", ""),
         Capability("recipes", True, "store recipes and import them from a URL", ""),
         Capability("documents", True, "draft and revise markdown documents", ""),
+        Capability("memory", True, "remember and recall durable facts about the operator", ""),
+        Capability("routines", True, "run and manage scheduled routines (briefings, checks)", ""),
         Capability("web search", search_on, "search the web for current info, with citations",
                    "set SEARXNG_URL"),
         Capability("deep research", search_on, "run multi-source web research into a report",

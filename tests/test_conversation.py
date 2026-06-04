@@ -256,3 +256,49 @@ def test_present_mail_not_connected(monkeypatch) -> None:
     monkeypatch.setattr(convo.capabilities, "remedy", lambda name: "add IMAP host")
     out = convo._present_mail(conn=None, session=None, utterance="check my mail", store=None)
     assert "isn't connected yet" in out.message and "IMAP" in out.message
+
+
+def test_present_memories_from_facts(monkeypatch) -> None:
+    class _F:
+        def __init__(self, k, v): self.key, self.value = k, v
+    monkeypatch.setattr(convo, "list_facts", lambda conn: [_F("city", "Rocourt"),
+                                                           _F("preferred_units", "metric")])
+    out = convo._present_data(conn=None, session=None, utterance="show my memories", store=None)
+    assert out.route is TurnRoute.answer and out.artifacts
+    assert out.artifacts[0].title == "What I remember"
+
+
+def test_present_documents_routes_to_docs(monkeypatch) -> None:
+    from datetime import datetime
+
+    from jarvis.documents import repository as docs
+
+    class _D:
+        def __init__(self): self.title, self.updated_at = "Q3 plan", datetime(2026, 6, 1)
+        status = type("S", (), {"value": "draft"})()
+    monkeypatch.setattr(docs, "recent", lambda conn, **k: [_D()])
+    out = convo._present_data(conn=None, session=None, utterance="show my documents", store=None)
+    assert out.artifacts and out.artifacts[0].title == "Documents"
+
+
+def test_present_routines_routes(monkeypatch) -> None:
+    import jarvis.routines.repository as rr
+
+    class _R:
+        name = "Morning brief"
+        enabled = True
+        last_run = None
+        schedule = type("S", (), {"kind": type("K", (), {"value": "daily"})()})()
+        action = type("A", (), {"kind": type("K", (), {"value": "briefing"})()})()
+    monkeypatch.setattr(rr, "list_routines", lambda conn, **k: [_R()])
+    out = convo._present_data(conn=None, session=None, utterance="list my routines", store=None)
+    assert out.artifacts and out.artifacts[0].title == "Routines"
+
+
+def test_capability_registry_covers_workspace() -> None:
+    from jarvis import capabilities as caps
+    names = {c.name for c in caps.status()}
+    # Every workspace data panel is represented (settings is UI-only).
+    for need in ("tasks", "notes", "documents", "calendar", "recipes", "deep research",
+                 "email", "code", "memory", "routines"):
+        assert need in names, need
