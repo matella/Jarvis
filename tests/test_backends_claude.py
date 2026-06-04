@@ -9,11 +9,22 @@ import pytest
 import jarvis.models.backends.claude as cb
 
 
-def test_serialize_strips_persona_tool_sections() -> None:
-    msgs = [{"role": "system", "content": "You are Jarvis.\n\nWHAT YOU CAN DO:\n- restart"},
+def test_system_text_strips_do_keeps_observe() -> None:
+    msgs = [{"role": "system", "content": "You are Jarvis.\n\nWHAT YOU CAN DO:\n- restart\n\n"
+                                          "WHAT YOU CAN OBSERVE:\n- weather"},
+            {"role": "user", "content": "hi"}]
+    sys = cb._system_text(msgs)
+    assert "You are Jarvis." in sys
+    assert "WHAT YOU CAN DO" not in sys          # gated tools Claude can't call → stripped
+    assert "WHAT YOU CAN OBSERVE" in sys         # data sources → kept (so it doesn't deny them)
+
+
+def test_serialize_excludes_system_keeps_conversation() -> None:
+    msgs = [{"role": "system", "content": "You are Jarvis."},
             {"role": "user", "content": "hi"}]
     p = cb._serialize_prompt(msgs, fmt=None)
-    assert "You are Jarvis." in p and "WHAT YOU CAN DO" not in p and "User: hi" in p
+    # System goes via --system-prompt now, not the -p prompt.
+    assert "You are Jarvis." not in p and "User: hi" in p
 
 
 def test_serialize_appends_schema_instruction() -> None:

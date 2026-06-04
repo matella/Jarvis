@@ -21,25 +21,30 @@ class ClaudeBackendError(Exception):
 
 
 def _strip_tool_sections(system: str) -> str:
-    """Drop the persona's WHAT YOU CAN DO / OBSERVE blocks (tool lists — noise to Claude)."""
+    """Drop the gated WHAT YOU CAN DO block (tools Claude can't call — noise), but KEEP WHAT YOU CAN
+    OBSERVE so Claude knows its data sources (weather, mail, calendar, homelab) and doesn't deny
+    them. Identity + senses are what keep Claude answering as Jarvis, not as Claude Code."""
     keep = []
     for block in system.split("\n\n"):
-        head = block.lstrip().upper()
-        if head.startswith("WHAT YOU CAN DO") or head.startswith("WHAT YOU CAN OBSERVE"):
+        if block.lstrip().upper().startswith("WHAT YOU CAN DO"):
             continue
         keep.append(block)
     return "\n\n".join(keep)
 
 
+def _system_text(messages: list[dict]) -> str:
+    """The persona/identity → passed via `--system-prompt` so it REPLACES Claude Code's default
+    coding-assistant identity (the source of 'working directory'/'repo access' confabulation)."""
+    blocks = [_strip_tool_sections(str(m.get("content", "")))
+              for m in messages if m.get("role") == "system"]
+    return "\n\n".join(b for b in blocks if b.strip())
+
+
 def _serialize_prompt(messages: list[dict], *, fmt: dict | str | None) -> str:
-    """system + messages → one role-prefixed prompt; append a schema instruction if `fmt` given."""
-    parts: list[str] = []
-    for m in messages:
-        role, content = m.get("role", "user"), str(m.get("content", ""))
-        if role == "system":
-            parts.append(_strip_tool_sections(content))
-        else:
-            parts.append(f"{role.capitalize()}: {content}")
+    """The conversation (non-system turns) → the `-p` prompt; system goes via --system-prompt.
+    Appends a schema instruction if `fmt` is given."""
+    parts = [f"{m.get('role', 'user').capitalize()}: {m.get('content', '')}"
+             for m in messages if m.get("role") != "system"]
     prompt = "\n\n".join(parts)
     if fmt is not None:
         prompt += ("\n\nRespond with ONLY a JSON object matching this schema (no prose, no "
@@ -69,6 +74,11 @@ def claude_backend(
     s = get_settings()
     cmd = ["claude", "-p", _serialize_prompt(messages, fmt=fmt),
            "--allowedTools", "", "--output-format", "text"]
+    system = _system_text(messages)
+    if system:
+        # Replace Claude Code's built-in identity with Jarvis's, and drop its dynamic system
+        # sections (cwd/git/env) — those cause "the working directory is empty" type confabulation.
+        cmd += ["--system-prompt", system, "--exclude-dynamic-system-prompt-sections"]
     if s.claude_model:
         cmd += ["--model", s.claude_model]
     try:

@@ -9,6 +9,8 @@ def test_detection() -> None:
     assert provider.looks_like_weather("what's the weather in Paris?")
     assert provider.looks_like_weather("5-day forecast")
     assert provider.looks_like_weather("how hot is it today")
+    assert provider.looks_like_weather("what's the wether like")  # common typo
+    assert provider.looks_like_weather("la météo demain")
     assert not provider.looks_like_weather("add milk to my list")
 
 

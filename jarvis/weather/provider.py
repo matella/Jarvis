@@ -28,7 +28,8 @@ Fetch = Callable[[str], dict]
 
 
 def looks_like_weather(text: str) -> bool:
-    return bool(re.search(r"\b(weather|forecast|temperature|how (?:hot|cold|warm))\b", text, re.I))
+    return bool(re.search(
+        r"\b(weather|wether|forecast|m[ée]t[ée]o|temperature|how (?:hot|cold|warm))\b", text, re.I))
 
 
 def extract_location(text: str) -> str | None:
