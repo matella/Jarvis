@@ -360,25 +360,23 @@ def respond(
     """Process one user turn end-to-end: persist, reason/route, maybe propose, emit, return."""
     add_message(conn, session.conversation_id, role="user", content=utterance)
 
-    # confirm-to-act: a pending proposal + an affirmative/negative reply short-circuits the model.
+    # Deterministic fast-paths (shared with the eval via fastpath_route) short-circuit the weak
+    # multi-route classifier for the unambiguous cases. A pending proposal + a yes/no still wins.
+    route = fastpath_route(utterance)
     if session.pending_intent_id and _is_affirmative(utterance):
         result = _confirm(conn, session)
     elif session.pending_intent_id and _is_negative(utterance):
         result = _cancel(session)
-    # Explicit "remind me …" / "remember …" → deterministic capture (focused extraction), not the
-    # weak multi-route classifier. Reminder is checked first (more specific intent).
-    elif _looks_like_reminder(utterance):
+    elif route == "reminder":
         result = _capture_reminder(conn, session, utterance, store=store)
-    elif _looks_like_remember(utterance):
+    elif route == "remember":
         result = _capture_fact(conn, session, utterance, store=store)
-    elif looks_like_weather(utterance):
+    elif route == "weather":
         result = _present_weather(conn, session, utterance, store=store)
-    elif _looks_like_show(utterance):
+    elif route.startswith("present"):
+        # 'show my X' or a mail question — search/fetch the named source (mail searches the inbox
+        # rather than falling through to the facts-only recall path).
         result = _present_data(conn, session, utterance, store=store)
-    elif _looks_like_mail(utterance):
-        # Mail questions ("what was my last mail about X", "any email from Y") — search the inbox,
-        # don't let the first-person phrasing fall through to the facts-only recall path.
-        result = _present_mail(conn, session, utterance, store=store)
     else:
         result = _reason(conn, session, utterance, store=store)
 
@@ -410,7 +408,14 @@ def _looks_like_show(text: str) -> bool:
     return bool(re.search(r"\b(show|list|display|visuali[sz]e)\b", text, re.I))
 
 
-_MAIL_RE = re.compile(r"\b(e-?mails?|mails?|inbox|mailbox)\b", re.I)
+_MAIL_NOUN_RE = re.compile(r"\b(e-?mails?|mails?|inbox|mailbox)\b", re.I)
+_MAIL_INBOX_RE = re.compile(r"\b(inbox|mailbox)\b", re.I)
+# A mail NOUN alone is too loose ("write a regex for an email address" is not a mail request);
+# require a request/ownership cue too — unless it's literally the inbox.
+_MAIL_CONTEXT_RE = re.compile(
+    r"\b(my|me|unread|from|about|new|reply|replied|sender|sent|received|read|check|any|latest|"
+    r"last|recent|spam|junk|forward|subject)\b", re.I
+)
 _MAIL_ABOUT_RE = re.compile(
     r"\b(?:about|regarding|re|concerning|on the (?:subject|topic) of)\b[:\s]+(.+?)[?.!]*$", re.I
 )
@@ -419,9 +424,14 @@ _MAIL_STOPWORDS = {"the", "my", "a", "an", "any", "some", "that", "this"}
 
 
 def _looks_like_mail(text: str) -> bool:
-    """A mail question/request — distinct from a fact recall. Reminders/remember are matched
-    earlier in respond(), so 'remind me to email X' never reaches here."""
-    return bool(_MAIL_RE.search(text))
+    """A mail question/request — distinct from merely mentioning 'email' in a coding/knowledge
+    question. Fires on the inbox outright, else needs a mail noun PLUS a request/ownership cue.
+    Reminders/remember are matched earlier in respond(), so 'remind me to email X' never reaches."""
+    if not _MAIL_NOUN_RE.search(text):
+        return False
+    if _MAIL_INBOX_RE.search(text):
+        return True
+    return bool(_MAIL_CONTEXT_RE.search(text))
 
 
 def _mail_topic(text: str) -> str:
@@ -472,28 +482,78 @@ def _present_mail(
                       artifacts=[auto_artifact("Inbox", rows)])
 
 
+# Ordered (key, pattern); first match wins. The single source of truth for "which workspace panel
+# does this utterance name?" — shared by _present_data (what to fetch) and fastpath_route (the eval
+# + dispatch label), so the two can never drift apart (the class of bug behind the mail regression).
+_PRESENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (key, re.compile(pat, re.I)) for key, pat in (
+        ("tasks", r"\btask"),
+        ("notes", r"\bnote"),
+        ("mail", r"\b(mail|inbox|email)"),
+        ("calendar", r"\b(calendar|agenda|schedule|event)"),
+        ("recipes", r"\brecipe"),
+        ("research", r"\bresearch"),
+        ("documents", r"\b(documents?|docs?|reports?)\b"),
+        ("code", r"\b(code|diff|patch|coding)\b"),
+        ("routines", r"\b(routine|automation|scheduled)"),
+        ("memories", r"\b(memor|fact|what you know|what you remember)"),
+        ("torrents", r"\b(torrent|download)"),
+    )
+)
+
+
+def _present_target(text: str) -> str | None:
+    """The workspace data source this utterance names, else None (nothing presentable)."""
+    for key, pat in _PRESENT_PATTERNS:
+        if pat.search(text):
+            return key
+    return None
+
+
+def fastpath_route(utterance: str) -> str:
+    """The deterministic handler respond() selects from utterance content alone (ignoring pending
+    confirmations). Returns a stable label — 'reminder' | 'remember' | 'weather' | 'present:<src>' |
+    'llm' (nothing matched → the LLM router decides). Single source of truth shared by respond() and
+    the behavioral eval suite, so a routing regression shows up as a failing eval case."""
+    if _looks_like_reminder(utterance):
+        return "reminder"
+    if _looks_like_remember(utterance):
+        return "remember"
+    if looks_like_weather(utterance):
+        return "weather"
+    # A show-verb only routes to a presenter when it actually names a known data source — otherwise
+    # the noun "list" ("difference between a list and a tuple") would hijack a coding question.
+    if _looks_like_show(utterance):
+        target = _present_target(utterance)
+        if target:
+            return f"present:{target}"
+    if _looks_like_mail(utterance):
+        return "present:mail"
+    return "llm"
+
+
 def _present_data(
     conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
 ) -> TurnResult:
     """Generic 'show me my <X>' → fetch X's data → a universal artifact the app renders as cards.
     Known modules get clean projections; unknown shapes still render via the auto renderer. Falls
     back to normal reasoning when the request names nothing presentable."""
-    t = utterance.lower()
+    target = _present_target(utterance)
+    if target == "mail":
+        return _present_mail(conn, session, utterance, store=store)
     title: str | None = None
     data: Any = None
-    if re.search(r"\btask", t):
+    if target == "tasks":
         from jarvis.tasks import repository as r
         title = "Open tasks"
         data = [{"title": x.title, "status": x.status.value, "priority": x.priority.value,
                  "due": x.due_at.isoformat()[:16].replace("T", " ") if x.due_at else ""}
                 for x in r.list_open(conn)]
-    elif re.search(r"\bnote", t):
+    elif target == "notes":
         from jarvis.notes import repository as r
         title = "Notes"
         data = [{"title": x.title, "tags": ", ".join(x.tags)} for x in r.recent(conn)]
-    elif re.search(r"\b(mail|inbox|email)", t):
-        return _present_mail(conn, session, utterance, store=store)
-    elif re.search(r"\b(calendar|agenda|schedule|event)", t):
+    elif target == "calendar":
         if not capabilities.available("calendar"):
             return _not_connected("Calendar", capabilities.remedy("calendar"))
         from jarvis.calendar import repository as r
@@ -501,38 +561,38 @@ def _present_data(
         title = "Agenda"
         data = [{"when": e.starts_at.isoformat()[:16].replace("T", " "), "title": e.title,
                  "source": e.source.value} for e in evs]
-    elif re.search(r"\brecipe", t):
+    elif target == "recipes":
         from jarvis.recipes import repository as r
         title = "Recipes"
         data = [{"title": x.title, "servings": x.servings or "", "tags": ", ".join(x.tags)}
                 for x in r.recent(conn)]
-    elif re.search(r"\bresearch", t):
+    elif target == "research":
         from jarvis.research import repository as r
         title = "Research"
         data = [{"query": x.query, "status": x.status.value} for x in r.recent(conn, limit=10)]
-    elif re.search(r"\b(documents?|docs?|reports?)\b", t):
+    elif target == "documents":
         from jarvis.documents import repository as r
         title = "Documents"
         data = [{"title": x.title, "status": x.status.value,
                  "updated": x.updated_at.isoformat()[:10]} for x in r.recent(conn)]
-    elif re.search(r"\b(code|diff|patch|coding)\b", t):
+    elif target == "code":
         if not capabilities.available("code"):
             return _not_connected("Code", capabilities.remedy("code"))
         from jarvis.code import repository as r
         title = "Code sessions"
         data = [{"task": x.task, "repo": x.repo_path.rsplit("/", 1)[-1], "status": x.status.value,
                  "files": len(x.files_changed), "applied": x.applied} for x in r.recent(conn)]
-    elif re.search(r"\b(routine|automation|scheduled)", t):
+    elif target == "routines":
         from jarvis.routines.repository import list_routines
         title = "Routines"
         data = [{"name": x.name, "action": x.action.kind.value, "schedule": x.schedule.kind.value,
                  "enabled": x.enabled,
                  "last_run": x.last_run.isoformat()[:16].replace("T", " ") if x.last_run else "—"}
                 for x in list_routines(conn)]
-    elif re.search(r"\b(memor|fact|what you know|what you remember)", t):
+    elif target == "memories":
         title = "What I remember"
         data = [{"about": f.key.replace("_", " "), "value": f.value} for f in list_facts(conn)]
-    elif re.search(r"\b(torrent|download)", t):
+    elif target == "torrents":
         try:
             from jarvis.connectors.qbittorrent import fetch_snapshot
             title, data = "Torrents", fetch_snapshot()  # raw shape → universal renderer handles it

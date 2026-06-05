@@ -45,6 +45,11 @@ health:
 test:
 	pytest -q
 
+## Behavioral routing eval — run the 100 example use-cases through fastpath_route and report the
+## pass-rate. GPU-free regression gate; run on every routing/model change.
+eval:
+	python -m jarvis.eval.behavior
+
 ## Build + (re)deploy the app containers (gateway + daemon + console + searxng) on THIS host's
 ## Docker. Run on the box after `git clone` — plain `docker compose`, NOT the SSH context above.
 ## `search` profile brings up SearXNG so web search (weather, lookups) works out of the box.
