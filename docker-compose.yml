@@ -111,8 +111,15 @@ services:
       # Push notifications via the self-hosted ntfy (set NTFY_TOPIC to enable; pick it unguessable).
       NTFY_URL: ${NTFY_URL:-http://ntfy:80}
       NTFY_TOPIC: ${NTFY_TOPIC:-}
+      # Execute-to-verify (Wave 1.2): run model-generated Python in throwaway containers via the
+      # host Docker. Same root-equivalent socket the daemon already uses; the executed code itself
+      # is caged (--network none --read-only --cap-drop ALL). OFF unless CODE_EXEC_ENABLED=true.
+      DOCKER_CONTEXT: default
+      CODE_EXEC_ENABLED: ${CODE_EXEC_ENABLED:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # let the container reach Ollama on the host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # execute-to-verify drives host Docker
     depends_on:
       postgres:
         condition: service_healthy
