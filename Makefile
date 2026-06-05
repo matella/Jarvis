@@ -50,6 +50,11 @@ test:
 eval:
 	python -m jarvis.eval.behavior
 
+## Answer-QUALITY eval — drive real questions through the full pipeline + grade (LLM-as-judge).
+## Needs a live model + DB, so run ON THE BOX: `docker exec jarvis-gateway python -m jarvis.eval.quality`.
+eval-quality:
+	python -m jarvis.eval.quality
+
 ## Build + (re)deploy the app containers (gateway + daemon + console + searxng) on THIS host's
 ## Docker. Run on the box after `git clone` — plain `docker compose`, NOT the SSH context above.
 ## `search` profile brings up SearXNG so web search (weather, lookups) works out of the box.
