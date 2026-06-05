@@ -4,7 +4,17 @@
 > It is the cheapest way to reload project state without re-reading the codebase.
 > Keep it short. If a section grows past a few lines, the work belongs in a commit, not here.
 
-## Current milestone
+## Current milestone — "Make Jarvis smarter" program (live on the box)
+- **Wave 0 (done):** behavioral eval — `jarvis/eval/{behavior,cases}.py`, 108 example use-cases,
+  `make eval` (GPU-free routing regression). `fastpath_route()`/`_present_target()` now the single
+  routing source of truth shared by `respond()` + the eval. Caught/fixed 2 false-positives.
+- **Wave 1.0 (done):** coding-aware answering — `_Decision.domain`, `jarvis/agents/environment.py`
+  (env block #6), `conversation._code_answer()` (coder model / Claude under a coding-expert template,
+  #1/#3/#17). Spec: `docs/superpowers/specs/2026-06-05-coding-aware-answering-design.md`.
+- **Next waves (planned, not built):** 1.1 doc-RAG (#5) · 1.2 execute-to-verify sandbox (#11/12/13) ·
+  2 correctness discipline (#18/19/20/24) · 3 grounding · 4 reasoning · 5 tooling/memory.
+
+## Prior milestone
 **EVERYTHING BUILT** 🎉 — numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish +
 the entire backlog (#1–#11). Nothing left to code; only deploy-time external-service wiring remains.
 - Numbered: hardening (5.5a/b/c) → conversational backend + React orb console (6a/6b) →
