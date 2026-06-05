@@ -18,8 +18,18 @@
   re-asks once on a real traceback (#11/12/13). Sandbox cmd verified on the box host. **To enable:**
   mount `/var/run/docker.sock` into the gateway (host-root risk) + `CODE_EXEC_ENABLED=true`. The
   gateway already has the docker CLI; without the socket it safely skips.
-- **Next waves (planned, not built):** 1.1 doc-RAG (#5) · 3 grounding (#7/8/16/10) ·
-  4 reasoning (#2/4/9/15) · 5 tooling/memory (#21/22/23 + long-context compaction).
+- **Wave 5 (done):** exact-compute — `jarvis/agents/calc.py`, AST-whitelist evaluator + strict
+  detection, `fastpath_route → "math" → _compute_answer` (#21, zero inference).
+- **Wave 4 (done):** escalation ladder — `_should_escalate`/`_plain_answer(backend=)`: empty LOCAL
+  answer retries once on Claude so Jarvis never goes silent (#2).
+- **Wave 3 (done):** recency-search prompt nudge (#7). Grounding over the operator's own data
+  (#5/#8/#16) already runs via `assemble_context` (pgvector RAG) — no new ingestion needed.
+- **Deliberately deferred (rationale):** #4 self-consistency (N× inference cost) · #22 answer cache
+  (stale-answer risk) · #9 few-shot store (infra; partly covered by RAG) · #15 scratchpad (low
+  value with thinking models) · #18 critic-as-extra-pass (cost; syntax+exec verify already cover
+  coding). #23 feedback capture already exists (cross-cutting B).
+- **Opt-in pending operator go:** Wave 1.2 execute-to-verify needs the docker.sock mount in the
+  gateway + `CODE_EXEC_ENABLED=true` (host-root tradeoff).
 
 ## Prior milestone
 **EVERYTHING BUILT** 🎉 — numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish +
