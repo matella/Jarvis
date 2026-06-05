@@ -150,6 +150,14 @@ CASES: list[EvalCase] = [
     _c("how much disk space is left?", "llm", "ops", "question"),
     _c("are all my containers running?", "llm", "ops", "question"),
     _c("what's using the most memory?", "llm", "ops", "question"),
+    # ── Exact compute (#21): pure arithmetic → deterministic, not the model ──
+    _c("what is 12 * (3 + 4)?", "math", "math"),
+    _c("calculate 2^10", "math", "math"),
+    _c("what's 15% of 80", "math", "math"),
+    _c("how much is 100 / 8", "math", "math"),
+    # numbers in a real question must NOT be grabbed as a calculation:
+    _c("what's the time complexity of an O(n^2) sort?", "llm", "math", "coding"),
+
     # ── Identity / meta → LLM answer ──
     _c("who are you?", "llm", "meta"),
     _c("what can you do?", "llm", "meta"),

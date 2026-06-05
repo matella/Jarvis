@@ -377,6 +377,8 @@ def respond(
         result = _capture_reminder(conn, session, utterance, store=store)
     elif route == "remember":
         result = _capture_fact(conn, session, utterance, store=store)
+    elif route == "math":
+        result = _compute_answer(conn, session, utterance, store=store)
     elif route == "weather":
         result = _present_weather(conn, session, utterance, store=store)
     elif route.startswith("present"):
@@ -408,6 +410,19 @@ def _not_connected(label: str, remedy: str) -> TurnResult:
         route=TurnRoute.answer,
         message=f"{label} isn't connected yet — so I can't show it. To enable it: {remedy}.",
     )
+
+
+def _compute_answer(
+    conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
+) -> TurnResult:
+    """Exact deterministic arithmetic (#21) — no inference. Falls back to reasoning if the
+    expression can't be safely evaluated (e.g. division by zero)."""
+    from jarvis.agents.calc import compute
+
+    result = compute(utterance)
+    if result is None:
+        return _reason(conn, session, utterance, store=store)
+    return TurnResult(route=TurnRoute.answer, message=f"= {result}")
 
 
 def _looks_like_show(text: str) -> bool:
@@ -535,6 +550,11 @@ def fastpath_route(utterance: str) -> str:
             return f"present:{target}"
     if _looks_like_mail(utterance):
         return "present:mail"
+    # A pure arithmetic ask → exact deterministic compute (no inference). Strict detector, so word
+    # problems and code questions still fall through to the model.
+    from jarvis.agents.calc import looks_like_math
+    if looks_like_math(utterance):
+        return "math"
     return "llm"
 
 
