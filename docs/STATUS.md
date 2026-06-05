@@ -11,8 +11,15 @@
 - **Wave 1.0 (done):** coding-aware answering — `_Decision.domain`, `jarvis/agents/environment.py`
   (env block #6), `conversation._code_answer()` (coder model / Claude under a coding-expert template,
   #1/#3/#17). Spec: `docs/superpowers/specs/2026-06-05-coding-aware-answering-design.md`.
-- **Next waves (planned, not built):** 1.1 doc-RAG (#5) · 1.2 execute-to-verify sandbox (#11/12/13) ·
-  2 correctness discipline (#18/19/20/24) · 3 grounding · 4 reasoning · 5 tooling/memory.
+- **Wave 2 (done):** correctness discipline — `jarvis/agents/code_validation.py` (ast.parse/json
+  syntax-check of generated code) + self-correct re-ask (#24), "say when unsure" clause (#20).
+- **Wave 1.2 (done, OFF by default):** execute-to-verify — `jarvis/agents/code_sandbox.py` runs
+  generated Python in an ephemeral `docker run --network none --read-only --cap-drop ALL` container,
+  re-asks once on a real traceback (#11/12/13). Sandbox cmd verified on the box host. **To enable:**
+  mount `/var/run/docker.sock` into the gateway (host-root risk) + `CODE_EXEC_ENABLED=true`. The
+  gateway already has the docker CLI; without the socket it safely skips.
+- **Next waves (planned, not built):** 1.1 doc-RAG (#5) · 3 grounding (#7/8/16/10) ·
+  4 reasoning (#2/4/9/15) · 5 tooling/memory (#21/22/23 + long-context compaction).
 
 ## Prior milestone
 **EVERYTHING BUILT** 🎉 — numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish +
