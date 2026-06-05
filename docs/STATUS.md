@@ -28,6 +28,12 @@
   (stale-answer risk) · #9 few-shot store (infra; partly covered by RAG) · #15 scratchpad (low
   value with thinking models) · #18 critic-as-extra-pass (cost; syntax+exec verify already cover
   coding). #23 feedback capture already exists (cross-cutting B).
+- **Wave 6 (done):** answer-QUALITY eval — `jarvis/eval/quality.py` + `quality_cases.py`, LLM-as-
+  judge over the full pipeline; `make eval-quality` (run on box). Live result: **14/15, mean 0.94**
+  (coding/knowledge/math all 1.00). It surfaced + we fixed a real misroute (self-capability
+  questions like "can you restart a container?" were classified domain=coding → lost the persona;
+  domain rule now reserves coding for programming help). One strict-judge near-miss left
+  (architectural self-description) — accepted, not overfit.
 - **Opt-in pending operator go:** Wave 1.2 execute-to-verify needs the docker.sock mount in the
   gateway + `CODE_EXEC_ENABLED=true` (host-root tradeoff).
 
