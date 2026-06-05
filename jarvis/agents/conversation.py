@@ -266,9 +266,11 @@ def _build_prompt(
         "- Otherwise — including who/what you are, your status, the homelab, explanations, and "
         "RECALLING a fact you already know about the operator (use the facts below verbatim) — set "
         "route=\"answer\" and put your grounded reply in message; cite events/state you used.\n"
-        "- ALWAYS set domain: \"coding\" when the request is about programming, software, code, a "
-        "shell/CLI command, an error/stack trace, an API, config, or a dev tool (a coding "
-        "specialist answers it); otherwise domain: \"general\".\n"
+        "- ALWAYS set domain: \"coding\" when the user wants HELP with programming — writing, "
+        "understanding, debugging, or reviewing code, a shell/CLI command, an error/stack trace, "
+        "an API, config, or a dev tool (a coding specialist answers it). Use \"general\" (NOT "
+        "coding) for questions about what YOU can do, your own actions, permissions, identity or "
+        "status — even if they mention containers, deploys or code. Otherwise: \"general\".\n"
         'Example — user "restart nginx" → {"route":"propose","intent_type":'
         '"docker.restart_container","target":{"container":"nginx"},"summary":"restart nginx",'
         '"message":"I can restart nginx.","risk":"medium","reversible":true,"confidence":0.9}.',
