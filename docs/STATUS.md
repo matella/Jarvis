@@ -13,29 +13,32 @@
   #1/#3/#17). Spec: `docs/superpowers/specs/2026-06-05-coding-aware-answering-design.md`.
 - **Wave 2 (done):** correctness discipline — `jarvis/agents/code_validation.py` (ast.parse/json
   syntax-check of generated code) + self-correct re-ask (#24), "say when unsure" clause (#20).
-- **Wave 1.2 (done, OFF by default):** execute-to-verify — `jarvis/agents/code_sandbox.py` runs
+- **Wave 1.2 (done, ENABLED on box):** execute-to-verify — `jarvis/agents/code_sandbox.py` runs
   generated Python in an ephemeral `docker run --network none --read-only --cap-drop ALL` container,
-  re-asks once on a real traceback (#11/12/13). Sandbox cmd verified on the box host. **To enable:**
-  mount `/var/run/docker.sock` into the gateway (host-root risk) + `CODE_EXEC_ENABLED=true`. The
-  gateway already has the docker CLI; without the socket it safely skips.
+  re-asks once on a real traceback (#11/12/13). Gateway now mounts `/var/run/docker.sock` (same as
+  the daemon) + `CODE_EXEC_ENABLED=true` in box .env. Verified live: clean run, traceback capture,
+  and network isolation (`Network is unreachable`).
 - **Wave 5 (done):** exact-compute — `jarvis/agents/calc.py`, AST-whitelist evaluator + strict
   detection, `fastpath_route → "math" → _compute_answer` (#21, zero inference).
 - **Wave 4 (done):** escalation ladder — `_should_escalate`/`_plain_answer(backend=)`: empty LOCAL
   answer retries once on Claude so Jarvis never goes silent (#2).
+- **Wave 5b (done):** conservative coding-answer cache — `jarvis/agents/answer_cache.py`, checked at
+  the top of `_reason` so a repeated self-contained coding question short-circuits the whole pipeline
+  (#22). Verified live: 68s → 0.002s on repeat. Back-references/short fragments never cached; 6h TTL.
 - **Wave 3 (done):** recency-search prompt nudge (#7). Grounding over the operator's own data
   (#5/#8/#16) already runs via `assemble_context` (pgvector RAG) — no new ingestion needed.
-- **Deliberately deferred (rationale):** #4 self-consistency (N× inference cost) · #22 answer cache
-  (stale-answer risk) · #9 few-shot store (infra; partly covered by RAG) · #15 scratchpad (low
-  value with thinking models) · #18 critic-as-extra-pass (cost; syntax+exec verify already cover
-  coding). #23 feedback capture already exists (cross-cutting B).
+- **Deliberately deferred (rationale):** #4 self-consistency (N× inference cost) · #9 few-shot store
+  (infra; partly covered by RAG) · #15 scratchpad (low value with thinking models) · #18
+  critic-as-extra-pass (cost; syntax+exec verify already cover coding). #23 feedback capture already
+  exists (cross-cutting B). [#22 answer cache: now BUILT — see Wave 5b.]
+- **Note:** first-time coding answers are ~slow (~60-70s: routing + specialist `claude -p` call +
+  sandbox run); the cache makes exact repeats instant (0.002s). Latency is dominated by `claude -p`.
 - **Wave 6 (done):** answer-QUALITY eval — `jarvis/eval/quality.py` + `quality_cases.py`, LLM-as-
   judge over the full pipeline; `make eval-quality` (run on box). Live result: **14/15, mean 0.94**
   (coding/knowledge/math all 1.00). It surfaced + we fixed a real misroute (self-capability
   questions like "can you restart a container?" were classified domain=coding → lost the persona;
   domain rule now reserves coding for programming help). One strict-judge near-miss left
   (architectural self-description) — accepted, not overfit.
-- **Opt-in pending operator go:** Wave 1.2 execute-to-verify needs the docker.sock mount in the
-  gateway + `CODE_EXEC_ENABLED=true` (host-root tradeoff).
 
 ## Prior milestone
 **EVERYTHING BUILT** 🎉 — numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish +
