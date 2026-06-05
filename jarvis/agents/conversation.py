@@ -784,8 +784,13 @@ def _code_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "
     under a coding-expert template grounded in the operator's real environment (#6). The generated
     code is syntax-checked (ast.parse / json.loads, no execution); on a syntax error we re-ask ONCE
     with the error fed back (#24). role='coder' selects qwen2.5-coder locally; ignored on Claude."""
+    from jarvis.agents import answer_cache
     from jarvis.agents.code_validation import syntax_issues
     from jarvis.agents.environment import environment_block
+
+    cached = answer_cache.get(utterance)
+    if cached is not None:
+        return TurnResult(route=TurnRoute.answer, message=cached)
 
     prompt = (
         "You are a senior software engineer. Answer the coding question precisely and correctly. "
@@ -823,6 +828,9 @@ def _code_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "
                 "illustrative and isn't meant to run standalone."
             )
             message = _ask_coder(retry)
+    # Cache the vetted answer (no-op for context-dependent / short questions) so an identical
+    # repeat skips the coder + verification entirely.
+    answer_cache.put(utterance, message)
     return TurnResult(route=TurnRoute.answer, message=message)
 
 
