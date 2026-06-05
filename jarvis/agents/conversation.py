@@ -684,6 +684,14 @@ def _present_weather(
 def _reason(
     conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
 ) -> TurnResult:
+    # Answer cache (#22): a repeated self-contained coding question short-circuits the WHOLE
+    # pipeline — no routing inference, no specialist call, no sandbox. Only coding answers are ever
+    # stored, so a hit is necessarily a prior vetted coding answer.
+    from jarvis.agents import answer_cache
+    cached = answer_cache.get(utterance)
+    if cached is not None:
+        return TurnResult(route=TurnRoute.answer, message=cached)
+
     since = utcnow() - timedelta(hours=_WINDOW_HOURS)
     ctx = assemble_context(conn, since=since, query=utterance, store=store)
     search_on = bool(get_settings().searxng_url)
