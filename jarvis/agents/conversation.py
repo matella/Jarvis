@@ -94,6 +94,7 @@ class _Decision(BaseModel):
     fact_key: str | None = None    # when route == "remember": the fact name (e.g. "city")
     fact_value: str | None = None  # when route == "remember": the fact value (e.g. "Brussels")
     location: str | None = None    # when route == "weather": the place (else the operator's city)
+    domain: str = "general"        # "coding" → answer via the coder model + coding-expert template
 
 
 def capability_summary() -> str:
@@ -263,6 +264,9 @@ def _build_prompt(
         "- Otherwise — including who/what you are, your status, the homelab, explanations, and "
         "RECALLING a fact you already know about the operator (use the facts below verbatim) — set "
         "route=\"answer\" and put your grounded reply in message; cite events/state you used.\n"
+        "- ALWAYS set domain: \"coding\" when the request is about programming, software, code, a "
+        "shell/CLI command, an error/stack trace, an API, config, or a dev tool (a coding "
+        "specialist answers it); otherwise domain: \"general\".\n"
         'Example — user "restart nginx" → {"route":"propose","intent_type":'
         '"docker.restart_container","target":{"container":"nginx"},"summary":"restart nginx",'
         '"message":"I can restart nginx.","risk":"medium","reversible":true,"confidence":0.9}.',
@@ -279,6 +283,7 @@ def _build_prompt(
         'message (string), and when route="propose": intent_type, target (object), summary, '
         f'risk ("low"|"medium"|"high"), reversible (bool), confidence (0..1);{search_spec} '
         ' when route="remember": fact_key (string), fact_value (string); '
+        'always: domain ("general"|"coding"); '
         'Optional: citations [{kind, ref, note}]. No prose outside the JSON.'
     )
     return "\n\n".join(parts)
@@ -302,6 +307,7 @@ _DECISION_SCHEMA = {
         "fact_key": {"type": "string"},
         "fact_value": {"type": "string"},
         "location": {"type": "string"},
+        "domain": {"type": "string", "enum": ["general", "coding"]},
     },
     "required": ["route", "message"],
 }
@@ -709,6 +715,12 @@ def _reason(
             citations=decision.citations, confidence=decision.confidence,
         )
 
+    # Coding/technical question → a coding-specialist pass (coder model locally, Claude when on)
+    # under a coding-expert template grounded in the operator's real environment. Runs before
+    # personal-recall so "why am I getting this error?" isn't mistaken for a stored-fact lookup.
+    if decision.route == "answer" and decision.domain == "coding":
+        return _code_answer(ctx.prompt, _memory_window(conn, session), utterance, facts=facts)
+
     # Personal question + we have facts → answer from them with a FOCUSED, grounded inference.
     # The big multi-route prompt drowns the fact for a small model (it confabulated "New York");
     # a tight facts-only prompt recalls reliably. Runs after propose/search so those still win.
@@ -724,6 +736,32 @@ def _reason(
     return TurnResult(
         route=TurnRoute.answer, message=message, citations=decision.citations,
     )
+
+
+def _code_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> TurnResult:
+    """Answer a coding/technical question with the CODER model (local) or Claude (when active),
+    under a coding-expert template grounded in the operator's real environment (#6). One inference;
+    role='coder' selects qwen2.5-coder locally, and is ignored when the Claude backend resolves."""
+    from jarvis.agents.environment import environment_block
+    from jarvis.models.scheduler import Priority
+    from jarvis.models.scheduler import chat as sched_chat
+
+    prompt = (
+        "You are a senior software engineer. Answer the coding question precisely and correctly. "
+        "Prefer working, runnable code; state assumptions; be concise. If you write code, give a "
+        "one-line plan first, then the code, then note edge cases or version caveats. Target the "
+        "operator's exact environment below.\n\n"
+        + environment_block() + "\n\n"
+        + (facts + "\n\n" if facts else "")
+        + (memory + "\n\n" if memory else "")
+        + ("Context:\n" + ctx_prompt + "\n\n" if ctx_prompt.strip() else "")
+        + f"Question: {utterance}"
+    )
+    resp = sched_chat(
+        "coder", [{"role": "user", "content": prompt}], priority=Priority.INTERACTIVE
+    )
+    message = str(resp["message"]["content"]).strip() or "(no response)"
+    return TurnResult(route=TurnRoute.answer, message=message)
 
 
 def _recall_answer(facts: str, utterance: str) -> str:
