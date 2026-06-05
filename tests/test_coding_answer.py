@@ -70,3 +70,29 @@ def test_reason_general_answer_unchanged(monkeypatch) -> None:
     monkeypatch.setattr(convo, "_memory_window", lambda conn, s: "")
     out = convo._reason(conn=None, session=None, utterance="capital of Australia?", store=None)
     assert out.message == "Canberra."
+
+
+def test_escalation_ladder_retries_on_claude_when_local_empty(monkeypatch) -> None:
+    # Local backend + empty answer → one retry pinned to Claude; the escalated answer is used.
+    monkeypatch.setattr(convo, "_decide",
+                        lambda *a, **k: _Decision(route="answer", message="", domain="general"))
+    monkeypatch.setattr(convo, "assemble_context",
+                        lambda *a, **k: type("C", (), {"prompt": "", "context_ref": "c"})())
+    monkeypatch.setattr(convo, "facts_block", lambda conn: "")
+    monkeypatch.setattr(convo, "_memory_window", lambda conn, s: "")
+    monkeypatch.setattr("jarvis.models.backends.state.cached_default_backend", lambda: "local")
+    seen: list = []
+
+    def fake_plain(ctx, mem, utt, *, facts="", backend=None):
+        seen.append(backend)
+        return "" if backend is None else "escalated answer"
+
+    monkeypatch.setattr(convo, "_plain_answer", fake_plain)
+    out = convo._reason(conn=None, session=None, utterance="explain raft consensus", store=None)
+    assert seen == [None, "claude"]              # tried local, then escalated to Claude
+    assert out.message == "escalated answer"
+
+
+def test_no_escalation_when_backend_is_claude(monkeypatch) -> None:
+    monkeypatch.setattr("jarvis.models.backends.state.cached_default_backend", lambda: "claude")
+    assert convo._should_escalate("") is False   # already on the strong backend → no retry

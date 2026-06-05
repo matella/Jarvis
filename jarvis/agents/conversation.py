@@ -230,9 +230,11 @@ def _build_prompt(
     # configured (otherwise a small model over-routes to a dead end).
     search_rule = (
         "- ONLY if the user explicitly asks for CURRENT EXTERNAL information (latest news, a CVE, "
-        "today's weather, 'look up …', 'search the web …'), set route=\"search\" and put the query "
-        "in query. NEVER search for facts about the operator themselves (where they live, their "
-        "name, their preferences) — those are answered from the facts below.\n"
+        "today's weather, 'look up …', 'search the web …') OR for something that changes over time "
+        "and your knowledge may be stale (newest/current/2025+ version, release date, recent "
+        "events, prices), set route=\"search\" and put the query in query. NEVER search for facts "
+        "about the operator themselves (where they live, their name, preferences) — those are "
+        "answered from the facts below.\n"
         if search_on else ""
     )
     search_spec = ' when route="search": query (string);' if search_on else ""
@@ -753,6 +755,14 @@ def _reason(
     message = decision.message.strip() or _plain_answer(
         ctx.prompt, _memory_window(conn, session), utterance, facts=facts
     )
+    # Escalation ladder (#2): if the local backend produced nothing usable, retry once on the
+    # stronger backend so Jarvis never goes silent. No-op when already on Claude.
+    if _should_escalate(message):
+        escalated = _plain_answer(
+            ctx.prompt, _memory_window(conn, session), utterance, facts=facts, backend="claude"
+        )
+        if escalated and escalated != "(no response)":
+            message = escalated
     return TurnResult(
         route=TurnRoute.answer, message=message, citations=decision.citations,
     )
@@ -874,8 +884,11 @@ def _capture_reminder(
 
 
 
-def _plain_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> str:
-    """A plain grounded answer — fallback when structured routing yields no message."""
+def _plain_answer(
+    ctx_prompt: str, memory: str, utterance: str, *, facts: str = "", backend: str | None = None
+) -> str:
+    """A plain grounded answer — fallback when structured routing yields no message. `backend` pins
+    the brain (used by the escalation ladder to retry on Claude); None → the active backend."""
     from jarvis.models.scheduler import Priority
     from jarvis.models.scheduler import chat as sched_chat
 
@@ -887,9 +900,21 @@ def _plain_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = 
         + "Context:\n" + ctx_prompt + f"\n\nUser: {utterance}"
     )
     resp = sched_chat(
-        "reasoning", [{"role": "user", "content": prompt}], priority=Priority.INTERACTIVE
+        "reasoning", [{"role": "user", "content": prompt}],
+        priority=Priority.INTERACTIVE, backend=backend,
     )
     return str(resp["message"]["content"]).strip() or "(no response)"
+
+
+def _should_escalate(message: str) -> bool:
+    """The escalation ladder (#2): a LOCAL backend that produced nothing usable → retry once on the
+    stronger backend so Jarvis never goes silent. Conservative — fires only on an empty/non-answer,
+    and only when the active backend is local (no-op when already on Claude)."""
+    from jarvis.models.backends.state import cached_default_backend
+
+    if cached_default_backend() != "local":
+        return False
+    return (not message) or message == "(no response)" or len(message.strip()) < 2
 
 
 def _search_answer(query: str) -> TurnResult:
