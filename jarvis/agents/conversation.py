@@ -778,6 +778,19 @@ def _code_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "
             + "\n\nReturn a corrected answer — the code MUST parse."
         )
         message = _ask_coder(retry)
+    else:
+        # Syntax is fine → optionally RUN it in the sandbox (Wave 1.2, opt-in) and, on a real
+        # runtime failure, re-ask once with the actual traceback. No-op unless code_exec_enabled.
+        from jarvis.agents.code_sandbox import verify
+        failure = verify(message)
+        if failure:
+            retry = (
+                prompt + f"\n\nWhen I ran your code in a sandbox it failed:\n{failure}\n\n"
+                "Previous answer:\n" + message
+                + "\n\nReturn a corrected answer that runs cleanly, or explain why the snippet is "
+                "illustrative and isn't meant to run standalone."
+            )
+            message = _ask_coder(retry)
     return TurnResult(route=TurnRoute.answer, message=message)
 
 

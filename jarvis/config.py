@@ -135,6 +135,14 @@ class Settings(BaseSettings):
     keep_alive: str = "5m"
     inference_context: int = 8192
 
+    # Execute-to-verify (Wave 1.2) — run model-generated Python in an EPHEMERAL, network-less,
+    # read-only Docker container to catch runtime errors, then feed the traceback back for one fix.
+    # OFF by default (opt-in); requires Docker on the box. Never touches infra, secrets, or network.
+    code_exec_enabled: bool = False
+    code_exec_image: str = "python:3.11-slim"
+    code_exec_timeout_s: int = 10
+    code_exec_memory: str = "256m"
+
     # Multi-backend router — off-GPU Claude (`claude -p`, owner subscription) behind scheduler.chat.
     # Defaults to local (Ollama) so Jarvis never goes dark. Auth = CLAUDE_CODE_OAUTH_TOKEN secret.
     llm_default_backend: Literal["local", "claude"] = "local"

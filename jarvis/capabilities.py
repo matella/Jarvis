@@ -29,6 +29,7 @@ def status() -> list[Capability]:
     mail_on = bool(s.imap_host or s.mail_accounts)
     cal_on = bool(sec.get("GOOGLE_OAUTH_REFRESH_TOKEN")) or bool(s.calendar_ics_urls)
     code_on = bool(s.code_repo_allowlist)
+    code_exec_on = bool(s.code_exec_enabled)
     return [
         Capability("weather", True, "show the live weather and 5-day forecast for any city", ""),
         Capability("tasks", True, "create, list and complete the operator's tasks", ""),
@@ -47,6 +48,9 @@ def status() -> list[Capability]:
                    "connect Google Calendar (run `make google-oauth`) or add an ICS URL"),
         Capability("code", code_on, "run sandboxed coding sessions on allowlisted repos",
                    "set CODE_REPO_ALLOWLIST (and install OpenCode on the box)"),
+        Capability("code execution", code_exec_on,
+                   "run generated code in a throwaway sandbox to verify it actually works",
+                   "set CODE_EXEC_ENABLED=true (Docker required on the box)"),
     ]
 
 
