@@ -738,29 +738,46 @@ def _reason(
     )
 
 
-def _code_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> TurnResult:
-    """Answer a coding/technical question with the CODER model (local) or Claude (when active),
-    under a coding-expert template grounded in the operator's real environment (#6). One inference;
-    role='coder' selects qwen2.5-coder locally, and is ignored when the Claude backend resolves."""
-    from jarvis.agents.environment import environment_block
+def _ask_coder(prompt: str) -> str:
+    """One coding-specialist inference (coder model locally / Claude when active)."""
     from jarvis.models.scheduler import Priority
     from jarvis.models.scheduler import chat as sched_chat
+
+    resp = sched_chat("coder", [{"role": "user", "content": prompt}], priority=Priority.INTERACTIVE)
+    return str(resp["message"]["content"]).strip() or "(no response)"
+
+
+def _code_answer(ctx_prompt: str, memory: str, utterance: str, *, facts: str = "") -> TurnResult:
+    """Answer a coding/technical question with the CODER model (local) or Claude (when active),
+    under a coding-expert template grounded in the operator's real environment (#6). The generated
+    code is syntax-checked (ast.parse / json.loads, no execution); on a syntax error we re-ask ONCE
+    with the error fed back (#24). role='coder' selects qwen2.5-coder locally; ignored on Claude."""
+    from jarvis.agents.code_validation import syntax_issues
+    from jarvis.agents.environment import environment_block
 
     prompt = (
         "You are a senior software engineer. Answer the coding question precisely and correctly. "
         "Prefer working, runnable code; state assumptions; be concise. If you write code, give a "
-        "one-line plan first, then the code, then note edge cases or version caveats. Target the "
-        "operator's exact environment below.\n\n"
+        "one-line plan first, then the code, then note edge cases or version caveats. If you are "
+        "not confident an approach is correct, say what you're unsure about rather than guessing. "
+        "Target the operator's exact environment below.\n\n"
         + environment_block() + "\n\n"
         + (facts + "\n\n" if facts else "")
         + (memory + "\n\n" if memory else "")
         + ("Context:\n" + ctx_prompt + "\n\n" if ctx_prompt.strip() else "")
         + f"Question: {utterance}"
     )
-    resp = sched_chat(
-        "coder", [{"role": "user", "content": prompt}], priority=Priority.INTERACTIVE
-    )
-    message = str(resp["message"]["content"]).strip() or "(no response)"
+    message = _ask_coder(prompt)
+    issues = syntax_issues(message)
+    if issues:
+        # The code didn't parse — give the model the exact error and one chance to fix it. Pure
+        # syntax check (no execution), so this is safe and bounds the turn to two inferences.
+        retry = (
+            prompt + "\n\nYour previous answer had syntax errors:\n- " + "\n- ".join(issues)
+            + "\n\nPrevious answer:\n" + message
+            + "\n\nReturn a corrected answer — the code MUST parse."
+        )
+        message = _ask_coder(retry)
     return TurnResult(route=TurnRoute.answer, message=message)
 
 
