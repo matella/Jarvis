@@ -98,13 +98,19 @@
   `stop_grace_period` on the stateful DBs (jarvis-postgres 60s, jarvis-redis 30s, world-news
   postgres 60s, hots-overlay mongo 60s) so a `sudo reboot` flushes them cleanly instead of risking
   SIGKILL-mid-checkpoint → crash-recovery on next boot. Verified: StopTimeout=60/30 on each.
-- **GPU/VRAM self-observability (new):** `jarvis/models/gpu.py` reads Ollama `/api/ps` → resident
-  models, their VRAM, keep-alive countdown, CPU-offload detection. `_present_gpu` presenter + `gpu`/
-  `vram` routing + capability-registry entry, so Jarvis answers "is anything idle being held in
-  VRAM?" itself (no nvidia-smi — model occupancy IS the truth on this Ollama-dedicated box). Verified
-  live: "3.9 GB held by qwen3:4b on GPU, auto-unloads in 5m". 6 tests; 479 unit total.
-- **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune ·
-  periodic GPU telemetry events (swap-frequency observability, per Hard Rule #7).
+- **GPU/VRAM self-observability:** `jarvis/models/gpu.py` reads Ollama `/api/ps` → resident models,
+  VRAM, keep-alive countdown, CPU-offload detection. `_present_gpu` presenter + `gpu`/`vram` routing
+  + capability entry → Jarvis answers "is anything idle in VRAM?" itself, and **"free the GPU"**
+  unloads resident models (`gpu.free()`, reversible). NB: model load/swap telemetry already existed
+  in `models/router.py` (event-driven `model.loaded`/`model.unloaded`, 1144+1858 logged) — a
+  periodic poller would only duplicate it, so we did NOT add one. 482 unit total.
+- **Reboot-safety, deeper pass:** fixed a latent **Redis AOF corruption** from the disk-full event
+  (`appendonly.aof.2.incr.aof` truncated 2.5MB of failed-write tail via `redis-check-aof --fix`) —
+  it crash-looped redis on restart and would have taken down the whole stack on the next reboot.
+  Data mount `/mnt/nas-media` (NFS from 192.168.129.64) is in fstab w/ `_netdev,nofail` → auto-
+  mounts. Server IP `192.168.129.85` is **DHCP (dynamic)** — recommend a router reservation; Tailscale
+  (100.80.214.128) is the stable fallback. Optional: systemd drop-in so docker waits for the NFS mount.
+- **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
 - **M1–M3 DONE, deployed, verified with REAL news on box.** `jarvis/news/`: models (canonical_hash
