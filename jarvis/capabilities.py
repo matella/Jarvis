@@ -31,6 +31,7 @@ def status() -> list[Capability]:
     code_on = bool(s.code_repo_allowlist)
     code_exec_on = bool(s.code_exec_enabled)
     hots_on = bool(s.hots_api_url)
+    hots_overlay_on = bool(s.hots_overlay_url)
     orpheus_on = bool(s.orpheus_api_url)
     return [
         Capability("weather", True, "show the live weather and 5-day forecast for any city", ""),
@@ -56,6 +57,9 @@ def status() -> list[Capability]:
         Capability("heroes of the storm", hots_on,
                    "show Heroes of the Storm patch notes and the hero roster",
                    "deploy the HotS app on the box and set HOTS_API_URL"),
+        Capability("hots overlay", hots_overlay_on,
+                   "show recent Heroes of the Storm matches from the streaming overlay",
+                   "deploy the HotS Overlay app on the box and set HOTS_OVERLAY_URL"),
         Capability("orpheus", orpheus_on,
                    "show what the Orpheus music system is playing and its session",
                    "deploy the Orpheus app on the box and set ORPHEUS_API_URL"),

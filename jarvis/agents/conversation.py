@@ -512,7 +512,7 @@ def _present_mail(
 # + dispatch label), so the two can never drift apart (the class of bug behind the mail regression).
 _PRESENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (key, re.compile(pat, re.I)) for key, pat in (
-        ("hots", r"\b(hots|heroes of the storm|patch notes)\b"),
+        ("hots", r"\b(hots|heroes of the storm|patch notes|overlay)\b"),
         ("orpheus", r"\borpheus\b"),
         ("tasks", r"\btask"),
         ("notes", r"\bnote"),
@@ -570,8 +570,22 @@ def fastpath_route(utterance: str) -> str:
 
 
 def _present_hots(utterance: str) -> TurnResult:
-    """Present Heroes of the Storm data from the self-hosted HotS app: latest patches (default) or
-    the hero roster. Accurate 'not reachable' when the app is down — never a confabulated denial."""
+    """Present Heroes of the Storm data: the OVERLAY app's recent matches when asked about
+    matches/games/overlay, else the patch-notes app's latest patches (default) or hero roster.
+    Accurate 'not reachable'/'no data yet' messaging — never a confabulated denial."""
+    if re.search(r"\b(overlay|match|game|replay)", utterance, re.I):
+        from jarvis.connectors import hots_overlay
+        if not hots_overlay.reachable():
+            return _not_connected("HotS Overlay", capabilities.remedy("hots overlay"))
+        matches = hots_overlay.recent_matches(10)
+        if not matches:
+            return TurnResult(
+                route=TurnRoute.answer,
+                message="No HotS matches recorded yet — run the replay uploader on your gaming PC.",
+            )
+        return TurnResult(route=TurnRoute.answer, message="Your recent HotS matches:",
+                          artifacts=[auto_artifact("HotS Matches", matches)])
+
     from jarvis.connectors import hots
 
     if not hots.reachable():

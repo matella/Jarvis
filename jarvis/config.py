@@ -146,6 +146,7 @@ class Settings(BaseSettings):
     # Self-hosted homelab apps Jarvis can present/query (read-only), reached from the gateway via
     # the host's published ports. Empty → that capability is off. Hosts must be egress-allowlisted.
     hots_api_url: str = "http://host.docker.internal:5001"
+    hots_overlay_url: str = "http://host.docker.internal:8086"
     orpheus_api_url: str = "http://host.docker.internal:3010"
 
     # Multi-backend router — off-GPU Claude (`claude -p`, owner subscription) behind scheduler.chat.

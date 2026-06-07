@@ -48,3 +48,26 @@ def test_present_hots_not_reachable(monkeypatch) -> None:
     monkeypatch.setattr("jarvis.connectors.hots.reachable", lambda: False)
     out = convo._present_hots("hots patch")
     assert "isn't connected" in out.message or "reach" in out.message.lower()
+
+
+def test_present_hots_overlay_matches(monkeypatch) -> None:
+    monkeypatch.setattr("jarvis.connectors.hots_overlay.reachable", lambda: True)
+    monkeypatch.setattr("jarvis.connectors.hots_overlay.recent_matches",
+                        lambda limit=10: [{"map": "Cursed Hollow", "result": "Win"}])
+    out = convo._present_hots("show my recent hots matches")
+    assert out.artifacts and out.artifacts[0].title == "HotS Matches"
+
+
+def test_present_hots_overlay_empty(monkeypatch) -> None:
+    monkeypatch.setattr("jarvis.connectors.hots_overlay.reachable", lambda: True)
+    monkeypatch.setattr("jarvis.connectors.hots_overlay.recent_matches", lambda limit=10: [])
+    out = convo._present_hots("hots overlay")
+    assert "No HotS matches" in out.message and not out.artifacts
+
+
+def test_present_hots_patch_still_works(monkeypatch) -> None:
+    # A patch query must NOT be hijacked by the overlay branch.
+    monkeypatch.setattr("jarvis.connectors.hots.reachable", lambda: True)
+    monkeypatch.setattr("jarvis.connectors.hots.latest_patches", lambda limit=10: [{"patch": "X"}])
+    out = convo._present_hots("latest hots patch")
+    assert out.artifacts[0].title == "HotS Patches"

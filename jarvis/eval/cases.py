@@ -164,6 +164,8 @@ CASES: list[EvalCase] = [
     _c("hots heroes", "present:hots", "hots"),
     # a coding question that merely contains "patch" must NOT route to the hots app:
     _c("how do I create a git patch?", "llm", "hots", "coding"),
+    _c("show my recent hots matches", "present:hots", "hots"),
+    _c("what's on the hots overlay?", "present:hots", "hots"),
     _c("what's orpheus playing?", "present:orpheus", "orpheus"),
     _c("show me the orpheus session", "present:orpheus", "orpheus"),
 
