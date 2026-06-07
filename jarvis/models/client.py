@@ -60,6 +60,13 @@ def ps() -> list[str]:
     return [n for n in names if n]
 
 
+def ps_detail() -> list[dict]:
+    """Full detail of each model resident in VRAM (name, size, size_vram, expires_at) — the source
+    for GPU-occupancy reporting. Each row is normalized to a plain dict."""
+    resp = _as_dict(get_client().ps())
+    return [_as_dict(m) for m in resp.get("models", [])]
+
+
 def list_models() -> list[str]:
     """All models pulled on the host (Ollama `/api/tags`) — the homelab's available model menu."""
     resp = _as_dict(get_client().list())

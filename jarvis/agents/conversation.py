@@ -526,6 +526,7 @@ _PRESENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("routines", r"\b(routine|automation|scheduled)"),
         ("memories", r"\b(memor|fact|what you know|what you remember)"),
         ("torrents", r"\b(torrent|download)"),
+        ("gpu", r"\b(gpu|vram|graphics card|nvidia)\b"),
     )
 )
 
@@ -560,7 +561,7 @@ def fastpath_route(utterance: str) -> str:
     # Named homelab apps (HotS, Orpheus) are specific enough to present on mention alone — no
     # show-verb needed ("what's the latest hots patch?"). Other targets still require a show-verb.
     app = _present_target(utterance)
-    if app in ("hots", "orpheus", "news"):
+    if app in ("hots", "orpheus", "news", "gpu"):
         return f"present:{app}"
     # A pure arithmetic ask → exact deterministic compute (no inference). Strict detector, so word
     # problems and code questions still fall through to the model.
@@ -649,6 +650,42 @@ def _present_orpheus(utterance: str) -> TurnResult:
                       artifacts=[auto_artifact("Orpheus — Now Playing", np)])
 
 
+def _present_gpu(utterance: str) -> TurnResult:
+    """Present GPU/VRAM occupancy: which models Ollama holds resident, their VRAM, and how long
+    until keep-alive evicts them. Answers 'is anything idle being held in VRAM?' — the operator's
+    swap-awareness question — from the model runtime itself (no nvidia-smi needed)."""
+    from jarvis.models import gpu
+
+    if not gpu.reachable():
+        return _not_connected("the GPU runtime (Ollama)",
+                              "Ollama isn't answering — check it's running on the host.")
+    st = gpu.gpu_status()
+    models = st["resident"]
+    if not models:
+        return TurnResult(
+            route=TurnRoute.answer,
+            message="The GPU is idle — no model is resident in VRAM right now. Ollama unloads "
+                    "models after their keep-alive when nothing's using them, so nothing's held.",
+        )
+
+    def _ttl(s: int | None) -> str:
+        if s is None:
+            return "—"
+        return f"{s}s" if s < 90 else f"{round(s / 60)}m"
+
+    rows = [{"model": m["model"], "VRAM": f"{m['vram_gib']} GB", "on": m["processor"],
+             "auto-unloads in": _ttl(m["expires_in_s"])} for m in models]
+    n = st["model_count"]
+    offloaded = [m["model"] for m in models if m["processor"] != "GPU"]
+    note = (f" ⚠ {', '.join(offloaded)} is partly on CPU (it didn't fully fit) — that means slow "
+            "inference." if offloaded else "")
+    msg = (f"{st['vram_held_gib']} GB of VRAM is held by {n} resident "
+           f"model{'s' if n != 1 else ''}. Each stays warm only until its keep-alive expires, then "
+           f"Ollama frees it automatically — so nothing sits idle in VRAM indefinitely.{note}")
+    return TurnResult(route=TurnRoute.answer, message=msg,
+                      artifacts=[auto_artifact("GPU — VRAM occupancy", rows)])
+
+
 def _present_data(
     conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
 ) -> TurnResult:
@@ -664,6 +701,8 @@ def _present_data(
         return _present_orpheus(utterance)
     if target == "news":
         return _present_news(conn, utterance)
+    if target == "gpu":
+        return _present_gpu(utterance)
     title: str | None = None
     data: Any = None
     if target == "tasks":
