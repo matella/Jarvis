@@ -40,6 +40,17 @@
   domain rule now reserves coding for programming help). One strict-judge near-miss left
   (architectural self-description) — accepted, not overfit.
 
+## Homelab apps deployed + plugged into Jarvis (2026-06)
+- **HotS Patch Notes** (`~/apps/hots` on box): api :5001 + web :5100, SQLite, sync working (pulls
+  current patches). `jarvis/connectors/hots.py` → "latest hots patch" / "hots heroes" present cards.
+- **Orpheus** (`~/apps/orpheus`): server :3010 + client :8085, AI off (no GPU contention), Spotify
+  dormant (placeholder creds — add real `SPOTIFY_CLIENT_ID/SECRET` in `~/apps/orpheus/server/.env`).
+  `jarvis/connectors/orpheus.py` → "what's orpheus playing" (says "running, Spotify not connected"
+  until creds added). Spec: `docs/superpowers/specs/2026-06-05-external-apps-deploy-integrate-design.md`.
+- Both auto-observed by the Jarvis daemon (Docker socket). Read-only present/query only (no control).
+  Box egress allowlist gained `host.docker.internal`. Redeploy an app: edit `~/apps/<x>`,
+  `docker compose up -d --build`.
+
 ## Prior milestone
 **EVERYTHING BUILT** 🎉 — numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish +
 the entire backlog (#1–#11). Nothing left to code; only deploy-time external-service wiring remains.
