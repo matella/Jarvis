@@ -128,6 +128,18 @@ def get_story(conn: psycopg.Connection, story_id: str) -> NewsStory | None:
     return _row_to_story(row) if row else None
 
 
+def story_topics(conn: psycopg.Connection, story_ids: list[str]) -> dict[str, str]:
+    """One representative topic per story (tier-A tag on its articles) → {story_id: topic}."""
+    if not story_ids:
+        return {}
+    rows = conn.execute(
+        "SELECT DISTINCT ON (story_id) story_id, topic FROM news_articles "
+        "WHERE story_id = ANY(%s) AND topic <> '' ORDER BY story_id, recorded_at",
+        (story_ids,),
+    ).fetchall()
+    return {r["story_id"]: r["topic"] for r in rows}
+
+
 def prune_empty_stories(conn: psycopg.Connection) -> int:
     """Delete stories with no articles attached — orphans (e.g. from a race) and retention debris.
     Returns rows removed. Safe hygiene; the real stories always have at least their seed article."""
