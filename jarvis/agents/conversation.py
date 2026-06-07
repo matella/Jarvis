@@ -513,6 +513,7 @@ def _present_mail(
 _PRESENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (key, re.compile(pat, re.I)) for key, pat in (
         ("hots", r"\b(hots|heroes of the storm|patch notes)\b"),
+        ("orpheus", r"\borpheus\b"),
         ("tasks", r"\btask"),
         ("notes", r"\bnote"),
         ("mail", r"\b(mail|inbox|email)"),
@@ -582,6 +583,30 @@ def _present_hots(utterance: str) -> TurnResult:
                       artifacts=[auto_artifact("HotS Patches", hots.latest_patches(10))])
 
 
+def _present_orpheus(utterance: str) -> TurnResult:
+    """Present Orpheus state: what's playing (default) or the active session. Distinguishes down
+    (not reachable) from dormant (running, Spotify not connected) so the message is accurate."""
+    from jarvis.connectors import orpheus
+
+    if not orpheus.reachable():
+        return _not_connected("Orpheus", capabilities.remedy("orpheus"))
+    if not orpheus.authed():
+        return TurnResult(
+            route=TurnRoute.answer,
+            message="Orpheus is running, but Spotify isn't connected yet — add your Spotify "
+                    "credentials (SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET) to enable playback.",
+        )
+    if re.search(r"\bsession", utterance, re.I):
+        return TurnResult(route=TurnRoute.answer, message="Orpheus session:",
+                          artifacts=[auto_artifact("Orpheus — Session", orpheus.active_session())])
+    np = orpheus.now_playing()
+    if not np.get("current") or not np.get("isPlaying"):
+        return TurnResult(route=TurnRoute.answer,
+                          message="Orpheus isn't playing anything right now.")
+    return TurnResult(route=TurnRoute.answer, message="Now playing on Orpheus:",
+                      artifacts=[auto_artifact("Orpheus — Now Playing", np)])
+
+
 def _present_data(
     conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
 ) -> TurnResult:
@@ -593,6 +618,8 @@ def _present_data(
         return _present_mail(conn, session, utterance, store=store)
     if target == "hots":
         return _present_hots(utterance)
+    if target == "orpheus":
+        return _present_orpheus(utterance)
     title: str | None = None
     data: Any = None
     if target == "tasks":
