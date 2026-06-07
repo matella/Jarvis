@@ -30,9 +30,8 @@ SOURCES: list[NewsSource] = [
     NewsSource("RTBF Info", "https://www.rtbf.be/rss/info", "fr"),
     NewsSource("VRT NWS", "https://www.vrt.be/vrtnws/nl.rss.articles.xml", "nl"),
     NewsSource("Politico Europe", "https://www.politico.eu/feed/", "en"),
-    # Belga — the Belgian press agency most local outlets syndicate from. URL may need adjusting;
-    # an unreachable feed is skipped gracefully (verified at deploy by the scrape count).
-    NewsSource("Belga", "https://www.belga.be/rss", "fr"),
+    # NB: Belga (the Belgian press agency) has no public RSS — it's a paid wire. Its dispatches
+    # already reach us indirectly via RTBF/Le Soir/La Libre, which republish Belga content.
 ]
 
 
