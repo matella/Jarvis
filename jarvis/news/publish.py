@@ -38,7 +38,8 @@ INSERT INTO published_stories
      source_count, origin_count, updated_at)
 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
 ON CONFLICT (id) DO UPDATE SET
-    title=EXCLUDED.title, body=EXCLUDED.body, topic=EXCLUDED.topic, claims_json=EXCLUDED.claims_json,
+    title=EXCLUDED.title, body=EXCLUDED.body, topic=EXCLUDED.topic,
+    claims_json=EXCLUDED.claims_json,
     disagreements_json=EXCLUDED.disagreements_json, source_count=EXCLUDED.source_count,
     origin_count=EXCLUDED.origin_count, updated_at=now();
 """
