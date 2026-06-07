@@ -51,8 +51,11 @@
   `jarvis/connectors/hots_overlay.py` → "show my recent hots matches" (empty until the gaming-PC
   replay uploader runs + `TOON_HANDLE` set in `~/apps/hots-overlay/.env`). Healthcheck overridden to
   :8086 (compose override). `_present_hots` disambiguates: matches/overlay → overlay, patch/hero → notes.
-- **world-news-full:** NOT deployed — it's a bare skeleton (GraphQL returns only "hello", scraper is
-  a stub, no articles). Nothing real for Jarvis to present; revisit when it has data.
+- **world-news-full** (`~/apps/world-news`, compose under `docker/`): Rust GraphQL gateway :8000 +
+  scraper + ai :9002 + Next.js :3012, postgres :5433. It's a SKELETON (GraphQL exposes only
+  `hello`, no articles). `jarvis/connectors/world_news.py` reports status (placeholder for real
+  resolvers later). Fixed a real bug: api-gateway bound `127.0.0.1` inside the container → patched to
+  `0.0.0.0` (applied to local repo + box). "world news status" → reachable + the stub greeting.
 - Both auto-observed by the Jarvis daemon (Docker socket). Read-only present/query only (no control).
   Box egress allowlist gained `host.docker.internal`. Redeploy an app: edit `~/apps/<x>`,
   `docker compose up -d --build`.
