@@ -93,6 +93,11 @@
   ai-service/scraper) — world-news = postgres + frontend only, both `restart: unless-stopped`.
   Periodic `docker builder prune` advised if rebuild cache grows. publish() guards empty-wipe +
   reconciles the read-model. 472 unit tests + 123 eval cases green.
+- **Reboot-safety audit (this session):** all 38 containers are `restart: unless-stopped`; `docker`
+  + `ollama` are `enabled` on boot → everything comes back after a reboot. Hardening added:
+  `stop_grace_period` on the stateful DBs (jarvis-postgres 60s, jarvis-redis 30s, world-news
+  postgres 60s, hots-overlay mongo 60s) so a `sudo reboot` flushes them cleanly instead of risking
+  SIGKILL-mid-checkpoint → crash-recovery on next boot. Verified: StopTimeout=60/30 on each.
 - **GPU/VRAM self-observability (new):** `jarvis/models/gpu.py` reads Ollama `/api/ps` → resident
   models, their VRAM, keep-alive countdown, CPU-offload detection. `_present_gpu` presenter + `gpu`/
   `vram` routing + capability-registry entry, so Jarvis answers "is anything idle being held in
