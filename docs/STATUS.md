@@ -76,8 +76,18 @@
 - **Config on box:** NEWS_ENABLED=true, WORLD_NEWS_DB_URL set, source domains in EGRESS_ALLOWLIST,
   snowflake-arctic-embed2 pulled. Frontend reads `/graphql` no longer — it queries Postgres directly
   (so NPM just needs the home-page proxy).
-- **Remaining (optional):** finer topic sections (add story.topic to the published model) · story
-  Deep/Debate pages · cross-language event grouping (v2). 472 unit tests + 123 eval cases green.
+- **Newspaper site polished:** themeable (paper/density/masthead/font via ?params or NEWS_* env),
+  **topic sections** (World/Belgique/Tech&Business/Sport from story.topic), **story snippets** +
+  clickable **/story/[id] deep pages** (synthesis + "where sources disagree"), **Ask-Jarvis** links
+  (open the console via `?ask=` deep-link, which auto-sends). **/admin dashboard**: pipeline stats
+  (articles/pending/stories/multi-source/published, by-lang, last-ingest) + a DB-down banner.
+- **Box ops (this session):** disk hit 100% (Postgres → recovery → empty edition). Root cause: the
+  Ubuntu LVM default left ~130GB unallocated — operator ran `lvextend -l +100%FREE` + `resize2fs`
+  → **disk now 226G, ~143G free**. Also retired the unused world-news Rust services (api-gateway/
+  ai-service/scraper) — world-news = postgres + frontend only, both `restart: unless-stopped`.
+  Periodic `docker builder prune` advised if rebuild cache grows. publish() guards empty-wipe +
+  reconciles the read-model. 472 unit tests + 123 eval cases green.
+- **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
 - **M1–M3 DONE, deployed, verified with REAL news on box.** `jarvis/news/`: models (canonical_hash
