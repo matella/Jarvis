@@ -146,6 +146,31 @@ def search_stories(conn: psycopg.Connection, query_vec: list[float], *, limit: i
     return [_row_to_story(r) for r in rows]
 
 
+def nearest_story(conn: psycopg.Connection, query_vec: list[float], *, lang: str,
+                  window_h: int = 48, max_distance: float = 0.18) -> str | None:
+    """The closest same-language story within the time window, if within `max_distance` (cosine).
+
+    `max_distance` = 1 − sim_threshold (pgvector `<=>` is cosine distance). None → new story.
+    """
+    if not query_vec:
+        return None
+    row = conn.execute(
+        "SELECT id, embedding <=> %s AS d FROM news_stories "
+        "WHERE lang = %s AND embedding IS NOT NULL "
+        "AND created_at >= now() - make_interval(hours => %s) "
+        "ORDER BY embedding <=> %s LIMIT 1",
+        (_vec(query_vec), lang, window_h, _vec(query_vec)),
+    ).fetchone()
+    if row and float(row["d"]) <= max_distance:
+        return row["id"]
+    return None
+
+
+def attach_story_embedding(conn: psycopg.Connection, story_id: str, embedding: list[float]) -> None:
+    conn.execute("UPDATE news_stories SET embedding = %s WHERE id = %s",
+                 (_vec(embedding), story_id))
+
+
 def set_synthesis(conn: psycopg.Connection, story_id: str, *, title: str, body: str,
                   claims: list[dict], disagreements: list[dict]) -> None:
     conn.execute(
