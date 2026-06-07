@@ -58,5 +58,8 @@ def publish_stories(limit: int = 80) -> int:
             sc.execute(_UPSERT, (s.id, s.lang, s.title, s.synthesized_body,
                                  Json(s.claims_json), Json(s.disagreements_json),
                                  s.source_count, s.origin_count))
+        # Reconcile: the read-model is exactly the current set — drop anything no longer published
+        # (e.g. stories from a prior rebuild) so the site never shows stale editions.
+        sc.execute("DELETE FROM published_stories WHERE id <> ALL(%s)", ([s.id for s in stories],))
         sc.commit()
     return len(stories)
