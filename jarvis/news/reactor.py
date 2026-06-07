@@ -51,6 +51,7 @@ def _tier_a(title: str, body: str, lang: str) -> tuple[str, str, str]:
     resp = sched_chat(
         "reasoning", [{"role": "user", "content": prompt}],
         priority=Priority.BACKGROUND, format=_TIER_A_SCHEMA,
+        backend="local",  # tier-A is the cheap, high-VOLUME pass → fast local model, never Claude
     )
     try:
         d = json.loads(str(resp["message"]["content"]))
