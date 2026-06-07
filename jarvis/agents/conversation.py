@@ -514,7 +514,7 @@ _PRESENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (key, re.compile(pat, re.I)) for key, pat in (
         ("hots", r"\b(hots|heroes of the storm|patch notes|overlay)\b"),
         ("orpheus", r"\borpheus\b"),
-        ("world_news", r"\bworld news\b"),
+        ("news", r"\b(world news|the news|headlines)\b"),
         ("tasks", r"\btask"),
         ("notes", r"\bnote"),
         ("mail", r"\b(mail|inbox|email)"),
@@ -560,7 +560,7 @@ def fastpath_route(utterance: str) -> str:
     # Named homelab apps (HotS, Orpheus) are specific enough to present on mention alone — no
     # show-verb needed ("what's the latest hots patch?"). Other targets still require a show-verb.
     app = _present_target(utterance)
-    if app in ("hots", "orpheus", "world_news"):
+    if app in ("hots", "orpheus", "news"):
         return f"present:{app}"
     # A pure arithmetic ask → exact deterministic compute (no inference). Strict detector, so word
     # problems and code questions still fall through to the model.
@@ -598,18 +598,31 @@ def _present_hots(utterance: str) -> TurnResult:
                       artifacts=[auto_artifact("HotS Patches", hots.latest_patches(10))])
 
 
-def _present_world_news() -> TurnResult:
-    """Report the World News service status. The app is a skeleton (no articles yet), so this
-    surfaces reachability + the gateway's stub greeting — a placeholder for real news later."""
-    from jarvis.connectors import world_news
+def _present_news(conn: psycopg.Connection, utterance: str) -> TurnResult:
+    """Present pooled news from the Jarvis news module: top stories, or a semantic search for
+    'news about X'. Accurate 'not enabled / nothing pooled yet' messaging."""
+    if not get_settings().news_enabled:
+        return _not_connected("World news", capabilities.remedy("world news"))
+    from jarvis.news import repository as r
+    from jarvis.news.embedding import embed_news
 
-    if not world_news.reachable():
-        return _not_connected("World News", capabilities.remedy("world news"))
-    return TurnResult(
-        route=TurnRoute.answer,
-        message=f"World News is up — but it's still a skeleton with no articles yet. "
-                f"The gateway says: \"{world_news.hello()}\".",
-    )
+    m = re.search(r"\bnews\s+(?:about|on)\s+(.+?)[?.!]*$", utterance, re.I)
+    if m:
+        topic = m.group(1).strip()
+        stories = r.search_stories(conn, embed_news(topic), limit=8)
+        title = f"News · {topic}"
+    else:
+        stories = r.recent_stories(conn, limit=10)
+        title = "World news"
+    if not stories:
+        return TurnResult(
+            route=TurnRoute.answer,
+            message="No news pooled yet — the scraper hasn't run, or it's still warming up.",
+        )
+    data = [{"story": s.title or "(developing)", "lang": s.lang, "sources": s.origin_count,
+             "summary": (s.synthesized_body or "")[:200]} for s in stories]
+    return TurnResult(route=TurnRoute.answer, message="Here's the news:",
+                      artifacts=[auto_artifact(title, data)])
 
 
 def _present_orpheus(utterance: str) -> TurnResult:
@@ -649,8 +662,8 @@ def _present_data(
         return _present_hots(utterance)
     if target == "orpheus":
         return _present_orpheus(utterance)
-    if target == "world_news":
-        return _present_world_news()
+    if target == "news":
+        return _present_news(conn, utterance)
     title: str | None = None
     data: Any = None
     if target == "tasks":

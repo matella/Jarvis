@@ -33,7 +33,7 @@ def status() -> list[Capability]:
     hots_on = bool(s.hots_api_url)
     hots_overlay_on = bool(s.hots_overlay_url)
     orpheus_on = bool(s.orpheus_api_url)
-    world_news_on = bool(s.world_news_url)
+    world_news_on = bool(s.news_enabled)
     return [
         Capability("weather", True, "show the live weather and 5-day forecast for any city", ""),
         Capability("tasks", True, "create, list and complete the operator's tasks", ""),
@@ -65,8 +65,8 @@ def status() -> list[Capability]:
                    "show what the Orpheus music system is playing and its session",
                    "deploy the Orpheus app on the box and set ORPHEUS_API_URL"),
         Capability("world news", world_news_on,
-                   "report the World News service status (a skeleton — no articles yet)",
-                   "deploy world-news-full on the box and set WORLD_NEWS_URL"),
+                   "show pooled, AI-summarized world news and search it by topic",
+                   "migrate the news schema on the box and set NEWS_ENABLED=true"),
     ]
 
 

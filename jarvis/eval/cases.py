@@ -166,7 +166,8 @@ CASES: list[EvalCase] = [
     _c("how do I create a git patch?", "llm", "hots", "coding"),
     _c("show my recent hots matches", "present:hots", "hots"),
     _c("what's on the hots overlay?", "present:hots", "hots"),
-    _c("what's the world news status?", "present:world_news", "world_news"),
+    _c("what's the world news?", "present:news", "news"),
+    _c("show me the news about Brexit", "present:news", "news"),
     _c("what's orpheus playing?", "present:orpheus", "orpheus"),
     _c("show me the orpheus session", "present:orpheus", "orpheus"),
 

@@ -10,7 +10,7 @@ from jarvis import capabilities
 def _cfg(**over):
     base = dict(searxng_url="", imap_host="", mail_accounts=[], calendar_ics_urls=[],
                 code_repo_allowlist=[], code_exec_enabled=False, hots_api_url="",
-                hots_overlay_url="", orpheus_api_url="", world_news_url="")
+                hots_overlay_url="", orpheus_api_url="", world_news_url="", news_enabled=False)
     base.update(over)
     return type("S", (), base)()
 
