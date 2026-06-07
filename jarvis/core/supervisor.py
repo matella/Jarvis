@@ -73,6 +73,13 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
     ]
+    # News module: hourly scrape + a frequent backlog drainer (enrich at background pace).
+    if s.news_enabled:
+        from jarvis.news.worker import process_pending, scrape_once
+        workers_list.append(
+            ("news_scrape", lambda: _periodic(scrape_once, s.news_scrape_interval_s, stop)))
+        workers_list.append(
+            ("news_process", lambda: _periodic(process_pending, s.news_process_interval_s, stop)))
     # Connectors (8) run as periodic ingest workers only when enabled in config.
     if "feeds" in s.connectors_enabled:
         from jarvis.connectors.feeds import poll_once as feeds_poll

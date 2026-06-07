@@ -152,8 +152,10 @@ class Settings(BaseSettings):
 
     # News module (Jarvis-native): scrape → pool → tier-A/B. OFF until the schema is migrated.
     news_enabled: bool = False
-    news_top_n: int = 10              # daily tier-B synthesis budget
-    news_sim_threshold: float = 0.82  # story clustering cosine threshold
+    news_top_n: int = 10                  # daily tier-B synthesis budget
+    news_sim_threshold: float = 0.82      # story clustering cosine threshold
+    news_scrape_interval_s: int = 3600    # hourly RSS fetch
+    news_process_interval_s: int = 60     # drain the enrichment backlog this often
 
     # Multi-backend router — off-GPU Claude (`claude -p`, owner subscription) behind scheduler.chat.
     # Defaults to local (Ollama) so Jarvis never goes dark. Auth = CLAUDE_CODE_OAUTH_TOKEN secret.

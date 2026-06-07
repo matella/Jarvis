@@ -54,11 +54,29 @@ def upsert_article(conn: psycopg.Connection, art: NewsArticle) -> NewsArticle:
     return _row_to_article(row)
 
 
+def pending_article_ids(conn: psycopg.Connection, *, limit: int = 20) -> list[str]:
+    """Articles stored but not yet enriched (embedding IS NULL) — the processing backlog, oldest
+    first. Bounded so the worker drains at GPU/CPU pace (backpressure) without blocking ingest."""
+    rows = conn.execute(
+        "SELECT id FROM news_articles WHERE embedding IS NULL "
+        "ORDER BY recorded_at LIMIT %s", (limit,),
+    ).fetchall()
+    return [r["id"] for r in rows]
+
+
 def get_article(conn: psycopg.Connection, article_id: str) -> NewsArticle | None:
     row = conn.execute(
         f"SELECT {_ART_COLS} FROM news_articles WHERE id = %s", (article_id,)
     ).fetchone()
     return _row_to_article(row) if row else None
+
+
+def get_by_hash_id(conn: psycopg.Connection, canonical_hash: str) -> str | None:
+    """The id of an already-stored article with this hash, or None — the dedup check for ingest."""
+    row = conn.execute(
+        "SELECT id FROM news_articles WHERE canonical_hash = %s", (canonical_hash,)
+    ).fetchone()
+    return row["id"] if row else None
 
 
 def enrich_article(conn: psycopg.Connection, article_id: str, *, embedding: list[float],
