@@ -81,6 +81,12 @@
   clickable **/story/[id] deep pages** (synthesis + "where sources disagree"), **Ask-Jarvis** links
   (open the console via `?ask=` deep-link, which auto-sends). **/admin dashboard**: pipeline stats
   (articles/pending/stories/multi-source/published, by-lang, last-ingest) + a DB-down banner.
+- **Synthesis made continuous + visible:** a `news_synthesize` worker writes the full tier-B
+  synthesis for multi-source stories as they form (bounded 3/cycle, self-limiting; single-source
+  stay on their tier-A summary) — no longer only at the 07:30 edition. Published `body` falls back
+  to the tier-A summary so every story has content (no empty "still developing"). Admin shows
+  synthesis done/awaiting + process & synthesis ETAs + a per-story status chip (Full / Synthesising
+  / Summary). Belga dropped — no public RSS (its dispatches arrive via RTBF/Le Soir/La Libre).
 - **Box ops (this session):** disk hit 100% (Postgres → recovery → empty edition). Root cause: the
   Ubuntu LVM default left ~130GB unallocated — operator ran `lvextend -l +100%FREE` + `resize2fs`
   → **disk now 226G, ~143G free**. Also retired the unused world-news Rust services (api-gateway/
