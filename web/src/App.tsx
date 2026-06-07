@@ -2,7 +2,7 @@
 // toggle swaps the view without dropping the WebSocket or transcript. Voice (P10) drives the orb's
 // audio-reactivity. Cmd-K palette + decision-inspector modal are global. Atmosphere layers here.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CommandPalette, useCommandPalette, type Command } from "./components/CommandPalette";
 import { ConnectionSettings } from "./components/ConnectionSettings";
@@ -30,6 +30,19 @@ export default function App() {
   sendAudioRef.current = sendAudio;
   // Thinking = we're waiting for a reply, or the spine reports a processing presence.
   const thinking = awaiting || presence === "thinking" || presence === "listening";
+
+  // Deep-link: another app (e.g. the World News site) can open the console with ?ask=<question>;
+  // once the socket is open we send it once, then strip the param so a refresh won't re-ask.
+  const askedRef = useRef(false);
+  useEffect(() => {
+    if (askedRef.current || conn !== "open") return;
+    const ask = new URLSearchParams(window.location.search).get("ask");
+    if (ask) {
+      askedRef.current = true;
+      send(ask);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [conn, send]);
 
   const [surface, setSurface] = useState<Surface>("presence");
   const [insightTab, setInsightTab] = useState<InsightTab>("topology");
