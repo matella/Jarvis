@@ -80,6 +80,11 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
             ("news_scrape", lambda: _periodic(scrape_once, s.news_scrape_interval_s, stop)))
         workers_list.append(
             ("news_process", lambda: _periodic(process_pending, s.news_process_interval_s, stop)))
+        if s.world_news_db_url:  # publish the read-model into the standalone site's own DB
+            from jarvis.news.publish import publish_stories
+            workers_list.append(
+                ("news_publish",
+                 lambda: _periodic(publish_stories, s.news_publish_interval_s, stop)))
     # Connectors (8) run as periodic ingest workers only when enabled in config.
     if "feeds" in s.connectors_enabled:
         from jarvis.connectors.feeds import poll_once as feeds_poll

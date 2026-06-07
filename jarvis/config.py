@@ -156,6 +156,10 @@ class Settings(BaseSettings):
     news_sim_threshold: float = 0.82      # story clustering cosine threshold
     news_scrape_interval_s: int = 3600    # hourly RSS fetch
     news_process_interval_s: int = 60     # drain the enrichment backlog this often
+    # Publish the finished stories into the standalone world-news DB (so the site is independent of
+    # Jarvis). Empty → publishing off. e.g. postgresql://worldnews:worldnews@host.docker.internal:5433/worldnews
+    world_news_db_url: str = ""
+    news_publish_interval_s: int = 300    # republish the read-model this often
 
     # Multi-backend router — off-GPU Claude (`claude -p`, owner subscription) behind scheduler.chat.
     # Defaults to local (Ollama) so Jarvis never goes dark. Auth = CLAUDE_CODE_OAUTH_TOKEN secret.
