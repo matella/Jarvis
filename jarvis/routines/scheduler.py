@@ -67,11 +67,42 @@ def run_action(conn: psycopg.Connection, routine: Routine) -> str:
         return _briefing_text(conn, action.hours)
     if action.kind is ActionKind.day_brief:
         return _day_brief_text(conn, action.hours)
+    if action.kind is ActionKind.news_brief:
+        return _news_brief_text(conn)
     if action.kind is ActionKind.search:
         from jarvis.search.rag import answer_with_search
 
         return answer_with_search(action.query)[0]
     return "(no action)"
+
+
+def _news_brief_text(conn: psycopg.Connection) -> str:
+    """Synthesize (tier B) the day's top-N stories by independent-source coverage and format the
+    briefing the notifier pushes. Each synthesis is grounded + cited; best-effort per story."""
+    from datetime import timedelta
+
+    from jarvis.config import get_settings
+    from jarvis.events.models import utcnow
+    from jarvis.news import repository as repo
+    from jarvis.news import synthesis
+
+    if not get_settings().news_enabled:
+        return "(news module is off)"
+    top = repo.top_stories_since(conn, utcnow() - timedelta(hours=24),
+                                 limit=get_settings().news_top_n)
+    if not top:
+        return "No news pooled in the last 24h yet."
+    lines = ["📰 Daily news briefing:"]
+    for story in top:
+        try:
+            synthesis.synthesize_story(conn, story)
+        except Exception:  # noqa: BLE001 — one failed synthesis must not sink the briefing
+            pass
+        fresh = repo.get_story(conn, story.id) or story
+        body = (fresh.synthesized_body or "").strip()[:240]
+        lines.append(f"\n• {fresh.title} ({fresh.origin_count} sources)"
+                     + (f"\n  {body}" if body else ""))
+    return "\n".join(lines)
 
 
 def _day_brief_text(conn: psycopg.Connection, hours: int) -> str:
