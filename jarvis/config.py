@@ -157,7 +157,6 @@ class Settings(BaseSettings):
     news_scrape_interval_s: int = 3600    # hourly RSS fetch
     news_process_interval_s: int = 60     # drain the enrichment backlog this often
     news_synthesize_interval_s: int = 120  # tier-B synthesis of multi-source stories
-    gpu_telemetry_interval_s: int = 30     # sample Ollama's resident set → model load/evict events
     # Publish the finished stories into the standalone world-news DB (so the site is independent of
     # Jarvis). Empty → publishing off. e.g. postgresql://worldnews:worldnews@host.docker.internal:5433/worldnews
     world_news_db_url: str = ""

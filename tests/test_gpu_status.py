@@ -83,26 +83,3 @@ def test_present_gpu_free_when_empty(monkeypatch) -> None:
     monkeypatch.setattr("jarvis.models.gpu.free", lambda: [])
     out = convo._present_gpu("unload the model")
     assert "Nothing to free" in out.message
-
-
-def test_gpu_telemetry_emits_load_and_evict(monkeypatch) -> None:
-    from jarvis.ingest import gpu as gpu_tel
-
-    events: list = []
-    monkeypatch.setattr(gpu_tel, "emit_event", lambda e: events.append(e))
-    gpu_tel._last = None
-    monkeypatch.setattr(gpu_tel.gpu, "resident_models", lambda: [{"model": "qwen3:4b"}])
-    assert gpu_tel.sample_models() == 0 and not events       # first tick seeds, no event
-    monkeypatch.setattr(gpu_tel.gpu, "resident_models", lambda: [{"model": "coder"}])
-    assert gpu_tel.sample_models() == 2                       # qwen evicted + coder loaded
-    types = sorted(e.type for e in events)
-    assert types == ["model.evicted", "model.loaded"]
-
-
-def test_gpu_telemetry_silent_when_unchanged(monkeypatch) -> None:
-    from jarvis.ingest import gpu as gpu_tel
-
-    gpu_tel._last = {"qwen3:4b"}
-    monkeypatch.setattr(gpu_tel, "emit_event", lambda e: (_ for _ in ()).throw(AssertionError()))
-    monkeypatch.setattr(gpu_tel.gpu, "resident_models", lambda: [{"model": "qwen3:4b"}])
-    assert gpu_tel.sample_models() == 0                       # unchanged → no events
