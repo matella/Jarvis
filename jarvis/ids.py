@@ -39,6 +39,8 @@ MODELPREF = "mpref"
 MAIL = "mail"
 CALEVENT = "cal"
 CODESESSION = "code"
+NEWSARTICLE = "nart"
+NEWSSTORY = "nsty"
 
 
 def new_id(prefix: str) -> str:
