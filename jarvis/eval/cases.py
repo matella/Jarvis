@@ -158,6 +158,13 @@ CASES: list[EvalCase] = [
     # numbers in a real question must NOT be grabbed as a calculation:
     _c("what's the time complexity of an O(n^2) sort?", "llm", "math", "coding"),
 
+    # ── Homelab apps (HotS) — present on app-name mention, even without a show-verb ──
+    _c("what's the latest hots patch?", "present:hots", "hots"),
+    _c("show me the heroes of the storm patch notes", "present:hots", "hots"),
+    _c("hots heroes", "present:hots", "hots"),
+    # a coding question that merely contains "patch" must NOT route to the hots app:
+    _c("how do I create a git patch?", "llm", "hots", "coding"),
+
     # ── Identity / meta → LLM answer ──
     _c("who are you?", "llm", "meta"),
     _c("what can you do?", "llm", "meta"),

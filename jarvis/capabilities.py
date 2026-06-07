@@ -30,6 +30,8 @@ def status() -> list[Capability]:
     cal_on = bool(sec.get("GOOGLE_OAUTH_REFRESH_TOKEN")) or bool(s.calendar_ics_urls)
     code_on = bool(s.code_repo_allowlist)
     code_exec_on = bool(s.code_exec_enabled)
+    hots_on = bool(s.hots_api_url)
+    orpheus_on = bool(s.orpheus_api_url)
     return [
         Capability("weather", True, "show the live weather and 5-day forecast for any city", ""),
         Capability("tasks", True, "create, list and complete the operator's tasks", ""),
@@ -51,6 +53,12 @@ def status() -> list[Capability]:
         Capability("code execution", code_exec_on,
                    "run generated code in a throwaway sandbox to verify it actually works",
                    "set CODE_EXEC_ENABLED=true (Docker required on the box)"),
+        Capability("heroes of the storm", hots_on,
+                   "show Heroes of the Storm patch notes and the hero roster",
+                   "deploy the HotS app on the box and set HOTS_API_URL"),
+        Capability("orpheus", orpheus_on,
+                   "show what the Orpheus music system is playing and its session",
+                   "deploy the Orpheus app on the box and set ORPHEUS_API_URL"),
     ]
 
 

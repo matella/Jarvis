@@ -512,6 +512,7 @@ def _present_mail(
 # + dispatch label), so the two can never drift apart (the class of bug behind the mail regression).
 _PRESENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (key, re.compile(pat, re.I)) for key, pat in (
+        ("hots", r"\b(hots|heroes of the storm|patch notes)\b"),
         ("tasks", r"\btask"),
         ("notes", r"\bnote"),
         ("mail", r"\b(mail|inbox|email)"),
@@ -554,12 +555,31 @@ def fastpath_route(utterance: str) -> str:
             return f"present:{target}"
     if _looks_like_mail(utterance):
         return "present:mail"
+    # Named homelab apps (HotS, Orpheus) are specific enough to present on mention alone — no
+    # show-verb needed ("what's the latest hots patch?"). Other targets still require a show-verb.
+    app = _present_target(utterance)
+    if app in ("hots", "orpheus"):
+        return f"present:{app}"
     # A pure arithmetic ask → exact deterministic compute (no inference). Strict detector, so word
     # problems and code questions still fall through to the model.
     from jarvis.agents.calc import looks_like_math
     if looks_like_math(utterance):
         return "math"
     return "llm"
+
+
+def _present_hots(utterance: str) -> TurnResult:
+    """Present Heroes of the Storm data from the self-hosted HotS app: latest patches (default) or
+    the hero roster. Accurate 'not reachable' when the app is down — never a confabulated denial."""
+    from jarvis.connectors import hots
+
+    if not hots.reachable():
+        return _not_connected("Heroes of the Storm", capabilities.remedy("heroes of the storm"))
+    if re.search(r"\bhero", utterance, re.I):
+        return TurnResult(route=TurnRoute.answer, message="Here's the HotS hero roster:",
+                          artifacts=[auto_artifact("HotS Heroes", hots.heroes())])
+    return TurnResult(route=TurnRoute.answer, message="Here are the latest HotS patches:",
+                      artifacts=[auto_artifact("HotS Patches", hots.latest_patches(10))])
 
 
 def _present_data(
@@ -571,6 +591,8 @@ def _present_data(
     target = _present_target(utterance)
     if target == "mail":
         return _present_mail(conn, session, utterance, store=store)
+    if target == "hots":
+        return _present_hots(utterance)
     title: str | None = None
     data: Any = None
     if target == "tasks":
