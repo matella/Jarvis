@@ -26,22 +26,24 @@ CREATE TABLE IF NOT EXISTS published_stories (
     disagreements_json jsonb NOT NULL DEFAULT '[]'::jsonb,
     source_count       integer NOT NULL DEFAULT 0,
     origin_count       integer NOT NULL DEFAULT 0,
+    synthesized        boolean NOT NULL DEFAULT false,
     updated_at         timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS topic text NOT NULL DEFAULT '';
+ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS synthesized boolean NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS published_stories_recent_idx ON published_stories (updated_at DESC);
 """
 
 _UPSERT = """
 INSERT INTO published_stories
     (id, lang, title, body, topic, claims_json, disagreements_json,
-     source_count, origin_count, updated_at)
-VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
+     source_count, origin_count, synthesized, updated_at)
+VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
 ON CONFLICT (id) DO UPDATE SET
     title=EXCLUDED.title, body=EXCLUDED.body, topic=EXCLUDED.topic,
-    claims_json=EXCLUDED.claims_json,
-    disagreements_json=EXCLUDED.disagreements_json, source_count=EXCLUDED.source_count,
-    origin_count=EXCLUDED.origin_count, updated_at=now();
+    claims_json=EXCLUDED.claims_json, disagreements_json=EXCLUDED.disagreements_json,
+    source_count=EXCLUDED.source_count, origin_count=EXCLUDED.origin_count,
+    synthesized=EXCLUDED.synthesized, updated_at=now();
 """
 
 
@@ -59,17 +61,31 @@ _STATUS_UPSERT = (
 
 
 def _status_snapshot(jc: psycopg.Connection) -> dict:
-    """Pipeline health for the admin dashboard — computed against Jarvis's own news tables."""
+    """Pipeline health for the admin dashboard — computed against Jarvis's own news tables, incl.
+    processing/synthesis ETAs so the operator has full knowledge of what's running."""
     one = lambda sql: jc.execute(sql).fetchone()["n"]  # noqa: E731
     by_lang = {r["lang"]: r["n"]
                for r in jc.execute("SELECT lang, count(*) n FROM news_articles "
                                     "GROUP BY lang ORDER BY n DESC").fetchall()}
     last = jc.execute("SELECT max(recorded_at) m FROM news_articles").fetchone()["m"]
+    pending = one("SELECT count(*) n FROM news_articles WHERE embedding IS NULL")
+    syn = repo.synthesis_counts(jc)
+    s = get_settings()
+    # ETAs from worker cadences: process = 20/interval; synthesis = ~3/interval.
+    proc_cycles = pending / 20
+    synth_cycles = syn["awaiting_synthesis"] / 3
+    process_eta_min = round(proc_cycles * s.news_process_interval_s / 60, 1) if pending else 0
+    synth_eta_min = (round(synth_cycles * s.news_synthesize_interval_s / 60, 1)
+                     if syn["awaiting_synthesis"] else 0)
     return {
         "articles": one("SELECT count(*) n FROM news_articles"),
-        "pending": one("SELECT count(*) n FROM news_articles WHERE embedding IS NULL"),
+        "pending": pending,
         "stories": one("SELECT count(*) n FROM news_stories"),
         "multi_source": one("SELECT count(*) n FROM news_stories WHERE source_count > 1"),
+        "synthesized": syn["synthesized"],
+        "awaiting_synthesis": syn["awaiting_synthesis"],
+        "process_eta_min": process_eta_min,
+        "synth_eta_min": synth_eta_min,
         "by_lang": by_lang,
         "last_ingest": last.isoformat() if last else None,
     }
@@ -84,15 +100,18 @@ def publish_stories(limit: int = 80) -> int:
         repo.prune_empty_stories(jc)  # drop orphan stories before publishing the read-model
         jc.commit()
         stories = repo.recent_stories(jc, limit=limit)
-        topics = repo.story_topics(jc, [s.id for s in stories])  # derive section from articles
+        ids = [s.id for s in stories]
+        topics = repo.story_topics(jc, ids)        # section
+        summaries = repo.story_summaries(jc, ids)  # tier-A fallback body
         stats = _status_snapshot(jc)
     with psycopg.connect(url) as sc:
         sc.execute(_DDL)
         sc.execute(_STATUS_DDL)
         for s in stories:
-            sc.execute(_UPSERT, (s.id, s.lang, s.title, s.synthesized_body, topics.get(s.id, ""),
+            body = s.synthesized_body or summaries.get(s.id, "")  # full synthesis, else tier-A
+            sc.execute(_UPSERT, (s.id, s.lang, s.title, body, topics.get(s.id, ""),
                                  Json(s.claims_json), Json(s.disagreements_json),
-                                 s.source_count, s.origin_count))
+                                 s.source_count, s.origin_count, bool(s.synthesized_body)))
         # Reconcile: the read-model is exactly the current set — drop anything no longer published.
         # Guard on a non-empty set (an empty array would match ALL rows and wipe the table).
         if stories:

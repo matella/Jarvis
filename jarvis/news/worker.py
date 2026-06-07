@@ -30,6 +30,29 @@ def process_pending() -> int:
     return done
 
 
+def synthesize_pending(limit: int = 3) -> int:
+    """Full tier-B synthesis for a few multi-source stories that don't have one yet (bounded so
+    it never floods the LLM). Runs continuously so cross-outlet stories get the full write-up
+    without waiting for the daily edition. Returns the count synthesised."""
+    if not get_settings().news_enabled:
+        return 0
+    from jarvis.news import repository as r
+    from jarvis.news import synthesis
+
+    done = 0
+    with db.connect() as conn:
+        for story in r.stories_awaiting_synthesis(conn, limit=limit):
+            try:
+                if synthesis.synthesize_story(conn, story):
+                    conn.commit()
+                    done += 1
+                else:
+                    conn.rollback()
+            except Exception:  # noqa: BLE001 — one bad synthesis must not stall the queue
+                conn.rollback()
+    return done
+
+
 def scrape_once() -> int:
     """Fetch the configured sources and ingest new items. Returns the count newly ingested."""
     if not get_settings().news_enabled:

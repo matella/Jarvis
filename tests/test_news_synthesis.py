@@ -32,3 +32,32 @@ def test_synthesize_skips_when_model_empty(monkeypatch) -> None:
                         lambda conn, sid: [NewsArticle(source="X", title="T", body="B")])
     assert synthesis.synthesize_story(None, NewsStory(id="nsty_3"),
                                       generate=lambda lang, a: {}) is False
+
+
+def test_synthesize_pending_processes_awaiting(monkeypatch) -> None:
+    # The continuous worker pulls the awaiting-synthesis queue and commits each success.
+    from jarvis.news import worker
+
+    monkeypatch.setattr(worker, "get_settings", lambda: type("S", (), {"news_enabled": True})())
+
+    class _Conn:
+        def __init__(self):
+            self.commits = 0
+            self.rollbacks = 0
+
+        def commit(self):
+            self.commits += 1
+
+        def rollback(self):
+            self.rollbacks += 1
+
+    conn = _Conn()
+    monkeypatch.setattr(worker.db, "connect",
+                        lambda: type("Ctx", (), {"__enter__": lambda s: conn,
+                                                 "__exit__": lambda s, *a: False})())
+    monkeypatch.setattr("jarvis.news.repository.stories_awaiting_synthesis",
+                        lambda conn, *, limit=3: [NewsStory(id="nsty_1"), NewsStory(id="nsty_2")])
+    monkeypatch.setattr("jarvis.news.synthesis.synthesize_story",
+                        lambda conn, story: True)
+    assert worker.synthesize_pending() == 2
+    assert conn.commits == 2

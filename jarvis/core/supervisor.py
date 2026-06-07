@@ -80,6 +80,10 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
             ("news_scrape", lambda: _periodic(scrape_once, s.news_scrape_interval_s, stop)))
         workers_list.append(
             ("news_process", lambda: _periodic(process_pending, s.news_process_interval_s, stop)))
+        from jarvis.news.worker import synthesize_pending
+        workers_list.append(
+            ("news_synthesize",
+             lambda: _periodic(synthesize_pending, s.news_synthesize_interval_s, stop)))
         if s.world_news_db_url:  # publish the read-model into the standalone site's own DB
             from jarvis.news.publish import publish_stories
             workers_list.append(

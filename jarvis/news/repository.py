@@ -140,6 +140,40 @@ def story_topics(conn: psycopg.Connection, story_ids: list[str]) -> dict[str, st
     return {r["story_id"]: r["topic"] for r in rows}
 
 
+def story_summaries(conn: psycopg.Connection, story_ids: list[str]) -> dict[str, str]:
+    """The representative tier-A summary per story → {story_id: summary}. The fallback body shown
+    before (or instead of) a full tier-B synthesis, so every story always has content."""
+    if not story_ids:
+        return {}
+    rows = conn.execute(
+        "SELECT DISTINCT ON (story_id) story_id, summary FROM news_articles "
+        "WHERE story_id = ANY(%s) AND summary <> '' ORDER BY story_id, recorded_at",
+        (story_ids,),
+    ).fetchall()
+    return {r["story_id"]: r["summary"] for r in rows}
+
+
+def stories_awaiting_synthesis(conn: psycopg.Connection, *, limit: int = 3) -> list[NewsStory]:
+    """Multi-source stories that don't yet have a full synthesis — the tier-B work queue,
+    newest first. (Single-source stories stay on their tier-A summary; synthesis adds no value.)"""
+    rows = conn.execute(
+        f"SELECT {_STORY_COLS} FROM news_stories WHERE source_count > 1 "
+        "AND synthesized_body = '' ORDER BY origin_count DESC, updated_at DESC LIMIT %s",
+        (limit,),
+    ).fetchall()
+    return [_row_to_story(r) for r in rows]
+
+
+def synthesis_counts(conn: psycopg.Connection) -> dict[str, int]:
+    """How many stories are fully synthesised vs awaiting it (multi-source, no body)."""
+    done = conn.execute(
+        "SELECT count(*) n FROM news_stories WHERE synthesized_body <> ''").fetchone()["n"]
+    awaiting = conn.execute(
+        "SELECT count(*) n FROM news_stories WHERE source_count > 1 "
+        "AND synthesized_body = ''").fetchone()["n"]
+    return {"synthesized": done, "awaiting_synthesis": awaiting}
+
+
 def prune_empty_stories(conn: psycopg.Connection) -> int:
     """Delete stories with no articles attached — orphans (e.g. from a race) and retention debris.
     Returns rows removed. Safe hygiene; the real stories always have at least their seed article."""
