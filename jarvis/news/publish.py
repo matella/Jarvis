@@ -47,6 +47,8 @@ def publish_stories(limit: int = 80) -> int:
     if not url:
         return 0
     with jarvis_connect() as jc:
+        repo.prune_empty_stories(jc)  # drop orphan stories before publishing the read-model
+        jc.commit()
         stories = repo.recent_stories(jc, limit=limit)
     if not stories:
         return 0

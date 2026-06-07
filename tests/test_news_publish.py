@@ -37,7 +37,9 @@ def test_publish_noop_when_no_url(monkeypatch) -> None:
 def test_publish_upserts_recent(monkeypatch) -> None:
     monkeypatch.setattr(publish, "get_settings",
                         lambda: type("S", (), {"world_news_db_url": "postgresql://x"})())
-    monkeypatch.setattr(publish, "jarvis_connect", lambda: _Ctx(None))
+    monkeypatch.setattr(publish, "jarvis_connect",
+                        lambda: _Ctx(type("C", (), {"commit": lambda s: None})()))
+    monkeypatch.setattr(publish.repo, "prune_empty_stories", lambda conn: 0)
     monkeypatch.setattr(publish.repo, "recent_stories",
                         lambda conn, **k: [NewsStory(id="nsty_1", title="T", synthesized_body="B")])
     executed: list = []

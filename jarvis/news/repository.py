@@ -128,6 +128,15 @@ def get_story(conn: psycopg.Connection, story_id: str) -> NewsStory | None:
     return _row_to_story(row) if row else None
 
 
+def prune_empty_stories(conn: psycopg.Connection) -> int:
+    """Delete stories with no articles attached — orphans (e.g. from a race) and retention debris.
+    Returns rows removed. Safe hygiene; the real stories always have at least their seed article."""
+    return conn.execute(
+        "DELETE FROM news_stories WHERE id NOT IN "
+        "(SELECT story_id FROM news_articles WHERE story_id IS NOT NULL)"
+    ).rowcount
+
+
 def recent_stories(conn: psycopg.Connection, *, limit: int = 12, lang: str | None = None,
                    ) -> list[NewsStory]:
     if lang:
