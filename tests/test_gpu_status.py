@@ -60,3 +60,49 @@ def test_routing_gpu_questions() -> None:
     for q in ("is anything idle in vram?", "what's loaded on the gpu",
               "gpu status", "how much vram is in use"):
         assert convo.fastpath_route(q) == "present:gpu", q
+
+
+def test_free_unloads_resident_models(monkeypatch) -> None:
+    calls: list = []
+    monkeypatch.setattr(gpu, "resident_models",
+                        lambda: [{"model": "qwen3:4b"}, {"model": "embed"}])
+    monkeypatch.setattr(gpu.client, "unload", lambda m: calls.append(m))
+    assert gpu.free() == ["qwen3:4b", "embed"]
+    assert calls == ["qwen3:4b", "embed"]
+
+
+def test_present_gpu_free_command(monkeypatch) -> None:
+    monkeypatch.setattr("jarvis.models.gpu.reachable", lambda: True)
+    monkeypatch.setattr("jarvis.models.gpu.free", lambda: ["qwen3:4b"])
+    out = convo._present_gpu("free the gpu")
+    assert "unloaded qwen3:4b" in out.message and not out.artifacts
+
+
+def test_present_gpu_free_when_empty(monkeypatch) -> None:
+    monkeypatch.setattr("jarvis.models.gpu.reachable", lambda: True)
+    monkeypatch.setattr("jarvis.models.gpu.free", lambda: [])
+    out = convo._present_gpu("unload the model")
+    assert "Nothing to free" in out.message
+
+
+def test_gpu_telemetry_emits_load_and_evict(monkeypatch) -> None:
+    from jarvis.ingest import gpu as gpu_tel
+
+    events: list = []
+    monkeypatch.setattr(gpu_tel, "emit_event", lambda e: events.append(e))
+    gpu_tel._last = None
+    monkeypatch.setattr(gpu_tel.gpu, "resident_models", lambda: [{"model": "qwen3:4b"}])
+    assert gpu_tel.sample_models() == 0 and not events       # first tick seeds, no event
+    monkeypatch.setattr(gpu_tel.gpu, "resident_models", lambda: [{"model": "coder"}])
+    assert gpu_tel.sample_models() == 2                       # qwen evicted + coder loaded
+    types = sorted(e.type for e in events)
+    assert types == ["model.evicted", "model.loaded"]
+
+
+def test_gpu_telemetry_silent_when_unchanged(monkeypatch) -> None:
+    from jarvis.ingest import gpu as gpu_tel
+
+    gpu_tel._last = {"qwen3:4b"}
+    monkeypatch.setattr(gpu_tel, "emit_event", lambda e: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(gpu_tel.gpu, "resident_models", lambda: [{"model": "qwen3:4b"}])
+    assert gpu_tel.sample_models() == 0                       # unchanged → no events

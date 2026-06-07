@@ -65,6 +65,16 @@ def gpu_status() -> dict:
     }
 
 
+def free() -> list[str]:
+    """Evict every resident model now (Ollama keep_alive=0) and return the names freed. A
+    user-commanded, deterministic, reversible runtime op — the model reloads automatically on its
+    next request — so it manages the runtime without crossing the LLM→infrastructure boundary."""
+    freed = [m["model"] for m in resident_models()]
+    for name in freed:
+        client.unload(name)
+    return freed
+
+
 def reachable() -> bool:
     """True if the Ollama runtime answers — the presenter's live failure check."""
     try:

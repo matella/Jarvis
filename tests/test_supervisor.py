@@ -11,7 +11,7 @@ def test_workers_registry() -> None:
     assert names == [
         "ingest", "consume", "metrics", "predict", "notify", "reactor", "snapshot",
         "selfcheck", "routines", "verify", "anomaly", "degrade", "reminders", "topology",
-        "deploy", "backup",
+        "deploy", "backup", "gpu_telemetry",
     ]
     # all callables resolved (imports valid)
     assert all(callable(fn) for _n, fn in workers(threading.Event()))

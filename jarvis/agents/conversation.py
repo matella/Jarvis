@@ -659,6 +659,18 @@ def _present_gpu(utterance: str) -> TurnResult:
     if not gpu.reachable():
         return _not_connected("the GPU runtime (Ollama)",
                               "Ollama isn't answering — check it's running on the host.")
+    # Explicit "free/unload the GPU" command → evict resident models now (reversible: they reload on
+    # next use). "is the gpu free?" is a status question — hence the imperative-only match below.
+    if re.search(r"\b(unload|evict|release)\b|\bfree (up|the|my)\b", utterance, re.I):
+        freed = gpu.free()
+        if not freed:
+            return TurnResult(route=TurnRoute.answer,
+                              message="Nothing to free — no model is resident in VRAM right now.")
+        return TurnResult(
+            route=TurnRoute.answer,
+            message=f"Freed the GPU — unloaded {', '.join(freed)}. The VRAM releases in a moment; "
+                    "the model reloads automatically the next time it's needed.",
+        )
     st = gpu.gpu_status()
     models = st["resident"]
     if not models:

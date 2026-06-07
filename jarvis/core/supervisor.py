@@ -43,6 +43,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.ingest.anomaly import run_anomaly
     from jarvis.ingest.deploy import detect_deployments
     from jarvis.ingest.docker_events import run_ingester
+    from jarvis.ingest.gpu import sample_models as gpu_sample_models
     from jarvis.ingest.metrics import run_poller
     from jarvis.ingest.predict import run_predictor
     from jarvis.ingest.topology import build_topology
@@ -72,6 +73,8 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
+        ("gpu_telemetry",
+         lambda: _periodic(gpu_sample_models, s.gpu_telemetry_interval_s, stop)),
     ]
     # News module: hourly scrape + a frequent backlog drainer (enrich at background pace).
     if s.news_enabled:
