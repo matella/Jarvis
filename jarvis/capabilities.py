@@ -67,6 +67,9 @@ def status() -> list[Capability]:
         Capability("world news", world_news_on,
                    "show pooled, AI-summarized world news and search it by topic",
                    "migrate the news schema on the box and set NEWS_ENABLED=true"),
+        Capability("gpu", True,
+                   "report GPU/VRAM occupancy — which models are resident, their VRAM, and when "
+                   "Ollama will free them", ""),
     ]
 
 

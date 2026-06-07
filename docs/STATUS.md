@@ -93,7 +93,13 @@
   ai-service/scraper) — world-news = postgres + frontend only, both `restart: unless-stopped`.
   Periodic `docker builder prune` advised if rebuild cache grows. publish() guards empty-wipe +
   reconciles the read-model. 472 unit tests + 123 eval cases green.
-- **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
+- **GPU/VRAM self-observability (new):** `jarvis/models/gpu.py` reads Ollama `/api/ps` → resident
+  models, their VRAM, keep-alive countdown, CPU-offload detection. `_present_gpu` presenter + `gpu`/
+  `vram` routing + capability-registry entry, so Jarvis answers "is anything idle being held in
+  VRAM?" itself (no nvidia-smi — model occupancy IS the truth on this Ollama-dedicated box). Verified
+  live: "3.9 GB held by qwen3:4b on GPU, auto-unloads in 5m". 6 tests; 479 unit total.
+- **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune ·
+  periodic GPU telemetry events (swap-frequency observability, per Hard Rule #7).
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
 - **M1–M3 DONE, deployed, verified with REAL news on box.** `jarvis/news/`: models (canonical_hash
