@@ -47,6 +47,12 @@
   dormant (placeholder creds — add real `SPOTIFY_CLIENT_ID/SECRET` in `~/apps/orpheus/server/.env`).
   `jarvis/connectors/orpheus.py` → "what's orpheus playing" (says "running, Spotify not connected"
   until creds added). Spec: `docs/superpowers/specs/2026-06-05-external-apps-deploy-integrate-design.md`.
+- **HotS Overlay** (`~/apps/hots-overlay`): Node + MongoDB, overlay :8086, mongo-express :8087.
+  `jarvis/connectors/hots_overlay.py` → "show my recent hots matches" (empty until the gaming-PC
+  replay uploader runs + `TOON_HANDLE` set in `~/apps/hots-overlay/.env`). Healthcheck overridden to
+  :8086 (compose override). `_present_hots` disambiguates: matches/overlay → overlay, patch/hero → notes.
+- **world-news-full:** NOT deployed — it's a bare skeleton (GraphQL returns only "hello", scraper is
+  a stub, no articles). Nothing real for Jarvis to present; revisit when it has data.
 - Both auto-observed by the Jarvis daemon (Docker socket). Read-only present/query only (no control).
   Box egress allowlist gained `host.docker.internal`. Redeploy an app: edit `~/apps/<x>`,
   `docker compose up -d --build`.
