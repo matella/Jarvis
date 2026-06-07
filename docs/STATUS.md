@@ -60,6 +60,19 @@
   Box egress allowlist gained `host.docker.internal`. Redeploy an app: edit `~/apps/<x>`,
   `docker compose up -d --build`.
 
+## World News build — IN PROGRESS (plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
+- **M1 core DONE + deployed (schema live, present verified "empty" on box):** `jarvis/news/` —
+  `models.py` (canonical_hash dedup), `embedding.py` (bge-m3 CPU + cosine), `pooling.py`
+  (cluster + origin-collapse), `repository.py` (idempotent upsert, nearest_story, vector search,
+  top-by-coverage), `reactor.py` (embed→pool→tier-A, representative-only). Migration `0029_news`.
+  Present route `news` (replaces the old world_news stub; capability/config/eval updated).
+  `NEWS_ENABLED` config flag (OFF in prod until the pipeline is wired). ~6 test files, suite green.
+- **M1 remaining:** ingest webhook (`gateway/webhooks.py` + `news/ingest.py`, emit
+  `news.article_scraped`) + register `news.reactor.on_event` in the daemon reactor + pull `bge-m3`
+  on box. **M2:** scraper (feedparser/trafilatura deps, `news/sources.py` + `fetch.py` + hourly
+  routine). **M3:** tier-B synthesis + daily briefing routine + news eval fixture. **M4:** Next.js UI
+  (separate plan). Visual north star: mockups in `world-news-full/.superpowers/brainstorm/`.
+
 ## Prior milestone
 **EVERYTHING BUILT** 🎉 — numbered program (5.5a–11) + cross-cutting (A–D) + 6b UI polish +
 the entire backlog (#1–#11). Nothing left to code; only deploy-time external-service wiring remains.
