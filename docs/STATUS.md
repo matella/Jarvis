@@ -60,7 +60,26 @@
   Box egress allowlist gained `host.docker.internal`. Redeploy an app: edit `~/apps/<x>`,
   `docker compose up -d --build`.
 
-## World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
+## World News — COMPLETE & LIVE (engine + independent newspaper site)
+- **Full system live on box.** Engine (`jarvis/news/`): scrape (stdlib RSS, guarded) → ingest
+  (idempotent + `news.article_scraped`) → embed (**snowflake-arctic-embed2** 1024d CPU; bge-m3 was
+  dropped — emitted NaN) → pool/cluster (sim **0.70**, origin-collapse, per-article commit) →
+  tier-A summary+tags (**pinned local** qwen3:1.7b — was wrongly hitting Claude → 10× slowdown) →
+  tier-B synthesis (grounded/cited/disagreement-aware). Daemon workers: news_scrape (hourly),
+  news_process (60s), news_publish (5min). Daily `news_brief` routine seeded (07:30).
+- **Clustering works:** cross-outlet same-event stories merge (multi-source up to 3 articles).
+  Orphan-prune + reconciling publish keep both stores clean.
+- **Independent site** (`world-news-full`, Next.js :3012): reads its OWN Postgres (`published_stories`,
+  written by Jarvis's publisher), so it serves even if Jarvis is down. **Themeable newspaper** front
+  page: `?paper=cream|crisp|sepia|ink & ?density=airy|normal|dense & ?font=serif|blackletter|slab &
+  ?masthead=…` (or NEWS_* env defaults). Retired the Rust api-gateway/ai-service (no Rust).
+- **Config on box:** NEWS_ENABLED=true, WORLD_NEWS_DB_URL set, source domains in EGRESS_ALLOWLIST,
+  snowflake-arctic-embed2 pulled. Frontend reads `/graphql` no longer — it queries Postgres directly
+  (so NPM just needs the home-page proxy).
+- **Remaining (optional):** finer topic sections (add story.topic to the published model) · story
+  Deep/Debate pages · cross-language event grouping (v2). 472 unit tests + 123 eval cases green.
+
+## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
 - **M1–M3 DONE, deployed, verified with REAL news on box.** `jarvis/news/`: models (canonical_hash
   dedup) · embedding (bge-m3 1024d CPU + cosine) · pooling (cluster + origin-collapse) · repository
   (idempotent upsert, nearest_story SQL, vector search, top-by-coverage) · reactor (embed→pool→
