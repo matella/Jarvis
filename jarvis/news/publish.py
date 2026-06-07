@@ -45,8 +45,38 @@ ON CONFLICT (id) DO UPDATE SET
 """
 
 
+_STATUS_DDL = """
+CREATE TABLE IF NOT EXISTS news_status (
+    id integer PRIMARY KEY DEFAULT 1,
+    stats jsonb NOT NULL DEFAULT '{}'::jsonb,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+"""
+_STATUS_UPSERT = (
+    "INSERT INTO news_status (id, stats, updated_at) VALUES (1, %s, now()) "
+    "ON CONFLICT (id) DO UPDATE SET stats=EXCLUDED.stats, updated_at=now();"
+)
+
+
+def _status_snapshot(jc: psycopg.Connection) -> dict:
+    """Pipeline health for the admin dashboard — computed against Jarvis's own news tables."""
+    one = lambda sql: jc.execute(sql).fetchone()["n"]  # noqa: E731
+    by_lang = {r["lang"]: r["n"]
+               for r in jc.execute("SELECT lang, count(*) n FROM news_articles "
+                                    "GROUP BY lang ORDER BY n DESC").fetchall()}
+    last = jc.execute("SELECT max(recorded_at) m FROM news_articles").fetchone()["m"]
+    return {
+        "articles": one("SELECT count(*) n FROM news_articles"),
+        "pending": one("SELECT count(*) n FROM news_articles WHERE embedding IS NULL"),
+        "stories": one("SELECT count(*) n FROM news_stories"),
+        "multi_source": one("SELECT count(*) n FROM news_stories WHERE source_count > 1"),
+        "by_lang": by_lang,
+        "last_ingest": last.isoformat() if last else None,
+    }
+
+
 def publish_stories(limit: int = 80) -> int:
-    """Upsert the most recent stories into the world-news DB. Returns the count published."""
+    """Upsert recent stories + a status snapshot into the world-news DB. Returns count published."""
     url = get_settings().world_news_db_url
     if not url:
         return 0
@@ -55,16 +85,19 @@ def publish_stories(limit: int = 80) -> int:
         jc.commit()
         stories = repo.recent_stories(jc, limit=limit)
         topics = repo.story_topics(jc, [s.id for s in stories])  # derive section from articles
-    if not stories:
-        return 0
+        stats = _status_snapshot(jc)
     with psycopg.connect(url) as sc:
         sc.execute(_DDL)
+        sc.execute(_STATUS_DDL)
         for s in stories:
             sc.execute(_UPSERT, (s.id, s.lang, s.title, s.synthesized_body, topics.get(s.id, ""),
                                  Json(s.claims_json), Json(s.disagreements_json),
                                  s.source_count, s.origin_count))
-        # Reconcile: the read-model is exactly the current set — drop anything no longer published
-        # (e.g. stories from a prior rebuild) so the site never shows stale editions.
-        sc.execute("DELETE FROM published_stories WHERE id <> ALL(%s)", ([s.id for s in stories],))
+        # Reconcile: the read-model is exactly the current set — drop anything no longer published.
+        # Guard on a non-empty set (an empty array would match ALL rows and wipe the table).
+        if stories:
+            sc.execute("DELETE FROM published_stories WHERE id <> ALL(%s)",
+                       ([s.id for s in stories],))
+        sc.execute(_STATUS_UPSERT, (Json(stats),))
         sc.commit()
     return len(stories)

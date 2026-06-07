@@ -41,6 +41,7 @@ def test_publish_upserts_recent(monkeypatch) -> None:
                         lambda: _Ctx(type("C", (), {"commit": lambda s: None})()))
     monkeypatch.setattr(publish.repo, "prune_empty_stories", lambda conn: 0)
     monkeypatch.setattr(publish.repo, "story_topics", lambda conn, ids: {"nsty_1": "world"})
+    monkeypatch.setattr(publish, "_status_snapshot", lambda jc: {"articles": 1})
     monkeypatch.setattr(publish.repo, "recent_stories",
                         lambda conn, **k: [NewsStory(id="nsty_1", title="T", synthesized_body="B")])
     executed: list = []
