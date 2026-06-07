@@ -10,6 +10,9 @@ services:
     image: pgvector/pgvector:pg16
     container_name: jarvis-postgres
     restart: unless-stopped
+    # Give Postgres time to finish its checkpoint + flush on shutdown (reboot/redeploy) so it
+    # never gets SIGKILL'd mid-write → no crash-recovery on next boot. Default is only 10s.
+    stop_grace_period: 60s
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-jarvis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis}
@@ -28,6 +31,8 @@ services:
     image: redis:7-alpine
     container_name: jarvis-redis
     restart: unless-stopped
+    # Let Redis write its final AOF/RDB on shutdown before exit (the event stream lives in the AOF).
+    stop_grace_period: 30s
     # appendonly so the event stream survives a restart; Streams live in the AOF.
     command: ["redis-server", "--appendonly", "yes"]
     ports:
