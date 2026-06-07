@@ -1,25 +1,37 @@
-"""Multilingual embeddings for news (bge-m3, CPU) — separate from Jarvis's nomic search index.
+"""Multilingual embeddings for news — separate from Jarvis's nomic search index.
 
-Kept distinct so good FR/NL clustering/search doesn't require migrating the global embedding dim.
-bge-m3 runs on CPU, so it does NOT take the GPU inference semaphore — news embedding at volume never
-blocks interactive chat/voice on the card.
+snowflake-arctic-embed2 (1024-dim, multilingual, CPU): stable in Ollama where bge-m3 emitted NaN on
+ordinary news text. Uses the modern `/api/embed` endpoint and is fully fault-tolerant — any failure
+returns an empty vector so one bad article never crashes the worker. CPU → no GPU-semaphore
+contention with interactive chat/voice.
 """
 
 from __future__ import annotations
 
 import math
 
-_NEWS_EMBED_MODEL = "bge-m3"
+import httpx
+
+from jarvis.config import get_settings
+
+_NEWS_EMBED_MODEL = "snowflake-arctic-embed2"
 
 
 def embed_news(text: str) -> list[float]:
-    """Embed `text` with the multilingual news embedder. Empty → empty vector (no model call)."""
+    """Embed `text` with the news embedder. Empty/failure → empty vector (never raises)."""
     text = (text or "").strip()
     if not text:
         return []
-    from jarvis.models.client import embeddings
-
-    return embeddings(_NEWS_EMBED_MODEL, text)
+    try:
+        resp = httpx.post(
+            f"{get_settings().ollama_url}/api/embed",
+            json={"model": _NEWS_EMBED_MODEL, "input": text[:8000]}, timeout=30.0,
+        )
+        resp.raise_for_status()
+        vecs = resp.json().get("embeddings", [])
+        return [float(x) for x in vecs[0]] if vecs else []
+    except Exception:  # noqa: BLE001 — embedding is best-effort; a failure must not crash the worker
+        return []
 
 
 def cosine(a: list[float], b: list[float]) -> float:
