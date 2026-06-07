@@ -22,8 +22,10 @@ def process_pending() -> int:
         for article_id in repo.pending_article_ids(conn, limit=20):
             try:
                 reactor.process_article(conn, article_id)
-                done += 1
+                conn.commit()  # commit per article so the new story is INDEXED before the next
+                done += 1      # one is clustered against — otherwise same-batch dupes never merge
             except Exception:  # noqa: BLE001 — one bad article must not stall the backlog
+                conn.rollback()
                 continue
     return done
 

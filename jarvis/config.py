@@ -153,7 +153,7 @@ class Settings(BaseSettings):
     # News module (Jarvis-native): scrape → pool → tier-A/B. OFF until the schema is migrated.
     news_enabled: bool = False
     news_top_n: int = 10                  # daily tier-B synthesis budget
-    news_sim_threshold: float = 0.82      # story clustering cosine threshold
+    news_sim_threshold: float = 0.70      # story clustering cosine sim (same-event cross-outlet ≈0.74+)
     news_scrape_interval_s: int = 3600    # hourly RSS fetch
     news_process_interval_s: int = 60     # drain the enrichment backlog this often
     # Publish the finished stories into the standalone world-news DB (so the site is independent of
