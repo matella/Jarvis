@@ -17,16 +17,21 @@ spectrum, story timelines, "you're caught up"). V1 is the seed of that, not a di
 - **Language**: keep each story in its **source language** — no translation. Same event in EN+FR =
   two stories in v1 (cross-language grouping deferred to v2).
 
-## Recommended fork resolutions (CONFIRM on review)
+## Confirmed decisions (operator-approved)
 1. **Retire the Rust `api-gateway` and `ai-service`; v1 scraping folds into Jarvis.** Jarvis already
-   has an RSS feeds connector, an LLM boundary, pgvector, and the scheduler. Extending Jarvis's
-   feeds pipeline (Python) with readability + politeness is simpler than running two extra Rust
-   services that duplicate Jarvis. → **world-news repo v1 = the Next.js UI only**, pointed at a
-   Jarvis news read API. The Rust scraper is parked as an optional high-performance swap-in later.
+   has an RSS feeds connector, an LLM boundary, pgvector, and the scheduler. → **world-news repo v1
+   = the Next.js UI only**, pointed at a Jarvis news read API. **Efficiency-first** (per the
+   "Python brain / Rust at proven hot edges" principle): v1 readability extraction uses Python
+   (`trafilatura`), which is ample at homelab volume; the Rust scraper stays as a documented
+   swap-in *only if* extraction profiles as a real hotspot — not speculatively. All the orchestration
+   efficiency wins apply: pool-before-summarize, small tier-A model, background priority, conditional
+   GET, batching, minimal LLM calls.
 2. **Cross-language event grouping = v2.** v1 keeps per-language stories.
-3. **Dedicated multilingual embedder for news** (e.g. `bge-m3` on CPU), with news vectors stored in
-   the news tables — separate from Jarvis's existing `nomic-embed-text` search index, so FR/NL
-   search/clustering is good *without* a global embedding-dimension migration.
+3. **Dedicated multilingual embedder for news** (`bge-m3` on CPU), news vectors in the news tables —
+   separate from Jarvis's `nomic-embed-text` index, so FR/NL search/clustering is good *without* a
+   global embedding-dimension migration.
+4. **v1 starter sources** (broad mix, tweak later): world EN — Reuters, AP, BBC, The Guardian,
+   Al Jazeera; BE/EU — RTBF, Le Soir, La Libre, VRT NWS, Politico Europe.
 
 ## Architecture & data flow (event-driven, honoring the spine)
 ```
@@ -114,8 +119,20 @@ ambient surfaces (morning brief, situation room, weekly recap) · calm editorial
 are "turn the crank" on the v1 core; only the bias-spectrum model, knowledge graph, and polished
 multimodal layer need genuinely new capability.
 
-## Open forks to confirm
-- **Fork 1**: retire the Rust services (api-gateway + ai-service) and fold scraping into Jarvis for
-  v1? (Recommended.) Or keep the Rust scraper as the sensor?
-- **Fork 2**: multilingual embedder for news now (recommended) vs accept weaker FR/NL with the
-  existing embedder?
+## Visual language (V20 north star — mockups in world-news .superpowers/brainstorm/)
+Three hero screens validate the design DNA the v1 build aims at:
+- **Morning Brief** — finite, story-centric, dark editorial (serif headlines). Each story: topic/
+  region chip, one-line synthesis, **source count** (the A+D ranking made visible), a **coverage-
+  leaning bar**, **developing/settled** + **"sources disagree"** badges. Audio "Play briefing",
+  Glance/Brief/Deep toggle, and the **"✓ you're caught up"** end-state (anti-doomscroll).
+- **Deep / Debate page** — synthesis (cited) → **✓ agree** → **⚠ where they disagree** (explicit,
+  not blended) → **timeline** → all sources **grouped by origin** (syndication collapsed).
+- **Ask Jarvis** (in-page and in the console) — conversation scoped to one story: answers **cite
+  sources**, flag **unconfirmed**, and **separate reporting from background**. The console face is
+  voice-first (orb), gives a spoken summary + compact cards, and personalizes (uses saved location).
+
+The website = browse/read; Jarvis = ask/listen/personalize — over the same pooled, synthesized data.
+
+## Resolved
+Both forks resolved above (decisions 1 & 3). Remaining "recommended, not v1-blocking" items
+(recency weighting, retention, eval fixture) stay recommended for the build plan to schedule.
