@@ -10,7 +10,7 @@ def test_translate_falls_back_on_failure(monkeypatch) -> None:
     def boom(*a, **k):
         raise RuntimeError("model down")
     monkeypatch.setattr("jarvis.models.scheduler.chat", boom)
-    assert translate.translate_to_fr("Hello", "World") == ("Hello", "World")
+    assert translate.translate_to_fr("Hello", "World") == ("Hello", "World", [])
 
 
 def test_translate_uses_model_output(monkeypatch) -> None:
@@ -18,7 +18,7 @@ def test_translate_uses_model_output(monkeypatch) -> None:
         "jarvis.models.scheduler.chat",
         lambda *a, **k: {"message": {"content": '{"title": "Bonjour", "body": "Le monde"}'}},
     )
-    assert translate.translate_to_fr("Hello", "World") == ("Bonjour", "Le monde")
+    assert translate.translate_to_fr("Hello", "World") == ("Bonjour", "Le monde", [])
 
 
 def test_source_hash_changes_with_content() -> None:
@@ -46,7 +46,8 @@ def test_translate_pending_translates_and_stores(monkeypatch) -> None:
                         lambda conn, *, default_lang, limit=5: [
                             NewsStory(id="nsty_1", lang="en", title="Hi", synthesized_body="Body")])
     monkeypatch.setattr("jarvis.news.repository.story_summaries", lambda conn, ids: {})
-    monkeypatch.setattr("jarvis.news.translate.translate_to_fr", lambda t, b: ("Salut", "Corps"))
+    monkeypatch.setattr("jarvis.news.translate.translate_to_fr",
+                        lambda t, b, d=None: ("Salut", "Corps", []))
     saved = {}
     monkeypatch.setattr("jarvis.news.repository.set_translation",
                         lambda conn, sid, **k: saved.update(k))

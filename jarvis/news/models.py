@@ -67,6 +67,7 @@ class NewsStory(BaseModel):
     title_fr: str = ""                     # cached French translation (default display language)
     body_fr: str = ""                      # "" = not yet translated, or the story is already FR
     translated_hash: str = ""              # hash of the source title+body that was translated
+    disagreements_fr: list[dict] = Field(default_factory=list)   # FR "where sources disagree"
     claims_json: list[dict] = Field(default_factory=list)        # claim → source citations
     disagreements_json: list[dict] = Field(default_factory=list)
     source_count: int = 0                  # distinct articles

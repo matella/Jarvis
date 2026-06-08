@@ -74,9 +74,10 @@ def translate_pending(limit: int = 8) -> int:
             if not (st.title or body):
                 continue  # no content yet — translate once it has some
             try:
-                title_fr, body_fr = translate.translate_to_fr(st.title, body)
+                title_fr, body_fr, dis_fr = translate.translate_to_fr(
+                    st.title, body, st.disagreements_json)
                 r.set_translation(conn, st.id, title_fr=title_fr, body_fr=body_fr,
-                                  h=translate.source_hash(st.title, body))
+                                  h=translate.source_hash(st.title, body), disagreements_fr=dis_fr)
                 conn.commit()
                 done += 1
             except Exception:  # noqa: BLE001 — one bad translation must not stall the queue

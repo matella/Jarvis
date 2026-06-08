@@ -34,6 +34,27 @@ def _text(el: ET.Element | None) -> str:
     return (el.text or "").strip() if el is not None else ""
 
 
+def _atom_link(links: list) -> str:
+    """The HTML article URL from an Atom entry's <link>s. Entries carry several — the article, a
+    per-article feed (.rss.xml, type=*+xml), an enclosure image, etc. Prefer an explicit
+    rel=alternate; skip feed/enclosure/self links. (VRT's first link is a .rss.xml feed and its real
+    article is an explicit rel=alternate shortlink, so 'first / no-rel' grabbed the feed.)"""
+    explicit_alt = ""
+    fallback = ""
+    for le in links:
+        rel = le.get("rel", "")
+        href = le.get("href", "")
+        typ = le.get("type", "")
+        if not href or rel in ("self", "edit", "enclosure", "replies", "via"):
+            continue
+        if "+xml" in typ or href.endswith((".rss.xml", ".atom", ".xml")):
+            continue  # a feed/machine link, not the readable article
+        if rel == "alternate":
+            explicit_alt = explicit_alt or href
+        fallback = fallback or href
+    return explicit_alt or fallback
+
+
 def parse_feed(xml: bytes) -> list[FeedItem]:
     """Parse RSS 2.0 or Atom into normalized, sanitized items. Pure — no I/O."""
     root = ET.fromstring(xml)
@@ -50,8 +71,7 @@ def parse_feed(xml: bytes) -> list[FeedItem]:
             ))
         return items
     for entry in root.findall(f"{_ATOM}entry"):
-        link_el = entry.find(f"{_ATOM}link")
-        link = link_el.get("href", "") if link_el is not None else ""
+        link = _atom_link(entry.findall(f"{_ATOM}link"))
         guid = _text(entry.find(f"{_ATOM}id")) or link
         items.append(FeedItem(
             guid=guid, title=sanitize(_text(entry.find(f"{_ATOM}title"))),

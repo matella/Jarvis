@@ -22,7 +22,7 @@ _ART_COLS = (
 _STORY_COLS = (
     "id, lang, title, synthesized_body, claims_json, disagreements_json, "
     "source_count, origin_count, top_at, schema_version, created_at, updated_at, "
-    "title_fr, body_fr, translated_hash"
+    "title_fr, body_fr, translated_hash, disagreements_fr"
 )
 
 
@@ -94,11 +94,12 @@ def enrich_article(conn: psycopg.Connection, article_id: str, *, embedding: list
 def create_story(conn: psycopg.Connection, story: NewsStory) -> NewsStory:
     conn.execute(
         f"INSERT INTO news_stories ({_STORY_COLS}, embedding) VALUES "
-        "(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (story.id, story.lang, story.title, story.synthesized_body, Json(story.claims_json),
          Json(story.disagreements_json), story.source_count, story.origin_count, story.top_at,
          story.schema_version, story.created_at, story.updated_at,
-         story.title_fr, story.body_fr, story.translated_hash, _vec(story.embedding)),
+         story.title_fr, story.body_fr, story.translated_hash,
+         Json(story.disagreements_fr), _vec(story.embedding)),
     )
     return story
 
@@ -180,10 +181,11 @@ def untranslated_stories(conn: psycopg.Connection, *, default_lang: str = "fr",
 
 
 def set_translation(conn: psycopg.Connection, story_id: str, *, title_fr: str, body_fr: str,
-                    h: str) -> None:
+                    h: str, disagreements_fr: list[dict] | None = None) -> None:
     conn.execute(
-        "UPDATE news_stories SET title_fr = %s, body_fr = %s, translated_hash = %s WHERE id = %s",
-        (title_fr, body_fr, h, story_id),
+        "UPDATE news_stories SET title_fr = %s, body_fr = %s, translated_hash = %s, "
+        "disagreements_fr = %s WHERE id = %s",
+        (title_fr, body_fr, h, Json(disagreements_fr or []), story_id),
     )
 
 
@@ -291,6 +293,6 @@ def set_synthesis(conn: psycopg.Connection, story_id: str, *, title: str, body: 
         # story re-enters untranslated_stories).
         "UPDATE news_stories SET title = %s, synthesized_body = %s, claims_json = %s, "
         "disagreements_json = %s, title_fr = '', body_fr = '', translated_hash = '', "
-        "top_at = now(), updated_at = now() WHERE id = %s",
+        "disagreements_fr = '[]'::jsonb, top_at = now(), updated_at = now() WHERE id = %s",
         (title, body, Json(claims), Json(disagreements), story_id),
     )
