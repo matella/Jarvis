@@ -134,6 +134,15 @@
   `router.chat`; set **`think=False`** for translation + tier-A summaries → **~0.8-3s/call (≈10-30×),
   no empties**. Translate queue now keeps up; prioritised most-covered (lead) first. GPU is healthy
   (64 tok/s, 100% GPU); the slowness was thinking-overhead × single-GPU serialization, not the card.
+- **French-paper polish (this session):** (1) source links fixed — `feeds._atom_link` now picks the
+  real `rel=alternate` article and skips feed/enclosure/self links (VRT's `.rss.xml` self-feed was
+  first); (2) the "sources disagree" panel is translated to FR (disagreements_fr, same fast call) +
+  rendered FR-by-default; (3) persona now mirrors the operator's language (FR→FR) + speaks more
+  fluently — verified Jarvis answers French deep-dives in fluent French (Claude backend). Note: the
+  language directive is followed reliably on Claude; local qwen3 adherence is weaker (conversational
+  answers route to the active backend = Claude, so user-facing is fine).
+- **Approved, not yet built:** day-by-day **archive** (permanent, page-turn + archive index) — design
+  in this session, user-approved. Idea floated: a **news timeline** view (how a story/topic evolves).
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
