@@ -167,12 +167,14 @@ def stories_awaiting_synthesis(conn: psycopg.Connection, *, limit: int = 3) -> l
 
 
 def untranslated_stories(conn: psycopg.Connection, *, default_lang: str = "fr",
-                         limit: int = 5) -> list[NewsStory]:
-    """Non-default-language stories that still need a French translation (title_fr empty), newest
-    first. `set_synthesis` clears title_fr, so a freshly-synthesised story re-enters this queue."""
+                         limit: int = 8) -> list[NewsStory]:
+    """Non-default-language stories that still need a French translation (title_fr empty), most-
+    covered first then most-recent — so the headline/lead and multi-source stories (what the reader
+    actually sees) translate before the long tail. `set_synthesis` clears title_fr, so a freshly-
+    synthesised story re-enters this queue and re-translates."""
     rows = conn.execute(
         f"SELECT {_STORY_COLS} FROM news_stories WHERE lang <> %s AND title_fr = '' "
-        "ORDER BY updated_at DESC LIMIT %s", (default_lang, limit),
+        "ORDER BY origin_count DESC, created_at DESC LIMIT %s", (default_lang, limit),
     ).fetchall()
     return [_row_to_story(r) for r in rows]
 

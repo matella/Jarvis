@@ -53,7 +53,7 @@ def synthesize_pending(limit: int = 3) -> int:
     return done
 
 
-def translate_pending(limit: int = 5) -> int:
+def translate_pending(limit: int = 8) -> int:
     """Translate a few not-yet-translated, non-French stories into French (title + display body)
     on the local model. Bounded + cached on the story, so steady state is cheap. Returns the count
     translated."""
