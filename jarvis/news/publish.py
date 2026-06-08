@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS published_stories (
     sources_json       jsonb NOT NULL DEFAULT '[]'::jsonb,
     disagreements_fr   jsonb NOT NULL DEFAULT '[]'::jsonb,
     edition_date       date,
+    related_ids        text[] NOT NULL DEFAULT '{}',
     updated_at         timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS topic text NOT NULL DEFAULT '';
@@ -47,6 +48,7 @@ ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS sources_json jsonb
 ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS disagreements_fr jsonb
     NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS edition_date date;
+ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS related_ids text[] NOT NULL DEFAULT '{}';
 CREATE INDEX IF NOT EXISTS published_stories_recent_idx ON published_stories (updated_at DESC);
 CREATE INDEX IF NOT EXISTS published_stories_edition_idx ON published_stories (edition_date DESC);
 """
@@ -55,15 +57,15 @@ _UPSERT = """
 INSERT INTO published_stories
     (id, lang, title, body, title_fr, body_fr, topic, claims_json, disagreements_json,
      source_count, origin_count, synthesized, sources_json, disagreements_fr, edition_date,
-     updated_at)
-VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
+     related_ids, updated_at)
+VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
 ON CONFLICT (id) DO UPDATE SET
     title=EXCLUDED.title, body=EXCLUDED.body, title_fr=EXCLUDED.title_fr, body_fr=EXCLUDED.body_fr,
     topic=EXCLUDED.topic, claims_json=EXCLUDED.claims_json,
     disagreements_json=EXCLUDED.disagreements_json, source_count=EXCLUDED.source_count,
     origin_count=EXCLUDED.origin_count, synthesized=EXCLUDED.synthesized,
     sources_json=EXCLUDED.sources_json, disagreements_fr=EXCLUDED.disagreements_fr,
-    edition_date=EXCLUDED.edition_date, updated_at=now();
+    edition_date=EXCLUDED.edition_date, related_ids=EXCLUDED.related_ids, updated_at=now();
 """
 
 
@@ -131,6 +133,7 @@ def publish_stories(limit: int = 5000) -> int:
         topics = repo.story_topics(jc, ids)         # section
         summaries = repo.story_summaries(jc, ids)   # tier-A fallback body
         sources = repo.story_sources(jc, ids)       # per-story outlet links (view original)
+        threads = repo.story_threads(jc, ids)       # related stories — "follow the subject" thread
         stats = _status_snapshot(jc)
     with psycopg.connect(url) as sc:
         sc.execute(_DDL)
@@ -146,7 +149,7 @@ def publish_stories(limit: int = 5000) -> int:
                                  topics.get(s.id, ""), Json(s.claims_json),
                                  Json(s.disagreements_json), s.source_count, s.origin_count,
                                  bool(s.synthesized_body), Json(sources.get(s.id, [])),
-                                 Json(s.disagreements_fr), edition))
+                                 Json(s.disagreements_fr), edition, threads.get(s.id, [])))
         # Reconcile: keep exactly the engine's set — drop only stories the engine itself pruned
         # (the archive keeps every edition, so with keep-everything retention this removes nothing).
         # Guard on a non-empty set (an empty array would match ALL rows and wipe the table).

@@ -43,6 +43,7 @@ def test_publish_upserts_recent(monkeypatch) -> None:
     monkeypatch.setattr(publish.repo, "story_topics", lambda conn, ids: {"nsty_1": "world"})
     monkeypatch.setattr(publish.repo, "story_summaries", lambda conn, ids: {"nsty_1": "sum"})
     monkeypatch.setattr(publish.repo, "story_sources", lambda conn, ids: {"nsty_1": []})
+    monkeypatch.setattr(publish.repo, "story_threads", lambda conn, ids: {"nsty_1": []})
     monkeypatch.setattr(publish, "_status_snapshot", lambda jc: {"articles": 1})
     monkeypatch.setattr(publish.repo, "recent_stories",
                         lambda conn, **k: [NewsStory(id="nsty_1", title="T", synthesized_body="B")])

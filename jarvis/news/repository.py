@@ -206,6 +206,31 @@ def story_sources(conn: psycopg.Connection, story_ids: list[str]) -> dict[str, l
     return out
 
 
+def story_threads(conn: psycopg.Connection, story_ids: list[str], *, k: int = 6,
+                  max_distance: float = 0.42, window_days: int = 30) -> dict[str, list[str]]:
+    """For each story, its most-similar OTHER stories within the window — the 'subject thread' that
+    lets the reader follow how a subject evolved across days. {story_id: [related_id, ...]}, nearest
+    first. Pure pgvector (cosine `<=>`) over the embeddings we already store — no model calls.
+    `max_distance` is conservative (≈0.42) to avoid threading unrelated stories; tune as needed."""
+    if not story_ids:
+        return {}
+    rows = conn.execute(
+        "SELECT s.id AS sid, r.id AS rid FROM news_stories s "
+        "CROSS JOIN LATERAL ("
+        "  SELECT cand.id, s.embedding <=> cand.embedding AS d FROM news_stories cand "
+        "  WHERE cand.id <> s.id AND cand.embedding IS NOT NULL "
+        "    AND cand.created_at > now() - make_interval(days => %s) "
+        "    AND s.embedding <=> cand.embedding < %s "
+        "  ORDER BY s.embedding <=> cand.embedding LIMIT %s"
+        ") AS r WHERE s.id = ANY(%s) AND s.embedding IS NOT NULL",
+        (window_days, max_distance, k, story_ids),
+    ).fetchall()
+    out: dict[str, list[str]] = {}
+    for r in rows:
+        out.setdefault(r["sid"], []).append(r["rid"])
+    return out
+
+
 def synthesis_counts(conn: psycopg.Connection) -> dict[str, int]:
     """How many stories are fully synthesised vs awaiting it (multi-source, no body)."""
     done = conn.execute(
