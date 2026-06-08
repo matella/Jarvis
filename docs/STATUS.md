@@ -87,6 +87,14 @@
   to the tier-A summary so every story has content (no empty "still developing"). Admin shows
   synthesis done/awaiting + process & synthesis ETAs + a per-story status chip (Full / Synthesising
   / Summary). Belga dropped — no public RSS (its dispatches arrive via RTBF/Le Soir/La Libre).
+- **French-default paper + translation (new):** migration 0030 (title_fr/body_fr/translated_hash on
+  news_stories); `news/translate.py` translates title+body to FR on the **local qwen3:4b** (no swap,
+  no API cost), fault-tolerant; bounded `news_translate` worker (cached; `set_synthesis` invalidates
+  → re-translate). Publish carries original + FR + per-story **source links** (sources_json). Site
+  reads FR by default with a **"Voir l'original"** toggle + **"Lire à la source"** links; chrome is
+  French (Monde/Belgique/Tech & Éco/Sport). **Layout fix:** sections now flow into balanced CSS
+  columns (`columns:3` + `column-rule`, `break-inside:avoid`) — no more orphaned last column. Admin
+  shows translation progress. Verified live (NL→FR accurate, toggle + sources render). 486 tests.
 - **Box ops (this session):** disk hit 100% (Postgres → recovery → empty edition). Root cause: the
   Ubuntu LVM default left ~130GB unallocated — operator ran `lvextend -l +100%FREE` + `resize2fs`
   → **disk now 226G, ~143G free**. Also retired the unused world-news Rust services (api-gateway/
