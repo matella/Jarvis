@@ -120,7 +120,20 @@ def _abilities_section() -> str:
     return out
 
 
+# Always appended (even when the operator overrides the identity prose), so language-mirroring and
+# a natural voice hold regardless of the configured persona.
+_STYLE_DIRECTIVE = (
+    "\n\nLANGUAGE & VOICE:\n"
+    "- Reply in the SAME language the operator wrote in. If they ask in French, answer in fluent, "
+    "idiomatic French; English → English; and so on. Never switch the language on them, and don't "
+    "translate your own answer unless they ask. Match their register — tutoiement if they tutoie.\n"
+    "- Speak naturally and fluently, the way a sharp, well-read human would: varied phrasing, an "
+    "easy conversational rhythm, a little warmth and dry wit. Never stilted, templated, or robotic "
+    "— but stay concise and get to the point."
+)
+
+
 def system_prompt() -> str:
     """The full system message: identity (operator-overridable) + live capabilities + senses."""
     identity = get_settings().system_prompt.strip() or _DEFAULT_IDENTITY
-    return identity + _capabilities_section() + _observability_section()
+    return identity + _STYLE_DIRECTIVE + _capabilities_section() + _observability_section()
