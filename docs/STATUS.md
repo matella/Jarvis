@@ -123,9 +123,11 @@
   & fixed: (1) **nginx-proxy-manager** lost a port-443 boot race to **Tailscale Serve** (which
   exposes the Jarvis console at matelab.tailb340e1.ts.net:443) — fixed permanently by pinning NPM to
   the LAN IP (`192.168.129.85:80/443`) so both coexist; (2) **world-news 500** = Turbopack *dev*
-  cache corruption on restart — switched the frontend to a **production build** (`next build`/`next
-  start`, `ignoreBuildErrors`), reboot-tested (clean 200). Deploy flow for that site is now: rsync
-  source → `docker restart docker-frontend-1` (rebuilds).
+  cache corruption on restart. **Fixed properly:** the frontend is now a **multi-stage Docker image**
+  (Next.js `output: standalone`, deps+build baked at image-build time) — starts in ~60ms with no
+  boot-time npm-install/build, 329MB, immutable. Restart-tested (back in ~2s). Deploy flow for that
+  site: rsync source → `docker compose build frontend && docker compose up -d frontend` (on the box,
+  in `~/apps/world-news/docker`).
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
