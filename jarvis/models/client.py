@@ -36,6 +36,7 @@ def chat(
     num_ctx: int,
     keep_alive: str,
     format: str | dict | None = None,
+    think: bool | None = None,
 ) -> dict:
     kwargs: dict[str, Any] = {
         "model": model,
@@ -45,6 +46,11 @@ def chat(
     }
     if format is not None:
         kwargs["format"] = format
+    # think=False disables qwen3's chain-of-thought — essential for mechanical structured tasks
+    # (translation, tagging): with thinking ON + a JSON schema the model burns its whole budget
+    # reasoning and often returns empty (~15s → fallback); OFF is a clean ~0.8s answer.
+    if think is not None:
+        kwargs["think"] = think
     return _as_dict(get_client().chat(**kwargs))
 
 

@@ -52,6 +52,7 @@ def _tier_a(title: str, body: str, lang: str) -> tuple[str, str, str]:
         "reasoning", [{"role": "user", "content": prompt}],
         priority=Priority.BACKGROUND, format=_TIER_A_SCHEMA,
         backend="local",  # tier-A is the cheap, high-VOLUME pass → fast local model, never Claude
+        think=False,       # summary/tags are mechanical — skip qwen3's CoT (≈30× faster)
     )
     try:
         d = json.loads(str(resp["message"]["content"]))

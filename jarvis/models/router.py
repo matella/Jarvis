@@ -83,6 +83,7 @@ def chat(
     correlation_id: str | None = None,
     context_ref: str | None = None,
     format: str | dict | None = None,
+    think: bool | None = None,
 ) -> dict:
     s = get_settings()
     model = model_for_role(role)
@@ -91,8 +92,10 @@ def chat(
     with _INFERENCE_SEM:
         before = _swap_to(model, role, correlation_id)
         start = time.monotonic()
+        extra = {"think": think} if think is not None else {}
         resp = oclient.chat(
-            model, messages, num_ctx=s.inference_context, keep_alive=s.keep_alive, format=format
+            model, messages, num_ctx=s.inference_context, keep_alive=s.keep_alive,
+            format=format, **extra,
         )
         duration_ms = round((time.monotonic() - start) * 1000, 1)
         if model not in before:

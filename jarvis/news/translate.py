@@ -38,7 +38,8 @@ def translate_to_fr(title: str, body: str) -> tuple[str, str]:
     )
     try:
         resp = sched_chat("reasoning", [{"role": "user", "content": prompt}],
-                          priority=Priority.BACKGROUND, format=_SCHEMA, backend="local")
+                          priority=Priority.BACKGROUND, format=_SCHEMA, backend="local",
+                          think=False)  # mechanical task — thinking just burns the budget (→empty)
         out = json.loads(str(resp["message"]["content"]))
         return (out.get("title") or title, out.get("body") or body)
     except Exception:  # noqa: BLE001 — any failure → leave the source text, retry next cycle
