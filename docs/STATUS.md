@@ -118,6 +118,14 @@
   Data mount `/mnt/nas-media` (NFS from 192.168.129.64) is in fstab w/ `_netdev,nofail` → auto-
   mounts. Server IP `192.168.129.85` is **DHCP (dynamic)** — recommend a router reservation; Tailscale
   (100.80.214.128) is the stable fallback. Optional: systemd drop-in so docker waits for the NFS mount.
+- **Reboot validated + two fixes (this session):** rebooted the box — IP held (.85, DHCP reservation),
+  NAS auto-mounted, Redis came back clean (AOF repair held), DBs no crash-recovery. Two issues found
+  & fixed: (1) **nginx-proxy-manager** lost a port-443 boot race to **Tailscale Serve** (which
+  exposes the Jarvis console at matelab.tailb340e1.ts.net:443) — fixed permanently by pinning NPM to
+  the LAN IP (`192.168.129.85:80/443`) so both coexist; (2) **world-news 500** = Turbopack *dev*
+  cache corruption on restart — switched the frontend to a **production build** (`next build`/`next
+  start`, `ignoreBuildErrors`), reboot-tested (clean 200). Deploy flow for that site is now: rsync
+  source → `docker restart docker-frontend-1` (rebuilds).
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
