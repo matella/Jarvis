@@ -128,6 +128,12 @@
   boot-time npm-install/build, 329MB, immutable. Restart-tested (back in ~2s). Deploy flow for that
   site: rsync source → `docker compose build frontend && docker compose up -d frontend` (on the box,
   in `~/apps/world-news/docker`).
+- **Perf fix — qwen3 thinking disabled for mechanical tasks:** translation was ~15-28s/call and often
+  returned EMPTY (→ English fallback) because qwen3:4b is a *thinking* model — with CoT ON + a JSON
+  schema it spends its whole budget reasoning. Plumbed a `think` flag through `models/client.chat` +
+  `router.chat`; set **`think=False`** for translation + tier-A summaries → **~0.8-3s/call (≈10-30×),
+  no empties**. Translate queue now keeps up; prioritised most-covered (lead) first. GPU is healthy
+  (64 tok/s, 100% GPU); the slowness was thinking-overhead × single-GPU serialization, not the card.
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
