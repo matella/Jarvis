@@ -141,8 +141,12 @@
   fluently — verified Jarvis answers French deep-dives in fluent French (Claude backend). Note: the
   language directive is followed reliably on Claude; local qwen3 adherence is weaker (conversational
   answers route to the active backend = Claude, so user-facing is fine).
-- **Approved, not yet built:** day-by-day **archive** (permanent, page-turn + archive index) — design
-  in this session, user-approved. Idea floated: a **news timeline** view (how a story/topic evolves).
+- **Day-by-day edition archive (BUILT & LIVE):** spec
+  `docs/superpowers/specs/2026-06-08-news-archive-design.md`. `published_stories.edition_date` =
+  date(created_at @ Europe/Brussels); publish writes ALL stories (no longer discards the past).
+  Frontend: reusable `<Edition>` component; `/` = today's live edition, `/edition/[date]` = a frozen
+  archived day with ‹ Hier / Demain › page-turn (adjacent non-empty days), `/archive` = index by
+  month. Verified live (2 editions: 06-08/253, 06-07/173). Next idea: cross-edition story timeline.
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
