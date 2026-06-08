@@ -8,12 +8,16 @@ Jarvis app is down). One-way publish (Jarvis → site DB), idempotent upsert on 
 
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
+
 import psycopg
 from psycopg.types.json import Json
 
 from jarvis.config import get_settings
 from jarvis.db import connect as jarvis_connect
 from jarvis.news import repository as repo
+
+_TZ = ZoneInfo("Europe/Brussels")  # editions are dated by the operator's local calendar day
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS published_stories (
@@ -31,6 +35,7 @@ CREATE TABLE IF NOT EXISTS published_stories (
     body_fr            text NOT NULL DEFAULT '',
     sources_json       jsonb NOT NULL DEFAULT '[]'::jsonb,
     disagreements_fr   jsonb NOT NULL DEFAULT '[]'::jsonb,
+    edition_date       date,
     updated_at         timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS topic text NOT NULL DEFAULT '';
@@ -41,21 +46,24 @@ ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS sources_json jsonb
     NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS disagreements_fr jsonb
     NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE published_stories ADD COLUMN IF NOT EXISTS edition_date date;
 CREATE INDEX IF NOT EXISTS published_stories_recent_idx ON published_stories (updated_at DESC);
+CREATE INDEX IF NOT EXISTS published_stories_edition_idx ON published_stories (edition_date DESC);
 """
 
 _UPSERT = """
 INSERT INTO published_stories
     (id, lang, title, body, title_fr, body_fr, topic, claims_json, disagreements_json,
-     source_count, origin_count, synthesized, sources_json, disagreements_fr, updated_at)
-VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
+     source_count, origin_count, synthesized, sources_json, disagreements_fr, edition_date,
+     updated_at)
+VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
 ON CONFLICT (id) DO UPDATE SET
     title=EXCLUDED.title, body=EXCLUDED.body, title_fr=EXCLUDED.title_fr, body_fr=EXCLUDED.body_fr,
     topic=EXCLUDED.topic, claims_json=EXCLUDED.claims_json,
     disagreements_json=EXCLUDED.disagreements_json, source_count=EXCLUDED.source_count,
     origin_count=EXCLUDED.origin_count, synthesized=EXCLUDED.synthesized,
     sources_json=EXCLUDED.sources_json, disagreements_fr=EXCLUDED.disagreements_fr,
-    updated_at=now();
+    edition_date=EXCLUDED.edition_date, updated_at=now();
 """
 
 
@@ -109,8 +117,9 @@ def _status_snapshot(jc: psycopg.Connection) -> dict:
     }
 
 
-def publish_stories(limit: int = 80) -> int:
-    """Upsert recent stories + a status snapshot into the world-news DB. Returns count published."""
+def publish_stories(limit: int = 5000) -> int:
+    """Upsert ALL stories (tagged with their edition_date) + a status snapshot into the world-news
+    DB, so the day-by-day archive keeps every past edition. Returns count published."""
     url = get_settings().world_news_db_url
     if not url:
         return 0
@@ -132,12 +141,14 @@ def publish_stories(limit: int = 80) -> int:
             # the story is already French). The site can still reveal the original via the toggle.
             title_fr = s.title_fr or s.title
             body_fr = s.body_fr or body
+            edition = s.created_at.astimezone(_TZ).date() if s.created_at else None
             sc.execute(_UPSERT, (s.id, s.lang, s.title, body, title_fr, body_fr,
                                  topics.get(s.id, ""), Json(s.claims_json),
                                  Json(s.disagreements_json), s.source_count, s.origin_count,
                                  bool(s.synthesized_body), Json(sources.get(s.id, [])),
-                                 Json(s.disagreements_fr)))
-        # Reconcile: the read-model is exactly the current set — drop anything no longer published.
+                                 Json(s.disagreements_fr), edition))
+        # Reconcile: keep exactly the engine's set — drop only stories the engine itself pruned
+        # (the archive keeps every edition, so with keep-everything retention this removes nothing).
         # Guard on a non-empty set (an empty array would match ALL rows and wipe the table).
         if stories:
             sc.execute("DELETE FROM published_stories WHERE id <> ALL(%s)",
