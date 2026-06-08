@@ -53,6 +53,37 @@ def synthesize_pending(limit: int = 3) -> int:
     return done
 
 
+def translate_pending(limit: int = 5) -> int:
+    """Translate a few not-yet-translated, non-French stories into French (title + display body)
+    on the local model. Bounded + cached on the story, so steady state is cheap. Returns the count
+    translated."""
+    s = get_settings()
+    if not s.news_enabled:
+        return 0
+    from jarvis.news import repository as r
+    from jarvis.news import translate
+
+    done = 0
+    with db.connect() as conn:
+        stories = r.untranslated_stories(conn, default_lang=s.news_default_lang, limit=limit)
+        if not stories:
+            return 0
+        summaries = r.story_summaries(conn, [st.id for st in stories])
+        for st in stories:
+            body = st.synthesized_body or summaries.get(st.id, "")
+            if not (st.title or body):
+                continue  # no content yet — translate once it has some
+            try:
+                title_fr, body_fr = translate.translate_to_fr(st.title, body)
+                r.set_translation(conn, st.id, title_fr=title_fr, body_fr=body_fr,
+                                  h=translate.source_hash(st.title, body))
+                conn.commit()
+                done += 1
+            except Exception:  # noqa: BLE001 — one bad translation must not stall the queue
+                conn.rollback()
+    return done
+
+
 def scrape_once() -> int:
     """Fetch the configured sources and ingest new items. Returns the count newly ingested."""
     if not get_settings().news_enabled:

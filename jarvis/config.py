@@ -157,6 +157,8 @@ class Settings(BaseSettings):
     news_scrape_interval_s: int = 3600    # hourly RSS fetch
     news_process_interval_s: int = 60     # drain the enrichment backlog this often
     news_synthesize_interval_s: int = 120  # tier-B synthesis of multi-source stories
+    news_default_lang: str = "fr"          # paper's default display language (translate into it)
+    news_translate_interval_s: int = 90    # translate non-default-language stories into it
     # Publish the finished stories into the standalone world-news DB (so the site is independent of
     # Jarvis). Empty → publishing off. e.g. postgresql://worldnews:worldnews@host.docker.internal:5433/worldnews
     world_news_db_url: str = ""

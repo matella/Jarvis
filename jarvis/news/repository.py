@@ -21,7 +21,8 @@ _ART_COLS = (
 )
 _STORY_COLS = (
     "id, lang, title, synthesized_body, claims_json, disagreements_json, "
-    "source_count, origin_count, top_at, schema_version, created_at, updated_at"
+    "source_count, origin_count, top_at, schema_version, created_at, updated_at, "
+    "title_fr, body_fr, translated_hash"
 )
 
 
@@ -93,10 +94,11 @@ def enrich_article(conn: psycopg.Connection, article_id: str, *, embedding: list
 def create_story(conn: psycopg.Connection, story: NewsStory) -> NewsStory:
     conn.execute(
         f"INSERT INTO news_stories ({_STORY_COLS}, embedding) VALUES "
-        "(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (story.id, story.lang, story.title, story.synthesized_body, Json(story.claims_json),
          Json(story.disagreements_json), story.source_count, story.origin_count, story.top_at,
-         story.schema_version, story.created_at, story.updated_at, _vec(story.embedding)),
+         story.schema_version, story.created_at, story.updated_at,
+         story.title_fr, story.body_fr, story.translated_hash, _vec(story.embedding)),
     )
     return story
 
@@ -162,6 +164,42 @@ def stories_awaiting_synthesis(conn: psycopg.Connection, *, limit: int = 3) -> l
         (limit,),
     ).fetchall()
     return [_row_to_story(r) for r in rows]
+
+
+def untranslated_stories(conn: psycopg.Connection, *, default_lang: str = "fr",
+                         limit: int = 5) -> list[NewsStory]:
+    """Non-default-language stories that still need a French translation (title_fr empty), newest
+    first. `set_synthesis` clears title_fr, so a freshly-synthesised story re-enters this queue."""
+    rows = conn.execute(
+        f"SELECT {_STORY_COLS} FROM news_stories WHERE lang <> %s AND title_fr = '' "
+        "ORDER BY updated_at DESC LIMIT %s", (default_lang, limit),
+    ).fetchall()
+    return [_row_to_story(r) for r in rows]
+
+
+def set_translation(conn: psycopg.Connection, story_id: str, *, title_fr: str, body_fr: str,
+                    h: str) -> None:
+    conn.execute(
+        "UPDATE news_stories SET title_fr = %s, body_fr = %s, translated_hash = %s WHERE id = %s",
+        (title_fr, body_fr, h, story_id),
+    )
+
+
+def story_sources(conn: psycopg.Connection, story_ids: list[str]) -> dict[str, list[dict]]:
+    """Per story, the distinct source outlets + a URL to each original article (for 'view source'
+    links) → {story_id: [{"name", "url"}]}. One row per independent origin, newest first."""
+    if not story_ids:
+        return {}
+    rows = conn.execute(
+        "SELECT DISTINCT ON (story_id, COALESCE(origin_id, id)) story_id, source, url "
+        "FROM news_articles WHERE story_id = ANY(%s) AND url <> '' "
+        "ORDER BY story_id, COALESCE(origin_id, id), recorded_at DESC",
+        (story_ids,),
+    ).fetchall()
+    out: dict[str, list[dict]] = {}
+    for r in rows:
+        out.setdefault(r["story_id"], []).append({"name": r["source"], "url": r["url"]})
+    return out
 
 
 def synthesis_counts(conn: psycopg.Connection) -> dict[str, int]:
@@ -247,7 +285,10 @@ def attach_story_embedding(conn: psycopg.Connection, story_id: str, embedding: l
 def set_synthesis(conn: psycopg.Connection, story_id: str, *, title: str, body: str,
                   claims: list[dict], disagreements: list[dict]) -> None:
     conn.execute(
+        # Reset the cached translation: the body just changed, so it must be re-translated (the
+        # story re-enters untranslated_stories).
         "UPDATE news_stories SET title = %s, synthesized_body = %s, claims_json = %s, "
-        "disagreements_json = %s, top_at = now(), updated_at = now() WHERE id = %s",
+        "disagreements_json = %s, title_fr = '', body_fr = '', translated_hash = '', "
+        "top_at = now(), updated_at = now() WHERE id = %s",
         (title, body, Json(claims), Json(disagreements), story_id),
     )
