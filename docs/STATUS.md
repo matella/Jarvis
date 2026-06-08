@@ -146,7 +146,15 @@
   date(created_at @ Europe/Brussels); publish writes ALL stories (no longer discards the past).
   Frontend: reusable `<Edition>` component; `/` = today's live edition, `/edition/[date]` = a frozen
   archived day with ‹ Hier / Demain › page-turn (adjacent non-empty days), `/archive` = index by
-  month. Verified live (2 editions: 06-08/253, 06-07/173). Next idea: cross-edition story timeline.
+  month. Verified live (2 editions: 06-08/253, 06-07/173).
+- **Subject timeline "Suivi du sujet" (BUILT & LIVE):** spec
+  `docs/superpowers/specs/2026-06-08-news-subject-timeline-design.md`. `repository.story_threads`
+  computes each story's nearest other stories (pgvector cosine, 30-day window, dist<0.42 — TUNABLE);
+  publish stores `related_ids` on published_stories (429 threaded in 1.3s; 125 with related, 51
+  cross-day). Story page renders a vertical timeline of the subject across editions (current
+  highlighted, others link through), shown only when ≥1 related. Gets richer as editions accumulate.
+  NB: RSS = recent-only, so no 30-day backfill from current sources (would need GDELT/paid + pub-date
+  dating — separate project); the archive builds correct multi-day depth going forward.
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
