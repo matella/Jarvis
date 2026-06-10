@@ -141,8 +141,8 @@ CASES: list[EvalCase] = [
     _c("set a reminder for the meeting at 3", "reminder", "reminder"),
     _c("remind me to submit taxes next week", "reminder", "reminder"),
     _c("remind me about the dentist on Friday", "reminder", "reminder"),
-    # ── Homelab ops → LLM proposes a gated intent (never auto-executed) ──
-    _c("restart the nginx container", "llm", "ops", "propose"),
+    # ── Homelab ops → deterministic restart fast-path files the gated intent (no LLM) ──
+    _c("restart the nginx container", "restart", "ops", "propose"),
     _c("is the database healthy?", "llm", "ops", "question"),
     _c("redeploy the gateway", "llm", "ops", "propose"),
     _c("why did jellyfin crash?", "llm", "ops", "debug"),

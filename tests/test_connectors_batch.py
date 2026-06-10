@@ -79,3 +79,52 @@ def test_arr_queue_computes_done_pct(monkeypatch) -> None:
                      "size": 100.0, "sizeleft": 25.0}]})
     q = arr.queue("sonarr")
     assert q[0]["done_pct"] == 75.0
+
+
+def test_restart_fastpath_proposes_intent(monkeypatch) -> None:
+    # Deterministic restart: target validated against state, Intent filed, confirmation armed.
+    class _Conn:
+        def execute(self, sql, params=None):
+            class _R:
+                @staticmethod
+                def fetchall():
+                    return [{"entity": "container:it-tools"}, {"entity": "container:pihole"}]
+            return _R()
+
+    saved = {}
+    monkeypatch.setattr(convo, "insert_intent", lambda conn, i: saved.update(intent=i))
+
+    class _S:
+        actor = "test"
+        pending_intent_id = None
+
+    s = _S()
+    out = convo._propose_restart(_Conn(), s, "redémarre le conteneur it-tools")
+    assert out.route.value == "propose" and "it-tools" in out.message
+    assert s.pending_intent_id == saved["intent"].intent_id
+    assert saved["intent"].type == "docker.restart_container"
+    assert saved["intent"].target == {"name": "it-tools"}
+
+
+def test_restart_fastpath_unknown_target(monkeypatch) -> None:
+    class _Conn:
+        def execute(self, sql, params=None):
+            class _R:
+                @staticmethod
+                def fetchall():
+                    return [{"entity": "container:pihole"}]
+            return _R()
+
+    class _S:
+        actor = "test"
+        pending_intent_id = None
+
+    out = convo._propose_restart(_Conn(), _S(), "restart the foobar container")
+    assert out.route.value == "answer" and "didn't recognise" in out.message
+
+
+def test_restart_routing() -> None:
+    assert convo.fastpath_route("redémarre le conteneur it-tools") == "restart"
+    assert convo.fastpath_route("restart pihole please") == "restart"
+    # "when did the server restart?" also routes here — acceptable (it asks, no action)
+    assert convo.fastpath_route("when did the server restart?") == "restart"

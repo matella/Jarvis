@@ -35,9 +35,11 @@ from jarvis.weather.provider import WeatherUnavailable, extract_location
 
 _WINDOW_HOURS = 24
 _AFFIRMATIVE = {"yes", "y", "yes please", "yep", "yeah", "do it", "go ahead", "confirm",
-                "approved", "approve", "ok", "okay", "sure", "proceed"}
+                "approved", "approve", "ok", "okay", "sure", "proceed",
+                "oui", "ouais", "vas-y", "vas y", "confirme", "d'accord", "daccord"}
 _NEGATIVE = {"no", "n", "nope", "cancel", "stop", "abort", "don't", "do not", "nevermind",
-             "never mind", "reject"}
+             "never mind", "reject",
+             "non", "annule", "laisse tomber", "surtout pas"}
 
 
 class TurnRoute(StrEnum):
@@ -381,6 +383,8 @@ def respond(
         result = _capture_reminder(conn, session, utterance, store=store)
     elif route == "remember":
         result = _capture_fact(conn, session, utterance, store=store)
+    elif route == "restart":
+        result = _propose_restart(conn, session, utterance)
     elif route == "math":
         result = _compute_answer(conn, session, utterance, store=store)
     elif route == "weather":
@@ -554,6 +558,9 @@ def fastpath_route(utterance: str) -> str:
         return "remember"
     if looks_like_weather(utterance):
         return "weather"
+    # "restart container X" — stereotyped infra ask → deterministic Intent proposal (no LLM).
+    if _looks_like_restart(utterance):
+        return "restart"
     # A show-verb only routes to a presenter when it actually names a known data source — otherwise
     # the noun "list" ("difference between a list and a tuple") would hijack a coding question.
     if _looks_like_show(utterance):
@@ -700,6 +707,56 @@ def _present_gpu(utterance: str) -> TurnResult:
            f"Ollama frees it automatically — so nothing sits idle in VRAM indefinitely.{note}")
     return TurnResult(route=TurnRoute.answer, message=msg,
                       artifacts=[auto_artifact("GPU — VRAM occupancy", rows)])
+
+
+_RESTART_RE = re.compile(r"\b(restart|reboot|red[ée]marre[rz]?|relance[rz]?)\b", re.I)
+
+
+def _looks_like_restart(text: str) -> bool:
+    return bool(_RESTART_RE.search(text))
+
+
+def _propose_restart(conn: psycopg.Connection, session: Session, utterance: str) -> TurnResult:
+    """Deterministic fast-path for 'restart container X': extract the target, validate it against
+    the live state projection, file a docker.restart_container Intent, and arm the confirmation.
+    Zero inference — the stereotyped ask doesn't need a model (and the small router was unreliable
+    here: it would claim the restart was done instead of proposing)."""
+    rows = conn.execute("SELECT entity FROM state WHERE kind = 'container'").fetchall()
+    known = {r["entity"].removeprefix("container:") for r in rows}
+    tokens = re.findall(r"[a-z0-9][a-z0-9._-]+", utterance.lower())
+    matches = sorted({t for t in tokens if t in known})
+    fr = bool(re.search(r"red[ée]marre|relance|conteneur", utterance, re.I))
+    if not matches:
+        msg = ("Quel conteneur veux-tu redémarrer ? Je n'ai pas reconnu de nom valide."
+               if fr else "Which container should I restart? I didn't recognise a valid name.")
+        return TurnResult(route=TurnRoute.answer, message=msg)
+    if len(matches) > 1:
+        opts = ", ".join(matches)
+        msg = (f"Plusieurs cibles possibles : {opts} — laquelle ?"
+               if fr else f"Several possible targets: {opts} — which one?")
+        return TurnResult(route=TurnRoute.answer, message=msg)
+    name = matches[0]
+    intent = Intent(
+        type="docker.restart_container",
+        target={"name": name},
+        reasoning=IntentReasoning(
+            summary=f"Operator asked to restart container {name}",
+            confidence=0.97, risk=Risk.medium, reversible=True,
+        ),
+        requested_by=f"user:{session.actor}",
+        context_ref="ctx:deterministic-restart",
+        requires_approval=True,
+        correlation_id=ids.new_id(ids.CORRELATION),
+    )
+    insert_intent(conn, intent)
+    session.pending_intent_id = intent.intent_id
+    msg = (f"Je propose de redémarrer le conteneur **{name}** (action infra, exécution gated). "
+           "Réponds « oui » pour confirmer, « non » pour annuler."
+           if fr else
+           f"I propose restarting container **{name}** (infra action, gated execution). "
+           "Reply 'yes' to confirm, 'no' to cancel.")
+    return TurnResult(route=TurnRoute.propose, message=msg, intent_id=intent.intent_id,
+                      confidence=0.97)
 
 
 def _present_pihole(utterance: str) -> TurnResult:
