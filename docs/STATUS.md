@@ -191,6 +191,20 @@
   (6) **Security: mongo-express had NO auth on the LAN** → bound to 127.0.0.1 (box compose).
   Notes: Hots-Overlay local repo diverges from origin (8 remote commits unpulled); Prowlarr update
   v2.4.0 available; overall health clean (0 crash-loops, 0 OOM, local inference avg 5.4s).
+- **Improvements wave (2026-06-10, evening-server model):** operator's server runs ~18h→night only.
+  (A) Routines renamed/retimed FR: «Brief du soir» 18:15, «Incidents du jour» 18:20, «L'édition du
+  soir» 18:45 — `is_due` catch-up fires them on late boot; briefs francisés (operator_lang=fr, incl.
+  summarizer); push ntfy déjà câblé (app ntfy sur le tél → relayé Wear OS). (B) GPU temp threshold
+  80°C → gpu.temperature_high pushed (+ backup.failed). (C) **First executable Intent E2E**:
+  JARVIS_MODE=approval_required + deterministic restart fast-path (`_propose_restart`: regex →
+  target validated vs state → Intent → «oui» confirm FR → executed; verified live on it-tools).
+  Root-cause fix en route: **state projection drift** (315 rows, ghosts, wrong statuses — daemon
+  misses docker events during its own deploys) → `ingest/reconcile.py` worker (startup + 5 min)
+  emits container.observed/vanished; projector snaps/DELETEs (315→39 healed). Eval case updated.
+  (D) Site: `/recherche` (tsvector FR full-text). (E) `/sujets` (fils multi-éditions) + nav.
+  Console = PWA installable (déjà) → Jarvis sur Android. **Next: wake word "Hey Jarvis" (F)** —
+  machinery exists (voice/wake.py, openwakeword pas branché; console = enregistrement one-shot).
+  Backlog: GDELT backfill · synthesis-history snapshots · Wear OS native.
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
