@@ -167,6 +167,8 @@ services:
       DOCKER_CONTEXT: default   # use the mounted socket, not the Mac's SSH 'jarvis' context
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock   # ingest/metrics/topology drive host Docker
+      # GPU telemetry: `ssh $REMOTE_SSH nvidia-smi` back to the host (read-only key mount).
+      - ${HOME}/.ssh:/root/.ssh:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

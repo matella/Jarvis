@@ -23,6 +23,8 @@ from jarvis.ingest.metrics_store import insert_samples, prune_older_than
 
 Sample = tuple[str, str, dict[str, Any]]  # (entity, kind, sample)
 
+_gpu_fail_logged: str | None = None  # last GPU-sampling failure already logged (anti-spam)
+
 
 def _host_cores() -> int:
     """CPU count for host-relative normalization (config override, else autodetect)."""
@@ -109,7 +111,9 @@ def sample_gpu(remote_ssh: str) -> list[Sample]:
     if not remote_ssh:
         return []
     proc = subprocess.run(
-        ["ssh", remote_ssh,
+        ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
+         "-o", "UserKnownHostsFile=/tmp/.known_hosts",  # the key mount is read-only
+         "-o", "ConnectTimeout=5", remote_ssh,
          f"nvidia-smi --query-gpu={_GPU_QUERY} --format=csv,noheader,nounits"],
         capture_output=True, text=True, timeout=15,
     )
@@ -211,8 +215,12 @@ def poll_once(tracker: ThresholdTracker) -> dict[str, int]:
         print(f"docker stats failed: {exc}")
     try:
         gpus = sample_gpu(s.remote_ssh)
-    except Exception as exc:  # noqa: BLE001
-        print(f"gpu sample failed: {exc}")
+    except Exception as exc:  # noqa: BLE001 — log once per distinct cause, not every 30s cycle
+        global _gpu_fail_logged
+        cause = f"{type(exc).__name__}: {exc}"
+        if cause != _gpu_fail_logged:
+            _gpu_fail_logged = cause
+            print(f"gpu sample failed (logged once): {exc}")
 
     with db.connect(autocommit=True) as conn:
         insert_samples(conn, containers + gpus)
