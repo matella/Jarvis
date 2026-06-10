@@ -60,11 +60,23 @@ def project(conn: psycopg.Connection, event: Event) -> bool:
     if event.entity_ref is None or not event.type.startswith("container."):
         return False
 
+    # Reconciliation events (ingest/reconcile.py) heal drift from missed docker events:
+    # vanished/destroyed entities are REMOVED (state is a snapshot of the present, not history —
+    # the event log keeps the past), observed entities snap to their real status.
+    if event.type in ("container.vanished", "container.destroyed"):
+        conn.execute(
+            "DELETE FROM state WHERE entity = %s AND kind = %s",
+            (event.entity_ref, CONTAINER_KIND),
+        )
+        return True
+
     attrs: dict[str, object] = {
         "last_action": event.type,
         "last_severity": event.severity.value,
     }
-    if event.type in _CONTAINER_STATUS:
+    if event.type == "container.observed":
+        status = str(event.payload.get("status") or "unknown")
+    elif event.type in _CONTAINER_STATUS:
         status = _CONTAINER_STATUS[event.type]
         for key in ("image", "exit_code", "health"):
             if event.payload.get(key) is not None:

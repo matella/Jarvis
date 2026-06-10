@@ -45,6 +45,7 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
     from jarvis.ingest.docker_events import run_ingester
     from jarvis.ingest.metrics import run_poller
     from jarvis.ingest.predict import run_predictor
+    from jarvis.ingest.reconcile import reconcile_once
     from jarvis.ingest.topology import build_topology
     from jarvis.notify.notifier import run_notifier
     from jarvis.ops.backup import run_backup
@@ -72,6 +73,9 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         ("topology", lambda: _periodic(build_topology, s.topology_interval_s, stop)),
         ("deploy", lambda: _periodic(detect_deployments, s.deploy_interval_s, stop)),
         ("backup", lambda: _periodic(run_backup, s.backup_interval_s, stop)),
+        # First pass fires at startup — exactly when drift happens (the daemon missed its own
+        # recreate events) — then every reconcile_interval_s.
+        ("reconcile", lambda: _periodic(reconcile_once, s.reconcile_interval_s, stop)),
     ]
     # News module: hourly scrape + a frequent backlog drainer (enrich at background pace).
     if s.news_enabled:
