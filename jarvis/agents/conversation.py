@@ -738,7 +738,7 @@ def _propose_restart(conn: psycopg.Connection, session: Session, utterance: str)
     name = matches[0]
     intent = Intent(
         type="docker.restart_container",
-        target={"name": name},
+        target={"container": name},
         reasoning=IntentReasoning(
             summary=f"Operator asked to restart container {name}",
             confidence=0.97, risk=Risk.medium, reversible=True,

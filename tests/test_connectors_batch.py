@@ -103,7 +103,7 @@ def test_restart_fastpath_proposes_intent(monkeypatch) -> None:
     assert out.route.value == "propose" and "it-tools" in out.message
     assert s.pending_intent_id == saved["intent"].intent_id
     assert saved["intent"].type == "docker.restart_container"
-    assert saved["intent"].target == {"name": "it-tools"}
+    assert saved["intent"].target == {"container": "it-tools"}
 
 
 def test_restart_fastpath_unknown_target(monkeypatch) -> None:
