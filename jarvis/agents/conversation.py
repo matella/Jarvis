@@ -525,8 +525,12 @@ _PRESENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("code", r"\b(code|diff|patch|coding)\b"),
         ("routines", r"\b(routine|automation|scheduled)"),
         ("memories", r"\b(memor|fact|what you know|what you remember)"),
+        ("arr", r"\b(sonarr|radarr|airing)\b"),   # before torrents: "sonarr downloading" is arr
         ("torrents", r"\b(torrent|download)"),
         ("gpu", r"\b(gpu|vram|graphics card|nvidia)\b"),
+        ("pihole", r"\b(pi-?hole|dns|ad[- ]?block\w*)\b"),
+        ("budget", r"\b(budget|spending|finances?)\b"),
+        ("github", r"\b(github|pull requests?)\b"),
     )
 )
 
@@ -561,7 +565,7 @@ def fastpath_route(utterance: str) -> str:
     # Named homelab apps (HotS, Orpheus) are specific enough to present on mention alone — no
     # show-verb needed ("what's the latest hots patch?"). Other targets still require a show-verb.
     app = _present_target(utterance)
-    if app in ("hots", "orpheus", "news", "gpu"):
+    if app in ("hots", "orpheus", "news", "gpu", "pihole", "arr", "budget", "github"):
         return f"present:{app}"
     # A pure arithmetic ask → exact deterministic compute (no inference). Strict detector, so word
     # problems and code questions still fall through to the model.
@@ -698,6 +702,87 @@ def _present_gpu(utterance: str) -> TurnResult:
                       artifacts=[auto_artifact("GPU — VRAM occupancy", rows)])
 
 
+def _present_pihole(utterance: str) -> TurnResult:
+    """Present Pi-hole DNS/ad-blocking stats (today's queries, blocked %, clients)."""
+    from jarvis.connectors import pihole
+
+    if not pihole.reachable():
+        return _not_connected("Pi-hole", capabilities.remedy("pi-hole"))
+    s = pihole.summary()
+    if not s:
+        return TurnResult(route=TurnRoute.answer,
+                          message="Pi-hole is temporarily unavailable — try again in a moment.")
+    msg = (f"Pi-hole has handled {s['queries_today']} DNS queries today and blocked "
+           f"{s['blocked_today']} of them ({s['percent_blocked']}%).")
+    return TurnResult(route=TurnRoute.answer, message=msg,
+                      artifacts=[auto_artifact("Pi-hole — today", s)])
+
+
+def _present_arr(utterance: str) -> TurnResult:
+    """Present Sonarr/Radarr: the download queue and what's airing/releasing this week."""
+    from jarvis.connectors import arr
+
+    wants: list = [a for a in ("sonarr", "radarr") if re.search(a, utterance, re.I)] \
+        or ["sonarr", "radarr"]
+    data: dict[str, Any] = {}
+    down = 0
+    for app in wants:
+        if not arr.reachable(app):  # type: ignore[arg-type]
+            data[app] = "not reachable"
+            continue
+        try:
+            q = arr.queue(app)  # type: ignore[arg-type]
+            up = arr.upcoming(app)  # type: ignore[arg-type]
+            down += len(q)
+            data[app] = {"downloading": q or "nothing", "next_7_days": up or "nothing scheduled"}
+        except Exception:  # noqa: BLE001 — one app failing must not hide the other
+            data[app] = "temporarily unavailable"
+    if all(v == "not reachable" for v in data.values()):
+        return _not_connected("Sonarr/Radarr", capabilities.remedy("sonarr"))
+    label = " and ".join(wants)
+    msg = (f"{label.title()}: {down} download{'s' if down != 1 else ''} in the queue — "
+           "here's the picture, including the week ahead.")
+    return TurnResult(route=TurnRoute.answer, message=msg,
+                      artifacts=[auto_artifact("Media — queue & upcoming", data)])
+
+
+def _present_budget(utterance: str) -> TurnResult:
+    """Present Actual Budget state — dormant until the operator provides the server password."""
+    from jarvis.connectors import actualbudget
+
+    if not actualbudget.reachable():
+        return _not_connected("Actual Budget", capabilities.remedy("actual budget"))
+    if not actualbudget.authed():
+        return TurnResult(
+            route=TurnRoute.answer,
+            message="Actual Budget is running, but I can't open the budget yet — add "
+                    "ACTUAL_PASSWORD (your Actual server password) to the box .env and I'll "
+                    "wire up balances and monthly spending.",
+        )
+    return TurnResult(
+        route=TurnRoute.answer,
+        message="Actual Budget is connected — the full budget client is the next step now that "
+                "the password is in place; ask me again after the next deploy.",
+    )
+
+
+def _present_github(utterance: str) -> TurnResult:
+    """Present GitHub via the hosted MCP server: notifications or the operator's open PRs."""
+    from jarvis.connectors import github
+
+    if not github.configured():
+        return _not_connected("GitHub", capabilities.remedy("github"))
+    if re.search(r"\bnotif", utterance, re.I):
+        data, title = github.notifications(), "GitHub — notifications"
+    else:
+        data, title = github.my_open_prs(), "GitHub — open PRs"
+    if isinstance(data, dict) and data.get("error"):
+        return TurnResult(route=TurnRoute.answer,
+                          message=f"GitHub is connected but the call failed: {data['error']}.")
+    return TurnResult(route=TurnRoute.answer, message="Here's GitHub:",
+                      artifacts=[auto_artifact(title, data)])
+
+
 def _present_data(
     conn: psycopg.Connection, session: Session, utterance: str, *, store: Any
 ) -> TurnResult:
@@ -715,6 +800,14 @@ def _present_data(
         return _present_news(conn, utterance)
     if target == "gpu":
         return _present_gpu(utterance)
+    if target == "pihole":
+        return _present_pihole(utterance)
+    if target == "arr":
+        return _present_arr(utterance)
+    if target == "budget":
+        return _present_budget(utterance)
+    if target == "github":
+        return _present_github(utterance)
     title: str | None = None
     data: Any = None
     if target == "tasks":

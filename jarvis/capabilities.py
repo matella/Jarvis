@@ -70,6 +70,21 @@ def status() -> list[Capability]:
         Capability("gpu", True,
                    "report GPU/VRAM occupancy — which models are resident, their VRAM, and when "
                    "Ollama frees them — and unload them on request ('free the GPU')", ""),
+        Capability("pi-hole", bool(s.pihole_password),
+                   "report DNS/ad-blocking stats (queries, blocked %, clients)",
+                   "set PIHOLE_PASSWORD in the box .env"),
+        Capability("sonarr", bool(s.sonarr_api_key),
+                   "show what TV is downloading and airing this week",
+                   "set SONARR_API_KEY in the box .env"),
+        Capability("radarr", bool(s.radarr_api_key),
+                   "show what movies are downloading and releasing this week",
+                   "set RADARR_API_KEY in the box .env"),
+        Capability("actual budget", bool(s.actual_password),
+                   "answer budget questions from Actual (balances, monthly spending)",
+                   "set ACTUAL_PASSWORD (your Actual server password) in the box .env"),
+        Capability("github", bool(s.github_pat),
+                   "show GitHub notifications and your open pull requests (via the GitHub MCP)",
+                   "set GITHUB_PAT in the box .env and allowlist api.githubcopilot.com"),
     ]
 
 

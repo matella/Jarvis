@@ -148,6 +148,17 @@ class Settings(BaseSettings):
     hots_api_url: str = "http://host.docker.internal:5001"
     hots_overlay_url: str = "http://host.docker.internal:8086"
     orpheus_api_url: str = "http://host.docker.internal:3010"
+    # Connectors batch (read-only): Pi-hole v6, Sonarr/Radarr, Actual Budget, GitHub (hosted MCP).
+    pihole_url: str = "http://host.docker.internal:8080"
+    pihole_password: str = ""              # app/web password — set in box .env only
+    sonarr_url: str = "http://host.docker.internal:8989"
+    sonarr_api_key: str = ""
+    radarr_url: str = "http://host.docker.internal:7878"
+    radarr_api_key: str = ""
+    actual_url: str = "http://host.docker.internal:5006"
+    actual_password: str = ""              # Actual Budget server password (operator-provided)
+    github_pat: str = ""                   # fine-grained PAT for the hosted GitHub MCP
+    github_mcp_url: str = "https://api.githubcopilot.com/mcp/"
     world_news_url: str = "http://host.docker.internal:8000"  # legacy external app (being retired)
 
     # News module (Jarvis-native): scrape → pool → tier-A/B. OFF until the schema is migrated.
