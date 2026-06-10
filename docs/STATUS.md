@@ -155,6 +155,16 @@
   highlighted, others link through), shown only when ≥1 related. Gets richer as editions accumulate.
   NB: RSS = recent-only, so no 30-day backfill from current sources (would need GDELT/paid + pub-date
   dating — separate project); the archive builds correct multi-day depth going forward.
+- **Jarvis-as-MCP-server (BUILT & LIVE):** spec
+  `docs/superpowers/specs/2026-06-10-jarvis-mcp-server-design.md`. `jarvis/mcp/` (FastMCP,
+  streamable-http, **:8094** — 8093 is ntfy) exposes READ-ONLY tools: jarvis_news,
+  jarvis_homelab_state, jarvis_recent_events, jarvis_recall, jarvis_ask (runs the real conversation
+  pipeline). No action path exposed (Hard Rule #1 intact). Own compose service `jarvis-mcp`.
+  Verified live via a real MCP client: handshake, 5 tools, real news/state/facts, and a French
+  jarvis_ask answer. Client URL: `http://<box-or-tailnet>:8094/mcp`. 493 tests.
+- **Agreed next (in order):** new connectors batch — GitHub (via MCP-as-client), Pi-hole,
+  Sonarr+Radarr, Actual Budget · then voice (pluggable TTS: Piper local default, ElevenLabs opt-in;
+  NB gateway already has `_transcribe`/`_speak` voice plumbing).
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
