@@ -178,6 +178,40 @@ services:
 
   # The interface — nginx serving the React SPA + reverse-proxying the gateway. Published on the
   # LAN like the other homelab apps; put it behind nginx-proxy-manager / VPN as usual.
+  # Jarvis as an MCP server — READ-ONLY tools (news/state/events/recall/ask) for external MCP
+  # clients (Claude Desktop, …) over streamable-http. Own process so a hang can't affect the
+  # daemon/gateway; published on the host so Tailscale can reach it. No action path is exposed.
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jarvis-gateway:latest
+    container_name: jarvis-mcp
+    restart: unless-stopped
+    command: ["python", "-m", "jarvis.mcp"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis}
+      POSTGRES_DB: ${POSTGRES_DB:-jarvis}
+      REDIS_HOST: redis
+      OLLAMA_HOST: host.docker.internal
+      OLLAMA_PORT: "11434"
+      MODEL_REASONING: ${MODEL_REASONING:-qwen3:1.7b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8093:8093"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ["app"]
+
   console:
     build:
       context: ./web
