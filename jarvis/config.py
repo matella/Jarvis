@@ -358,11 +358,18 @@ class Settings(BaseSettings):
     # on the box). whisper_model is a faster-whisper model name (e.g. base.en / base / small);
     # empty → STT off. TTS in the browser by default; set piper_voice for server-side Piper.
     voice_enabled: bool = False
-    whisper_model: str = "base.en"  # faster-whisper model; "" disables local STT
+    whisper_model: str = "base"     # faster-whisper model (multilingual — operator speaks FR);
+    #                                 "" disables local STT
     whisper_device: str = "cpu"     # cpu | cuda
     whisper_compute: str = "int8"   # int8 (fast/CPU) | float16 (GPU) | float32
     piper_bin: str = "piper"
     piper_voice: str = ""  # path to a Piper .onnx voice; empty → server TTS off (browser speaks)
+    # Pluggable TTS: piper (local, default) | elevenlabs (cloud, premium multilingual voice —
+    # reply TEXT leaves the box; explicit opt-in via key + egress allowlist).
+    tts_backend: str = "piper"
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"   # "Rachel" — override to taste
+    elevenlabs_model: str = "eleven_flash_v2_5"          # fast + cheap + FR/EN multilingual
     wake_word_enabled: bool = False
     wake_silence_ms: int = 1500  # stop buffering after this much trailing silence
 

@@ -25,6 +25,7 @@ def test_tts_command(monkeypatch) -> None:
 def test_tts_unavailable_without_voice(monkeypatch) -> None:
     class Off:
         piper_voice = ""
+        tts_backend = "piper"
     monkeypatch.setattr(tts, "get_settings", lambda: Off())
     assert tts.available() is False
 
@@ -45,3 +46,44 @@ def test_wake_gate_buffers_then_completes_on_silence() -> None:
     assert done is True
     assert gate.active is False
     assert gate.take() == b"aabbcc"
+
+
+def test_tts_dispatch_elevenlabs(monkeypatch) -> None:
+    # Backend switch routes synthesize() to ElevenLabs and wraps PCM in a WAV container.
+    from jarvis.voice import tts
+
+    monkeypatch.setattr(tts, "get_settings", lambda: type("S", (), {
+        "tts_backend": "elevenlabs", "elevenlabs_api_key": "k",
+        "elevenlabs_voice_id": "v1", "elevenlabs_model": "m1", "piper_voice": ""})())
+    monkeypatch.setattr("jarvis.security.egress.allowed", lambda h: True)
+    seen = {}
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b"\x00\x01" * 100  # raw 16-bit PCM
+
+    def fake_req(url, *, data=None, timeout=0, headers=None):
+        seen["url"], seen["headers"] = url, headers
+        return _Resp()
+
+    monkeypatch.setattr("jarvis.security.egress.guarded_request", fake_req)
+    wav = tts.synthesize("Bonjour")
+    assert wav[:4] == b"RIFF" and b"WAVE" in wav[:16]      # real WAV container
+    assert "v1" in seen["url"] and seen["headers"]["xi-api-key"] == "k"
+
+
+def test_tts_elevenlabs_dormant_without_key(monkeypatch) -> None:
+    from jarvis.voice import tts
+
+    monkeypatch.setattr(tts, "get_settings", lambda: type("S", (), {
+        "tts_backend": "elevenlabs", "elevenlabs_api_key": "", "piper_voice": "x.onnx"})())
+    assert tts.available() is False     # elevenlabs selected but no key → not available
+
+
+def test_tts_piper_default_available(monkeypatch) -> None:
+    from jarvis.voice import tts
+
+    monkeypatch.setattr(tts, "get_settings", lambda: type("S", (), {
+        "tts_backend": "piper", "piper_voice": "/voices/fr.onnx"})())
+    assert tts.available() is True

@@ -85,6 +85,12 @@ def status() -> list[Capability]:
         Capability("github", bool(s.github_pat),
                    "show GitHub notifications and your open pull requests (via the GitHub MCP)",
                    "set GITHUB_PAT in the box .env and allowlist api.githubcopilot.com"),
+        Capability("voice", bool(s.piper_voice) or
+                   (s.tts_backend == "elevenlabs" and bool(s.elevenlabs_api_key)),
+                   "speak replies aloud (local Piper by default; ElevenLabs premium voice as an "
+                   "opt-in that sends reply text off-box) and hear the operator (local Whisper)",
+                   "set PIPER_VOICE (baked in the image) or TTS_BACKEND=elevenlabs + "
+                   "ELEVENLABS_API_KEY"),
     ]
 
 

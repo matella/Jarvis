@@ -12,7 +12,8 @@ def _cfg(**over):
                 code_repo_allowlist=[], code_exec_enabled=False, hots_api_url="",
                 hots_overlay_url="", orpheus_api_url="", world_news_url="", news_enabled=False,
                 pihole_password="", sonarr_api_key="", radarr_api_key="",
-                actual_password="", github_pat="")
+                actual_password="", github_pat="", piper_voice="",
+                tts_backend="piper", elevenlabs_api_key="")
     base.update(over)
     return type("S", (), base)()
 
