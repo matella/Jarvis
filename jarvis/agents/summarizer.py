@@ -20,6 +20,12 @@ from jarvis.models import router
 
 _NOTABLE = {Severity.warning, Severity.error, Severity.critical}
 
+
+def _operator_lang() -> str:
+    from jarvis.config import get_settings
+
+    return get_settings().operator_lang
+
 _SYSTEM = (
     "You are Jarvis, an operational intelligence assistant for a homelab. "
     "Summarize the provided infrastructure events concisely and factually for an operator. "
@@ -68,6 +74,7 @@ def summarize(since: timedelta, *, store: MemoryStore | None = None) -> SummaryR
             "content": (
                 f"Events since {since_dt:%Y-%m-%d %H:%M} UTC:\n\n{ctx.prompt}\n\n"
                 "Write a short operational summary (2-4 sentences)."
+                + (" Réponds en français." if _operator_lang() == "fr" else "")
             ),
         },
     ]

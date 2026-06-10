@@ -183,6 +183,7 @@ _CONTAINER_METRICS = (
 _GPU_METRICS = (
     ("util_pct", "gpu_util_high_pct", "gpu.utilization"),
     ("mem_pct", "gpu_mem_high_pct", "gpu.memory"),
+    ("temp_c", "gpu_temp_high_c", "gpu.temperature"),
 )
 
 
@@ -194,8 +195,11 @@ def _evaluate_all(
     for samples, specs in ((containers, _CONTAINER_METRICS), (gpus, _GPU_METRICS)):
         for entity, _kind, sample in samples:
             for value_key, threshold_attr, base in specs:
+                value = sample.get(value_key)
+                if value is None:  # metric absent from this sample → nothing to evaluate
+                    continue
                 event = tracker.evaluate(
-                    entity, base, sample[value_key], getattr(s, threshold_attr),
+                    entity, base, value, getattr(s, threshold_attr),
                     f"{base}_high", f"{base}_normal",
                 )
                 if event:

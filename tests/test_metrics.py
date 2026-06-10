@@ -68,3 +68,16 @@ def test_evaluate_all_emits_only_crossings() -> None:
     assert types == ["container.cpu_high", "gpu.utilization_high"]
     # second pass, same readings → no new events (debounced)
     assert _evaluate_all(tracker, containers, gpus) == []
+
+
+def test_gpu_temperature_threshold(monkeypatch) -> None:
+    # temp_c crossing emits gpu.temperature_high (notify-pushed), recovery emits _normal.
+    from jarvis.ingest.metrics import ThresholdTracker, _evaluate_all
+
+    tracker = ThresholdTracker()
+    hot = [("gpu:0", "gpu", {"util_pct": 10.0, "mem_pct": 50.0, "temp_c": 85.0})]
+    events = _evaluate_all(tracker, [], hot)
+    assert [e.type for e in events] == ["gpu.temperature_high"]
+    cool = [("gpu:0", "gpu", {"util_pct": 10.0, "mem_pct": 50.0, "temp_c": 60.0})]
+    events = _evaluate_all(tracker, [], cool)
+    assert [e.type for e in events] == ["gpu.temperature_normal"]

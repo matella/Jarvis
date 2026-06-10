@@ -19,7 +19,7 @@ from jarvis.events.models import Event
 from jarvis.events.stream import ensure_group, get_redis
 from jarvis.notify.channel import send
 
-_NOTIFY_TYPES = {"incident.correlated"}
+_NOTIFY_TYPES = {"incident.correlated", "gpu.temperature_high", "backup.failed"}
 
 
 def should_notify(event: Event) -> bool:

@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     host_cpu_cores: int = 0  # 0 = autodetect; set if the daemon container miscounts host cores
     gpu_util_high_pct: float = 90.0
     gpu_mem_high_pct: float = 90.0
+    gpu_temp_high_c: float = 80.0   # RTX 2080: throttle ~83°C — alert before it
 
     # Alert correlation — temporal-burst clustering of warning+ alerts.
     incident_cluster_gap_s: int = 300
@@ -169,6 +170,7 @@ class Settings(BaseSettings):
     news_process_interval_s: int = 60     # drain the enrichment backlog this often
     news_synthesize_interval_s: int = 120  # tier-B synthesis of multi-source stories
     news_default_lang: str = "fr"          # paper's default display language (translate into it)
+    operator_lang: str = "fr"              # operator's language — briefs/pushes written in it
     mcp_port: int = 8094                   # Jarvis-as-MCP-server (read-only tools, Tailscale reach)
     news_translate_interval_s: int = 90    # translate non-default-language stories into it
     # Publish the finished stories into the standalone world-news DB (so the site is independent of

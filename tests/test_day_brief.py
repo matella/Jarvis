@@ -27,7 +27,7 @@ def fixtures(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_day_brief_assembles_all_sections(fixtures: None) -> None:
     text = sched._day_brief_text(object(), 12)
-    assert "☀️ Daily brief" in text
+    assert "☀️ Brief du soir" in text
     assert "09:00 Standup" in text
     assert "Pay rent" in text
     assert "Deadline" in text and "boss@co" in text
@@ -46,4 +46,4 @@ def test_day_brief_is_best_effort(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("jarvis.research.repository.recent", lambda conn, limit=3: [])
     text = sched._day_brief_text(object(), 6)
     assert "Ship it" in text and "Homelab ok" in text
-    assert "Today:" not in text  # calendar section raised → skipped, not fatal
+    assert "Aujourd'hui :" not in text  # calendar section raised → skipped, not fatal

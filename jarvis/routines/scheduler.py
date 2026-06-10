@@ -47,9 +47,9 @@ def _briefing_text(conn: psycopg.Connection, hours: int) -> str:
     from jarvis.agents.summarizer import summarize
 
     summary = summarize(timedelta(hours=hours)).summary
-    lines = [f"Briefing (last {hours}h): {incidents} incidents."]
+    lines = [f"Bilan ({hours} dernières heures) : {incidents} incident(s)."]
     if crit:
-        lines.append("Critical/error events:")
+        lines.append("Événements critiques/erreurs :")
         lines += [f"  - {r['type']} {r['entity_ref'] or ''}".rstrip() for r in crit]
     lines.append("")
     lines.append(summary)
@@ -91,8 +91,8 @@ def _news_brief_text(conn: psycopg.Connection) -> str:
     top = repo.top_stories_since(conn, utcnow() - timedelta(hours=24),
                                  limit=get_settings().news_top_n)
     if not top:
-        return "No news pooled in the last 24h yet."
-    lines = ["📰 Daily news briefing:"]
+        return "Pas encore d'actus agrégées sur les dernières 24h."
+    lines = ["📰 L'édition du soir :"]
     for story in top:
         try:
             synthesis.synthesize_story(conn, story)
@@ -100,7 +100,8 @@ def _news_brief_text(conn: psycopg.Connection) -> str:
             pass
         fresh = repo.get_story(conn, story.id) or story
         body = (fresh.synthesized_body or "").strip()[:240]
-        lines.append(f"\n• {fresh.title} ({fresh.origin_count} sources)"
+        title = fresh.title_fr or fresh.title
+        lines.append(f"\n• {title} ({fresh.origin_count} sources)"
                      + (f"\n  {body}" if body else ""))
     return "\n".join(lines)
 
@@ -116,7 +117,7 @@ def _day_brief_text(conn: psycopg.Connection, hours: int) -> str:
     now = utcnow()
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
-    lines = ["☀️ Daily brief"]
+    lines = ["☀️ Brief du soir"]
 
     def section(title: str, produce) -> None:  # type: ignore[no-untyped-def]
         try:
@@ -126,15 +127,15 @@ def _day_brief_text(conn: psycopg.Connection, hours: int) -> str:
         if items:
             lines.extend(["", title, *(f"  {x}" for x in items)])
 
-    section("Today:", lambda: [
+    section("Aujourd'hui :", lambda: [
         f"{e.starts_at:%H:%M} {e.title}" + ("" if not e.is_mirror else f" ({e.source.value})")
         for e in cal.agenda(conn, start, end)
     ])
-    section("Due:", lambda: [f"- {t.title}" for t in tasks.due_before(conn, end)])
-    section("Important mail:", lambda: [
+    section("Échéances :", lambda: [f"- {t.title}" for t in tasks.due_before(conn, end)])
+    section("Mails importants :", lambda: [
         f"- {m.subject} ({m.from_addr})" for m in mail.important(conn, limit=5)
     ])
-    section("Recent research:", lambda: [
+    section("Recherches récentes :", lambda: [
         f"- {r.query}" for r in research.recent(conn, limit=3) if r.status.value == "done"
     ])
     lines += ["", _briefing_text(conn, hours)]
