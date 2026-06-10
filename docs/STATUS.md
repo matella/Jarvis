@@ -170,8 +170,14 @@
   deterministic code calls the hosted GitHub MCP, tool names resolved dynamically; dormant — needs
   GITHUB_PAT + api.githubcopilot.com in EGRESS_ALLOWLIST). Routing/presenters/capabilities + 10
   tests (502 total). PIHOLE_PASSWORD/SONARR_API_KEY/RADARR_API_KEY set box-side, never displayed.
-- **Agreed next:** voice — pluggable TTS (Piper local default, ElevenLabs opt-in; NB the gateway
-  already has `_transcribe`/`_speak` plumbing).
+- **Voice (BUILT & LIVE):** spec `docs/superpowers/specs/2026-06-10-voice-pluggable-tts-design.md`.
+  `voice/tts.py` is a pluggable dispatcher — **piper** (local, default; `fr_FR-siwis-medium` +
+  piper-tts baked in the image, fully offline) | **elevenlabs** (opt-in: TTS_BACKEND=elevenlabs +
+  ELEVENLABS_API_KEY + api.elevenlabs.io allowlisted; reply text leaves the box — explicit choice;
+  pcm→WAV so the console contract is unchanged). STT fixed to **multilingual** Whisper `base`
+  (was base.en — would have mangled French). Verified in-container: synth of a French sentence →
+  143KB RIFF WAV; stt+tts available. Console now speaks with the Piper voice via the existing
+  `_transcribe`/`_speak` gateway loop. Wake-word machinery exists, still off (later).
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
