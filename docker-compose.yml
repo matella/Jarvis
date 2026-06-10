@@ -204,7 +204,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "8093:8093"
+      - "8094:8094"   # 8093 is ntfy on the box
     depends_on:
       postgres:
         condition: service_healthy
