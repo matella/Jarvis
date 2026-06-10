@@ -178,6 +178,19 @@
   (was base.en — would have mangled French). Verified in-container: synth of a French sentence →
   143KB RIFF WAV; stt+tts available. Console now speaks with the Piper voice via the existing
   `_transcribe`/`_speak` gateway loop. Wake-word machinery exists, still off (later).
+- **Deep box audit (2026-06-10):** (1) **GPU card telemetry was NEVER live** since
+  containerization — REMOTE_SSH was a placeholder + no ssh client in the image + no private key on
+  the box. Fixed end-to-end (openssh-client baked, RO ~/.ssh mount, dedicated ed25519 key,
+  `core/remote.ssh_cmd()` shared helper, REMOTE_SSH=matella@host.docker.internal) — temp/VRAM/util
+  samples + thresholds now flowing (48°C verified). (2) **Off-box backups failed 6×/day** (same ssh
+  root cause) — fixed, 15MB backup delivered to ~/jarvis-backups. (3) Build cache re-bloated to
+  21.8GB — pruned + **weekly cron** (Sun 5am, keep 5GB). (4) Pi-hole: removed IPv6 upstreams (no
+  IPv6 on the network) — warnings gone. (5) Prowlarr↔Radarr/Sonarr hourly 400s: LimeTorrents fails
+  Radarr movie validation, 1337x fully dead (site down) → tag routing (tv-only/movies), 1337x
+  disabled (re-enable in Prowlarr when its site revives), mappings reset — zero 400/409 after.
+  (6) **Security: mongo-express had NO auth on the LAN** → bound to 127.0.0.1 (box compose).
+  Notes: Hots-Overlay local repo diverges from origin (8 remote commits unpulled); Prowlarr update
+  v2.4.0 available; overall health clean (0 crash-loops, 0 OOM, local inference avg 5.4s).
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
