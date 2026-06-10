@@ -739,8 +739,8 @@ def _present_arr(utterance: str) -> TurnResult:
             data[app] = "temporarily unavailable"
     if all(v == "not reachable" for v in data.values()):
         return _not_connected("Sonarr/Radarr", capabilities.remedy("sonarr"))
-    label = " and ".join(wants)
-    msg = (f"{label.title()}: {down} download{'s' if down != 1 else ''} in the queue — "
+    label = " and ".join(w.title() for w in wants)
+    msg = (f"{label}: {down} download{'s' if down != 1 else ''} in the queue — "
            "here's the picture, including the week ahead.")
     return TurnResult(route=TurnRoute.answer, message=msg,
                       artifacts=[auto_artifact("Media — queue & upcoming", data)])

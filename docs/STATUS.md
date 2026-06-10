@@ -162,9 +162,16 @@
   pipeline). No action path exposed (Hard Rule #1 intact). Own compose service `jarvis-mcp`.
   Verified live via a real MCP client: handshake, 5 tools, real news/state/facts, and a French
   jarvis_ask answer. Client URL: `http://<box-or-tailnet>:8094/mcp`. 493 tests.
-- **Agreed next (in order):** new connectors batch — GitHub (via MCP-as-client), Pi-hole,
-  Sonarr+Radarr, Actual Budget · then voice (pluggable TTS: Piper local default, ElevenLabs opt-in;
-  NB gateway already has `_transcribe`/`_speak` voice plumbing).
+- **Connectors batch (BUILT & LIVE):** spec
+  `docs/superpowers/specs/2026-06-10-connectors-batch-design.md`. **Pi-hole v6** (auth→summary;
+  verified live: real query/block stats) · **Sonarr+Radarr** (queue + 7-day calendar; verified,
+  keys self-served from config.xml into box .env) · **Actual Budget** (dormant — needs
+  ACTUAL_PASSWORD; full actualpy client lands then) · **GitHub via MCP-as-client** (first one —
+  deterministic code calls the hosted GitHub MCP, tool names resolved dynamically; dormant — needs
+  GITHUB_PAT + api.githubcopilot.com in EGRESS_ALLOWLIST). Routing/presenters/capabilities + 10
+  tests (502 total). PIHOLE_PASSWORD/SONARR_API_KEY/RADARR_API_KEY set box-side, never displayed.
+- **Agreed next:** voice — pluggable TTS (Piper local default, ElevenLabs opt-in; NB the gateway
+  already has `_transcribe`/`_speak` plumbing).
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
