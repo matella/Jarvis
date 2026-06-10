@@ -51,9 +51,10 @@ def run_backup() -> dict:
             fh.write(blob)
 
         # copy to the remote box too
+        from jarvis.core.remote import ssh_cmd
         remote_cmd = f"mkdir -p {s.backup_remote_dir} && cat > {s.backup_remote_dir}/{name}"
         subprocess.run(
-            ["ssh", s.remote_ssh, remote_cmd],
+            ssh_cmd(s.remote_ssh, remote_cmd),
             input=blob, capture_output=True, timeout=120, check=True,
         )
         _prune(s)
@@ -70,10 +71,11 @@ def _prune(s) -> None:
     for old in _files_to_prune(offbox, s.backup_retention_count):
         os.remove(os.path.join(s.backup_offbox_dir, old))
     # remote: keep newest N
+    from jarvis.core.remote import ssh_cmd
     subprocess.run(
-        ["ssh", s.remote_ssh,
-         f"ls -1t {s.backup_remote_dir}/jarvis-*.sql.gz 2>/dev/null | "
-         f"tail -n +{s.backup_retention_count + 1} | xargs -r rm -f"],
+        ssh_cmd(s.remote_ssh,
+                f"ls -1t {s.backup_remote_dir}/jarvis-*.sql.gz 2>/dev/null | "
+                f"tail -n +{s.backup_retention_count + 1} | xargs -r rm -f"),
         capture_output=True, timeout=30,
     )
 

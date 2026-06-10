@@ -110,11 +110,9 @@ def sample_docker_stats(context: str) -> list[Sample]:
 def sample_gpu(remote_ssh: str) -> list[Sample]:
     if not remote_ssh:
         return []
+    from jarvis.core.remote import ssh_cmd
     proc = subprocess.run(
-        ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
-         "-o", "UserKnownHostsFile=/tmp/.known_hosts",  # the key mount is read-only
-         "-o", "ConnectTimeout=5", remote_ssh,
-         f"nvidia-smi --query-gpu={_GPU_QUERY} --format=csv,noheader,nounits"],
+        ssh_cmd(remote_ssh, f"nvidia-smi --query-gpu={_GPU_QUERY} --format=csv,noheader,nounits"),
         capture_output=True, text=True, timeout=15,
     )
     samples: list[Sample] = []
