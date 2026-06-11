@@ -205,6 +205,10 @@
   Console = PWA installable (déjà) → Jarvis sur Android. **Next: wake word "Hey Jarvis" (F)** —
   machinery exists (voice/wake.py, openwakeword pas branché; console = enregistrement one-shot).
   Backlog: GDELT backfill · synthesis-history snapshots · Wear OS native.
+- **Nexus Codex (repo HotS) — spec & maquettes VALIDÉES par l'opérateur :** refonte complète du
+  site patch notes. `docs/specs/2026-06-11-nexus-codex-redesign.md` + mockup HTML (10 vues, 8
+  pages). À lancer en session dédiée sur le repo HeroesOfTheStormPatchNotes : « Implémente le spec
+  Nexus Codex, phase 1 ».
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
