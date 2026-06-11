@@ -36,7 +36,7 @@ function historyToTurn(m: HistoryMessage): ChatTurn {
 }
 
 export function useConversation(
-  opts: { onTts?: (wavBase64: string) => void; onReply?: (text: string) => void } = {},
+  opts: { onTts?: (wavBase64: string) => void; onReply?: (text: string, serverWillSpeak?: boolean) => void } = {},
 ) {
   const onTtsRef = useRef(opts.onTts);
   onTtsRef.current = opts.onTts;
@@ -122,7 +122,7 @@ export function useConversation(
             confidence: r.confidence,
           },
         ]);
-        onReplyRef.current?.(r.message);
+        onReplyRef.current?.(r.message, msg.will_speak === true);
       }
     };
     ws.onclose = () => {

@@ -25,7 +25,7 @@ export default function App() {
   // speaks the text on-device. Either way Jarvis talks when he answers.
   const { turns, presence, conn, send, sendAudio, newConversation, awaiting } = useConversation({
     onTts: voice.playTts,
-    onReply: (text) => speak(text),
+    onReply: (text, serverWillSpeak) => { if (!serverWillSpeak) speak(text); },
   });
   sendAudioRef.current = sendAudio;
   // Thinking = we're waiting for a reply, or the spine reports a processing presence.

@@ -361,8 +361,13 @@ async def _serve_ws(socket: WebSocket) -> None:
             try:
                 with db.connect(autocommit=True) as conn:
                     result = convo.respond(conn, session, utterance)
+                    # will_speak: server TTS will follow → the client must NOT browser-speak too
+                    # (before server TTS existed the browser voice was the only one; with both
+                    # active the operator heard two voices at once).
+                    from jarvis.voice import tts as _tts
                     await socket.send_json(
-                        {"kind": "turn", "result": result.model_dump(mode="json")}
+                        {"kind": "turn", "result": result.model_dump(mode="json"),
+                         "will_speak": bool(_tts.available() and result.message)}
                     )
                     await _send_presence(socket, presence.SPEAKING)
                     await _speak(socket, result.message)

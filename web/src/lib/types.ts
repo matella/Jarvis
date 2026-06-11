@@ -53,7 +53,7 @@ export type ServerEvent =
   | { kind: "ready"; conversation_id: string }
   | { kind: "history"; messages: HistoryMessage[] }
   | { kind: "presence"; state: PresenceState }
-  | { kind: "turn"; result: TurnResult };
+  | { kind: "turn"; result: TurnResult; will_speak?: boolean };
 
 export interface MicControl {
   recording: boolean;
