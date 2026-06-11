@@ -209,6 +209,23 @@
   site patch notes. `docs/specs/2026-06-11-nexus-codex-redesign.md` + mockup HTML (10 vues, 8
   pages). À lancer en session dédiée sur le repo HeroesOfTheStormPatchNotes : « Implémente le spec
   Nexus Codex, phase 1 ».
+- **QUATRE SESSIONS EXÉCUTÉES (2026-06-11, mandat opérateur) :**
+  **A — Codex P1+P2 (repo HotS)** : 6 399 PatchSections créées+classifiées depuis les HTML Nexus
+  (BUFF/NERF/MIXED/REWORK/BUGFIX + short summaries; PatchClassifier 9 tests; sections legacy
+  BlueTracker classifiées aussi); 90/90 portraits + 14/15 images cartes (volume hots-images,
+  WebRoot fallback, slugs bilatéraux cho→chogall); timelines par héros 2014→2026 servies (Muradin
+  83 entrées). **B — Codex P3+P4** : app.css retokené Codex (mêmes noms de vars → tout le site),
+  composants partagés (badges/anneaux univers/diffs/pills), Home=hero-select avec portraits réels,
+  HeroDetail timeline badgée, PatchDetail TOC à points colorés + badges sections, images BG auto.
+  Raffinements pixel restants listés au spec. **C — Codex P5 (repo Hots-Overlay)** : rebase sur
+  origin (8 commits Azure/Twitch) + push; endpoint POST/GET /api/patch-digest (auth AUTH_TOKEN);
+  panneau stream (compteurs+rotation 6s); pousseur .NET après chaque sync (DIGEST_PUSH_URLS) —
+  local E2E OK (digest classifié servi), **Azure 401 : mettre DIGEST_PUSH_TOKEN=<AUTH_TOKEN de
+  l'app Azure> dans ~/apps/hots/docker-compose.yml** (pipeline a déployé l'endpoint). 
+  **D — Wake word** : voice/wakeword.py (openwakeword hey_jarvis baked dans l'image, VAD RMS) +
+  gateway WS kind=wake_chunk → WakeGate → STT → respond; client wakeListen.ts (PCM16 16kHz) +
+  toggle palette « Start 'Hey Jarvis' listening ». Serveur vérifié (pas de faux positif silence);
+  **à valider au micro par l'opérateur**. Route subnet Tailscale approuvée par l'opérateur.
 - **Remaining (optional):** cross-language event grouping (v2) · clustering threshold fine-tune.
 
 ## (superseded) World News build — BACKEND LIVE (M1–M3 done; plan: docs/superpowers/plans/2026-06-07-world-news-jarvis.md)
