@@ -51,6 +51,9 @@ u.urlretrieve(base+'/${PIPER_VOICE_NAME}.onnx.json', '/voices/${PIPER_VOICE_NAME
     ls -la /voices
 ENV PIPER_VOICE=/voices/${PIPER_VOICE_NAME}.onnx
 
+# Pre-download the openwakeword "hey jarvis" model so continuous listen works offline.
+RUN python -c "import openwakeword.utils as u; u.download_models(['hey_jarvis'])"
+
 # Bind all interfaces inside the container so the console service can reach it on the compose net.
 ENV GATEWAY_HOST=0.0.0.0 \
     GATEWAY_PORT=8787 \

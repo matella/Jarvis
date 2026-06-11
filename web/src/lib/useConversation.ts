@@ -14,7 +14,7 @@ let turnSeq = 0;
 const nextId = () => `t${++turnSeq}`;
 
 interface VoiceMsg {
-  kind: "transcript" | "tts" | "stt_error";
+  kind: "transcript" | "tts" | "stt_error" | "wake" | "wake_error";
   text?: string;
   wav?: string;
   detail?: string;
@@ -36,12 +36,14 @@ function historyToTurn(m: HistoryMessage): ChatTurn {
 }
 
 export function useConversation(
-  opts: { onTts?: (wavBase64: string) => void; onReply?: (text: string, serverWillSpeak?: boolean) => void } = {},
+  opts: { onTts?: (wavBase64: string) => void; onReply?: (text: string, serverWillSpeak?: boolean) => void; onWake?: () => void } = {},
 ) {
   const onTtsRef = useRef(opts.onTts);
   onTtsRef.current = opts.onTts;
   const onReplyRef = useRef(opts.onReply);
   onReplyRef.current = opts.onReply;
+  const onWakeRef = useRef(opts.onWake);
+  onWakeRef.current = opts.onWake;
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [presence, setPresence] = useState<PresenceState>("idle");
   const [conn, setConn] = useState<ConnState>("connecting");
@@ -98,6 +100,8 @@ export function useConversation(
           const text = msg.text;
           setTurns((prev) => [...prev, { id: nextId(), role: "user", text }]);
         }
+      } else if (msg.kind === "wake") {
+        onWakeRef.current?.();
       } else if (msg.kind === "tts") {
         if (msg.wav) onTtsRef.current?.(msg.wav);
       } else if (msg.kind === "stt_error") {
@@ -153,6 +157,12 @@ export function useConversation(
     startAwait();
   }, [startAwait]);
 
+  const sendWakeChunk = useCallback((pcmBase64: string) => {
+    const ws = socketRef.current;
+    if (ws?.readyState === WebSocket.OPEN)
+      ws.send(JSON.stringify({ kind: "wake_chunk", pcm: pcmBase64 }));
+  }, []);
+
   const sendAudio = useCallback((wavBase64: string) => {
     const ws = socketRef.current;
     if (!wavBase64 || !ws || ws.readyState !== WebSocket.OPEN) return;
@@ -169,5 +179,5 @@ export function useConversation(
     socketRef.current?.close(); // onclose auto-reconnects without a cid → fresh conversation
   }, [stopAwait]);
 
-  return { turns, presence, conn, conversationId, send, sendAudio, newConversation, awaiting };
+  return { turns, presence, conn, conversationId, send, sendAudio, sendWakeChunk, newConversation, awaiting };
 }

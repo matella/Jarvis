@@ -373,7 +373,7 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"   # "Rachel" — override to taste
     elevenlabs_model: str = "eleven_flash_v2_5"          # fast + cheap + FR/EN multilingual
-    wake_word_enabled: bool = False
+    wake_word_enabled: bool = True
     wake_silence_ms: int = 1500  # stop buffering after this much trailing silence
 
     # Real-time search + capture (9) — local-first web RAG via SearXNG; screenshots via Playwright.

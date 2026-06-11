@@ -14,6 +14,7 @@ import { PresenceMode } from "./components/PresenceMode";
 import { TopBar, type Surface } from "./components/TopBar";
 import { Workspace } from "./components/Workspace";
 import { speak } from "./lib/speak";
+import { startWakeListen, stopWakeListen, wakeListening } from "./lib/wakeListen";
 import { useConversation } from "./lib/useConversation";
 import { useVoice } from "./lib/useVoice";
 
@@ -23,9 +24,10 @@ export default function App() {
   const voice = useVoice((b64) => sendAudioRef.current(b64));
   // Spoken replies: prefer server TTS audio (Piper) if it ever arrives; otherwise the browser
   // speaks the text on-device. Either way Jarvis talks when he answers.
-  const { turns, presence, conn, send, sendAudio, newConversation, awaiting } = useConversation({
+  const { turns, presence, conn, send, sendAudio, sendWakeChunk, newConversation, awaiting } = useConversation({
     onTts: voice.playTts,
     onReply: (text, serverWillSpeak) => { if (!serverWillSpeak) speak(text); },
+    onWake: () => console.info("wake word detected — listening"),
   });
   sendAudioRef.current = sendAudio;
   // Thinking = we're waiting for a reply, or the spine reports a processing presence.
@@ -75,6 +77,8 @@ export default function App() {
       { id: "approvals", label: "Insight · Approvals queue", run: () => goInsight("approvals") },
       { id: "mic", label: voice.recording ? "Stop mic" : "Start mic (talk)",
         run: () => (voice.recording ? voice.stopMic() : void voice.startMic()) },
+      { id: "wake", label: wakeListening() ? "Stop 'Hey Jarvis' listening" : "Start 'Hey Jarvis' listening",
+        run: () => (wakeListening() ? stopWakeListen() : void startWakeListen(sendWakeChunk)) },
       { id: "new-convo", label: "New conversation", hint: "clear", run: newConversation },
       { id: "settings", label: "Connection settings", hint: "gateway", run: () => setSettingsOpen(true) },
     ],

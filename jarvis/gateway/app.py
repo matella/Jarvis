@@ -8,6 +8,8 @@ the existing M4 gate. Local homelab only — never expose this.
 
 from __future__ import annotations
 
+import base64
+
 from typing import Any
 
 from fastapi import (
@@ -342,11 +344,40 @@ async def _serve_ws(socket: WebSocket) -> None:
             })
         await _send_presence(socket, presence.baseline_presence(conn))
 
+    from jarvis.voice.wake import WakeGate
+    wake_gate = WakeGate()
+
     try:
         while True:
             msg = await socket.receive_json()
+            # Continuous listen ("Hey Jarvis"): 16kHz PCM16 chunks stream in; openwakeword fires
+            # the gate, then frames buffer until trailing silence → same STT → respond path.
+            # Privacy: nothing is buffered before the wake word (WakeGate guarantee).
+            if (msg or {}).get("kind") == "wake_chunk":
+                from jarvis.voice import wakeword
+                from jarvis.voice.tts import _pcm_to_wav
+
+                if not wakeword.available():
+                    await socket.send_json({"kind": "wake_error",
+                                            "detail": "wake word disabled or model missing"})
+                    continue
+                frame = base64.b64decode(msg.get("pcm", ""))
+                if not wake_gate.active:
+                    if wakeword.detect(frame):
+                        wake_gate.wake()
+                        wakeword.reset()
+                        await socket.send_json({"kind": "wake"})
+                    continue
+                done = wake_gate.feed(frame, is_speech=wakeword.rms_is_speech(frame),
+                                      frame_ms=max(1, len(frame) // 32))
+                if not done:
+                    continue
+                wav = _pcm_to_wav(wake_gate.take(), rate=16000)
+                utterance = await _transcribe(socket, base64.b64encode(wav).decode())
+                if not utterance:
+                    continue
             # Voice transport: audio in → STT → the SAME conversation path; TTS audio back out.
-            if (msg or {}).get("kind") == "audio":
+            elif (msg or {}).get("kind") == "audio":
                 utterance = await _transcribe(socket, msg.get("wav", ""))
                 if not utterance:
                     continue

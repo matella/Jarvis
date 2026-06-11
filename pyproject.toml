@@ -34,6 +34,7 @@ dev = [
 voice = [
     "faster-whisper>=1.0",
     "piper-tts>=1.2",
+    "openwakeword>=0.6",
 ]
 
 [project.scripts]
