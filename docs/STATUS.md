@@ -43,6 +43,12 @@
 ## Homelab apps deployed + plugged into Jarvis (2026-06)
 - **HotS Patch Notes** (`~/apps/hots` on box): api :5001 + web :5100, SQLite, sync working (pulls
   current patches). `jarvis/connectors/hots.py` → "latest hots patch" / "hots heroes" present cards.
+  - **2026-06-11 Codex conformance pass (commit 13ba7f4..)**: toutes les pages refaites pour coller au
+    mockup validé (`docs/specs/2026-06-11-nexus-codex-mockup.html` du repo HotS) — audité écran par
+    écran via tunnel SSH + preview browser. Backend: noms BG canoniques + merge doublons, match
+    sections "Map" normalisé (timelines de cartes enfin remplies), compteurs héros/cartes,
+    POST /api/sync/battlegrounds. **Fix majeur**: nginx servait blazor.webassembly.js/app.css en
+    `immutable 1y` → builds figés chez les visiteurs jusqu'à hard-refresh; passé en `no-cache` (ETag).
 - **Orpheus** (`~/apps/orpheus`): server :3010 + client :8085, AI off (no GPU contention), Spotify
   dormant (placeholder creds — add real `SPOTIFY_CLIENT_ID/SECRET` in `~/apps/orpheus/server/.env`).
   `jarvis/connectors/orpheus.py` → "what's orpheus playing" (says "running, Spotify not connected"
