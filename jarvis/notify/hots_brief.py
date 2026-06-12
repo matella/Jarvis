@@ -90,6 +90,7 @@ def process_batch(
                         title=title, message=message, priority=priority,
                         event_type=event.type, entity=event.entity_ref,
                     )
+                    print(f"[hots_brief] {title} — {message}", flush=True)
                     sent += 1
             except Exception:  # noqa: BLE001 — one bad message must not stall briefs
                 pass
