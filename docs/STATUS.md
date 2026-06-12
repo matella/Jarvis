@@ -40,6 +40,13 @@
   domain rule now reserves coding for programming help). One strict-judge near-miss left
   (architectural self-description) — accepted, not overfit.
 
+## Storm Codex (nouveau projet, 2026-06-12) — design validé, jalon 0 à lancer
+Rénovation de stats-of-the-storm (tracker stats HotS) : crates Rust + serveur axum/Postgres +
+SPA codex + widget stream + événements Jarvis. **Tout vit dans le repo dédié
+https://github.com/matella/storm-codex** (privé pour l'instant — CLAUDE.md, STATUS, spec validée,
+14 maquettes, dossier de recherche). Reprendre LÀ-BAS, pas ici ; prochaine étape : plan du
+jalon 0 (spike décodage Rust, besoin d'un échantillon de replays du PC de jeu).
+
 ## Homelab apps deployed + plugged into Jarvis (2026-06)
 - **HotS Patch Notes** (`~/apps/hots` on box): api :5001 + web :5100, SQLite, sync working (pulls
   current patches). `jarvis/connectors/hots.py` → "latest hots patch" / "hots heroes" present cards.
