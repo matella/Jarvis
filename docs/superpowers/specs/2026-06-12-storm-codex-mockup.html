@@ -126,6 +126,33 @@ Les avatars initiales = portraits locaux du référentiel HotsPatchNotes.</p>
   </div>
 </div>
 
+<p class="cap">3b · Détail de match — stats d'équipe &amp; talents par joueur (suite de la même page)</p>
+<div class="mk">
+  <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #1a1d2a;">
+    <div style="padding:10px 18px;border-right:1px solid #1a1d2a;">
+      <p class="kick">Stats d'équipe</p>
+      <table>
+        <tr><th></th><th class="tm-blue">Bleue</th><th class="tm-red">Rouge</th></tr>
+        <tr><td>Takedowns</td><td class="mono tm-blue">31</td><td class="mono tm-red">14</td></tr>
+        <tr><td>Structures détruites</td><td class="mono tm-blue">9</td><td class="mono tm-red">2</td></tr>
+        <tr><td>Camps capturés</td><td class="mono tm-blue">12</td><td class="mono tm-red">7</td></tr>
+        <tr><td>Globes ramassés</td><td class="mono tm-blue">48</td><td class="mono tm-red">39</td></tr>
+        <tr><td>Temps avec avantage de niveau</td><td class="mono tm-blue">14:02</td><td class="mono tm-red">2:11</td></tr>
+        <tr><td>Team fights gagnés</td><td class="mono tm-blue">5</td><td class="mono tm-red">2</td></tr>
+      </table>
+    </div>
+    <div style="padding:10px 18px;">
+      <p class="kick">Talents — ligne joueur dépliée (Matella · Muradin)</p>
+      <p class="mono" style="font-size:10.5px;color:#cfd3e0;line-height:2;margin:0;">
+        <span style="color:#5d6275;">1</span> Troisième souffle · <span style="color:#5d6275;">4</span> Réserves solides · <span style="color:#5d6275;">7</span> Percée<br>
+        <span style="color:#5d6275;">10</span> <span style="color:#CECBF6;">Avatar</span> · <span style="color:#5d6275;">13</span> Tonnerre brûlant · <span style="color:#5d6275;">16</span> Donner l'exemple · <span style="color:#5d6275;">20</span> Inarrêtable
+      </p>
+      <p style="color:#5d6275;font-size:9.5px;margin:6px 0 0;">icônes du référentiel HotsPatchNotes · timestamp de pick au survol · chaque ligne du score se déplie ainsi</p>
+    </div>
+  </div>
+  <div style="padding:8px 18px;"><span style="color:#5d6275;font-size:10px;">Sections imprimables/exportables (parité SotS print) : score · draft · XP · objectifs · talents — sélection par cases puis Export PDF/CSV</span></div>
+</div>
+
 <p class="cap">4 · Fiche joueur — progression, hero pool, duos, awards</p>
 <div class="mk" style="display:grid;grid-template-columns:190px minmax(0,1fr);">
   <div style="padding:14px 18px;border-right:1px solid #1a1d2a;">
@@ -157,6 +184,32 @@ Les avatars initiales = portraits locaux du référentiel HotsPatchNotes.</p>
   </div>
 </div>
 
+<p class="cap">4b · Fiche joueur — talent builds, award tracker, big tables (onglets dépliés)</p>
+<div class="mk">
+  <div style="padding:10px 18px;border-bottom:1px solid #1a1d2a;">
+    <p class="kick">Talent builds — Muradin (412 parties)</p>
+    <table>
+      <tr><th>Build</th><th>1</th><th>4</th><th>7</th><th>10</th><th>13</th><th>16</th><th>20</th><th>P</th><th>Win%</th></tr>
+      <tr><td class="mono" style="color:#5d6275;">#1</td><td class="mono">3e souffle</td><td class="mono">Réserves</td><td class="mono">Percée</td><td class="mono" style="color:#CECBF6;">Avatar</td><td class="mono">Tonnerre</td><td class="mono">Exemple</td><td class="mono">Inarrêt.</td><td class="mono">122</td><td class="mono up">66%</td></tr>
+      <tr><td class="mono" style="color:#5d6275;">#2</td><td class="mono">Infusion</td><td class="mono">Réserves</td><td class="mono">Skullcracker</td><td class="mono" style="color:#CECBF6;">Haymaker</td><td class="mono">Pas de géant</td><td class="mono">Exemple</td><td class="mono">Grand coup</td><td class="mono">64</td><td class="mono dn">48%</td></tr>
+    </table>
+    <p style="color:#5d6275;font-size:9.5px;margin:4px 0 0;">+ pick rate par talent et par palier (vue « talent pick ») — barres pick%/win% comme l'écran 5</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;">
+    <div style="padding:10px 18px;border-right:1px solid #1a1d2a;">
+      <p class="kick">Award tracker</p>
+      <p class="mono" style="font-size:10.5px;color:#cfd3e0;line-height:1.9;margin:0;">
+        <span class="bdg b-mvp">MVP</span> ×34 (11%) · Painbringer ×41 · Bulwark ×38<br>
+        Dominator ×12 · Avenger ×9 · Hat Trick ×3 <span style="color:#5d6275;">· ~40 awards suivis</span>
+      </p>
+    </div>
+    <div style="padding:10px 18px;">
+      <p class="kick">Big tables — toutes les stats, tous les matchs</p>
+      <p style="color:#8d93a8;font-size:10.5px;margin:0;">Table virtualisée plein écran : 1 ligne/match (ou par héros), ~80 colonnes au choix (groupes combat/siège/survie/TF), tri multi-colonnes, filtres en tête, export CSV — parité « player-big-tables » de SotS sans DataTables.</p>
+    </div>
+  </div>
+</div>
+
 <p class="cap">5 · Héros (collection) — stats globales, talents, builds</p>
 <div class="mk">
   <div style="display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid #232636;align-items:center;">
@@ -169,6 +222,13 @@ Les avatars initiales = portraits locaux du référentiel HotsPatchNotes.</p>
     <p class="kick">Détail héros → talents par palier (pick % / win %)</p>
     <p class="mono" style="font-size:10.5px;color:#cfd3e0;margin:0;">Niv 1 · Troisième souffle <span class="old">62% pick</span> <span class="up">63% win</span> — barres pick/win par talent, builds populaires séquencés (1-4-7-10…)</p>
   </div>
+</div>
+
+<p class="cap">5b · Compositions — équipes de 5, win rates (onglet « comps », héros &amp; trends)</p>
+<div class="mk">
+  <div class="row"><div style="display:flex;gap:3px;"><div class="av" style="width:22px;height:22px;background:#2b2416;border:1.5px solid #EF9F27;color:#FAC775;font-size:7px;">MU</div><div class="av" style="width:22px;height:22px;background:#16202c;border:1.5px solid #378ADD;color:#85B7EB;font-size:7px;">KE</div><div class="av" style="width:22px;height:22px;background:#221c2e;border:1.5px solid #AFA9EC;color:#CECBF6;font-size:7px;">OR</div><div class="av" style="width:22px;height:22px;background:#2b1f16;border:1.5px solid #D85A30;color:#F0997B;font-size:7px;">AN</div><div class="av" style="width:22px;height:22px;background:#2a1c1c;border:1.5px solid #E24B4A;color:#F09595;font-size:7px;">DI</div></div><span style="color:#5d6275;font-size:10px;">tank·bruiser·heal·support·assassin</span><div class="gauge" style="flex:1;"><div style="width:71%;background:#5DCAA5;"></div></div><span class="mono up" style="font-size:11px;">71%</span><span style="color:#5d6275;font-size:10px;">14 p</span></div>
+  <div class="row" style="border-bottom:none;"><div style="display:flex;gap:3px;"><div class="av" style="width:22px;height:22px;background:#16202c;border:1.5px solid #378ADD;color:#85B7EB;font-size:7px;">TY</div><div class="av" style="width:22px;height:22px;background:#2b2416;border:1.5px solid #EF9F27;color:#FAC775;font-size:7px;">JO</div><div class="av" style="width:22px;height:22px;background:#2b2416;border:1.5px solid #EF9F27;color:#FAC775;font-size:7px;">AND</div><div class="av" style="width:22px;height:22px;background:#221c2e;border:1.5px solid #AFA9EC;color:#CECBF6;font-size:7px;">QH</div><div class="av" style="width:22px;height:22px;background:#2a1c1c;border:1.5px solid #E24B4A;color:#F09595;font-size:7px;">VA</div></div><span style="color:#5d6275;font-size:10px;">double soutien</span><div class="gauge" style="flex:1;"><div style="width:43%;background:#E24B4A;"></div></div><span class="mono dn" style="font-size:11px;">43%</span><span style="color:#5d6275;font-size:10px;">7 p</span></div>
+  <div style="padding:7px 18px;border-top:1px solid #1a1d2a;"><span style="color:#5d6275;font-size:10px;">groupements : composition exacte · par rôles · par duo/trio synergique — disponible en vue héros, trends (par patch) et équipe</span></div>
 </div>
 
 <p class="cap">6 · Trends — par patch, croisé avec Nexus Codex</p>
@@ -199,6 +259,23 @@ Les avatars initiales = portraits locaux du référentiel HotsPatchNotes.</p>
       <tr><td class="mono">1</td><td>Matella</td><td class="mono">20</td><td class="mono up">70%</td><td class="mono">4,6</td><td class="mono">15%</td></tr>
       <tr><td class="mono">2</td><td>Ally2</td><td class="mono">20</td><td class="mono">65%</td><td class="mono">3,8</td><td class="mono">10%</td></tr>
     </table>
+  </div>
+</div>
+
+<p class="cap">7b · Collections &amp; alias — gestion (parité « collections », « alias », « My ID » de SotS)</p>
+<div class="mk" style="display:grid;grid-template-columns:1fr 1fr;">
+  <div style="padding:12px 18px;border-right:1px solid #1a1d2a;">
+    <p class="kick">Collections</p>
+    <div class="row" style="padding:6px 0;"><span style="font-size:11.5px;">Saison 3 — ligue</span><span class="mono" style="color:#5d6275;font-size:10px;">20 matchs</span><span style="margin-left:auto;color:#7F77DD;font-size:10px;">filtrer ›</span></div>
+    <div class="row" style="padding:6px 0;"><span style="font-size:11.5px;">Scrims mardi</span><span class="mono" style="color:#5d6275;font-size:10px;">8 matchs</span><span style="margin-left:auto;color:#7F77DD;font-size:10px;">filtrer ›</span></div>
+    <div class="row" style="padding:6px 0;border-bottom:none;"><span style="color:#7F77DD;font-size:11px;">+ nouvelle collection</span></div>
+    <p style="color:#5d6275;font-size:9.5px;margin:8px 0 0;">affectation : à l'upload (token → collection par défaut), par filtre en masse, ou match par match — toute page est filtrable par collection</p>
+  </div>
+  <div style="padding:12px 18px;">
+    <p class="kick">Alias &amp; identité</p>
+    <p style="font-size:11px;color:#cfd3e0;margin:0 0 6px;">Matella <span class="mono" style="color:#5d6275;font-size:9.5px;">= Matella#2407 + MatellaSmurf#1190</span> <span style="color:#7F77DD;font-size:10px;">fusionner ›</span></p>
+    <p style="font-size:11px;color:#cfd3e0;margin:0 0 6px;">Mon identité (« My ID ») : <span class="mono" style="color:#FAC775;">Matella#2407</span> <span style="color:#5d6275;font-size:9.5px;">— surligné partout, base des moyennes du widget stream</span></p>
+    <p style="color:#5d6275;font-size:9.5px;margin:8px 0 0;">fusion réversible (table d'alias, pas de réécriture des données)</p>
   </div>
 </div>
 
