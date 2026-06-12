@@ -96,6 +96,11 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
             workers_list.append(
                 ("news_publish",
                  lambda: _periodic(publish_stories, s.news_publish_interval_s, stop)))
+    # Storm Codex match bridge: subscribe to storm-codex's pub/sub channel → spine events.
+    if s.storm_codex_matches_enabled:
+        from jarvis.ingest.hots_matches import run_hots_match_ingester
+        workers_list.append(("hots_matches", run_hots_match_ingester))
+
     # Connectors (8) run as periodic ingest workers only when enabled in config.
     if "feeds" in s.connectors_enabled:
         from jarvis.connectors.feeds import poll_once as feeds_poll

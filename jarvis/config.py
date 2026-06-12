@@ -149,6 +149,10 @@ class Settings(BaseSettings):
     hots_api_url: str = "http://host.docker.internal:5001"
     hots_overlay_url: str = "http://host.docker.internal:8086"
     orpheus_api_url: str = "http://host.docker.internal:3010"
+    # Storm Codex bridge: storm-codex-server PUBLISHes a match-completed message on this pub/sub
+    # channel; the hots_matches ingester adapts it into a `hots.match_completed` spine event.
+    storm_codex_matches_enabled: bool = False
+    storm_codex_match_channel: str = "storm-codex:match_completed"
     # Connectors batch (read-only): Pi-hole v6, Sonarr/Radarr, Actual Budget, GitHub (hosted MCP).
     pihole_url: str = "http://host.docker.internal:8080"
     pihole_password: str = ""              # app/web password — set in box .env only
