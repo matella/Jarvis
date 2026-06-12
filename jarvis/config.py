@@ -153,6 +153,12 @@ class Settings(BaseSettings):
     # channel; the hots_matches ingester adapts it into a `hots.match_completed` spine event.
     storm_codex_matches_enabled: bool = False
     storm_codex_match_channel: str = "storm-codex:match_completed"
+    # Proactive post-game brief: a consumer on the spine that turns each hots.match_completed into
+    # a short French notification ("Défaite sur Silver City — Muradin 2/18/1"). Identifies "you"
+    # by in-game name; empty → generic match-result brief.
+    hots_brief_enabled: bool = False
+    hots_player_name: str = ""
+    hots_brief_group: str = "hots_brief"
     # Connectors batch (read-only): Pi-hole v6, Sonarr/Radarr, Actual Budget, GitHub (hosted MCP).
     pihole_url: str = "http://host.docker.internal:8080"
     pihole_password: str = ""              # app/web password — set in box .env only

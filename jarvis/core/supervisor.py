@@ -101,6 +101,11 @@ def workers(stop: threading.Event) -> list[tuple[str, Callable[[], None]]]:
         from jarvis.ingest.hots_matches import run_hots_match_ingester
         workers_list.append(("hots_matches", run_hots_match_ingester))
 
+    # Post-game brief: spine consumer that notifies a French one-liner per finished match.
+    if s.hots_brief_enabled:
+        from jarvis.notify.hots_brief import run_hots_brief
+        workers_list.append(("hots_brief", run_hots_brief))
+
     # Connectors (8) run as periodic ingest workers only when enabled in config.
     if "feeds" in s.connectors_enabled:
         from jarvis.connectors.feeds import poll_once as feeds_poll
