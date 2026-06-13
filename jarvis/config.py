@@ -157,7 +157,7 @@ class Settings(BaseSettings):
     # a short French notification ("Défaite sur Silver City — Muradin 2/18/1"). Identifies "you"
     # by in-game name; empty → generic match-result brief.
     hots_brief_enabled: bool = False
-    hots_player_name: str = ""
+    hots_player_name: str = ""  # nom(s) en jeu de l'opérateur, séparés par des virgules (multi-comptes)
     hots_brief_group: str = "hots_brief"
     # Connectors batch (read-only): Pi-hole v6, Sonarr/Radarr, Actual Budget, GitHub (hosted MCP).
     pihole_url: str = "http://host.docker.internal:8080"

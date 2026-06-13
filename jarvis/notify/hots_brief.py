@@ -33,11 +33,12 @@ _MODE_NAMES = {
 }
 
 
-def _find_me(players: list[dict], name: str) -> dict | None:
-    if not name:
+def _find_me(players: list[dict], names: str) -> dict | None:
+    # `names` peut lister plusieurs comptes séparés par des virgules (multi-comptes)
+    wanted = {n.strip().casefold() for n in names.split(",") if n.strip()}
+    if not wanted:
         return None
-    target = name.casefold()
-    return next((p for p in players if str(p.get("name", "")).casefold() == target), None)
+    return next((p for p in players if str(p.get("name", "")).casefold() in wanted), None)
 
 
 def format_brief(event: Event, player_name: str) -> tuple[str, str, str] | None:
