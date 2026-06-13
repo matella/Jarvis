@@ -272,6 +272,36 @@ def summarize(
 
 
 @app.command()
+def gpu(
+    free: bool = typer.Option(False, "--free", help="evict every resident model now (keep_alive=0)"),
+) -> None:
+    """GPU/VRAM occupancy: every model Ollama holds resident, its VRAM, processor and idle countdown.
+    `--free` evicts them all (reversible — they reload on next request)."""
+    from jarvis.models import gpu as gpu_mod
+
+    if not gpu_mod.reachable():
+        console.print("[red]Ollama runtime unreachable[/red] — cannot read GPU occupancy")
+        raise typer.Exit(1)
+    if free:
+        freed = gpu_mod.free()
+        console.print(f"evicted: {', '.join(freed) if freed else '(nothing was resident)'}")
+        return
+    st = gpu_mod.gpu_status()
+    table = Table(title=f"resident models — {st['vram_held_gib']} GiB VRAM held")
+    for col in ("model", "VRAM (GiB)", "size (GiB)", "processor", "idle evict in"):
+        table.add_column(col)
+    for m in st["resident"]:
+        exp = m["expires_in_s"]
+        table.add_row(
+            m["model"], str(m["vram_gib"]), str(m["size_gib"]), m["processor"],
+            "—" if exp is None else (f"{exp}s" if exp < 120 else f"{exp // 60}m"),
+        )
+    console.print(table)
+    if st["model_count"] == 0:
+        console.print("[dim]GPU idle — no model resident.[/dim]")
+
+
+@app.command()
 def models() -> None:
     """Show configured model roles and what's currently loaded in VRAM."""
     from jarvis.models import client

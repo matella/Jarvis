@@ -363,6 +363,27 @@ def draft_mail(mail_id: str, body: dict, p: Principal = Depends(_principal)) -> 
     return {"draft": draft}
 
 
+# ── GPU / VRAM occupancy ──────────────────────────────────────────────────────────────────────
+@router.get("/gpu")
+def gpu_occupancy(p: Principal = Depends(_principal)) -> dict:
+    """Modèles résidents en VRAM (occupation GPU liée à Jarvis) : nom, VRAM, processeur, idle.
+    `reachable:false` si le runtime Ollama ne répond pas (jamais d'erreur 500 inventée)."""
+    _require(p, "read")
+    from jarvis.models import gpu
+    if not gpu.reachable():
+        return {"reachable": False, "resident": [], "model_count": 0, "vram_held_gib": 0.0}
+    return {"reachable": True, **gpu.gpu_status()}
+
+
+@router.post("/gpu/free")
+def gpu_free(p: Principal = Depends(_principal)) -> dict:
+    """Évince tous les modèles résidents (keep_alive=0). Réversible : rechargés à la prochaine
+    requête. Op runtime déterministe — ne franchit pas la frontière LLM→infra."""
+    _require(p, "chat")
+    from jarvis.models import gpu
+    return {"freed": gpu.free()}
+
+
 # ── Model cookbook ────────────────────────────────────────────────────────────────────────────
 @router.get("/models/prefs")
 def list_model_prefs(p: Principal = Depends(_principal)) -> list[dict]:

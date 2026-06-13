@@ -12,6 +12,12 @@
       "runtimeExecutable": "ssh",
       "runtimeArgs": ["-N", "-L", "5100:127.0.0.1:5100", "matella@192.168.129.85"],
       "port": 5100
+    },
+    {
+      "name": "storm-codex-tunnel",
+      "runtimeExecutable": "ssh",
+      "runtimeArgs": ["-N", "-L", "5102:127.0.0.1:5102", "matella@192.168.129.85"],
+      "port": 5102
     }
   ]
 }
