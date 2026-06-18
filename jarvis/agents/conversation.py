@@ -437,6 +437,21 @@ def _looks_like_show(text: str) -> bool:
     return bool(re.search(r"\b(show|list|display|visuali[sz]e)\b", text, re.I))
 
 
+def _looks_like_open(text: str) -> bool:
+    """Verbe d'ouverture EXPLICITE → l'action desktop s'exécute (ouverture auto côté client). Un
+    simple 'show/montre' fournit le lien sans l'ouvrir automatiquement."""
+    return bool(re.search(r"\b(open|launch|go to|ouvre|ouvrir|lance|lancer|va sur)\b", text, re.I))
+
+
+def _link(title: str, app: str, path: str, utterance: str) -> Artifact:
+    """Artifact d'action 'link' pour un client desktop (Aegis) : il résout `app`+`path` → URL via SA
+    config et ouvre la page. Reste dans la frontière déterministe : c'est une donnée structurée
+    (pas une commande au modèle) ; l'ouverture est exécutée par le client, jamais par le LLM.
+    `open` = l'utilisateur a employé un verbe d'ouverture explicite."""
+    return Artifact(kind="link", title=title,
+                    data={"app": app, "path": path, "open": _looks_like_open(utterance)})
+
+
 _MAIL_NOUN_RE = re.compile(r"\b(e-?mails?|mails?|inbox|mailbox)\b", re.I)
 _MAIL_INBOX_RE = re.compile(r"\b(inbox|mailbox)\b", re.I)
 # A mail NOUN alone is too loose ("write a regex for an email address" is not a mail request);
@@ -597,7 +612,8 @@ def _present_hots(utterance: str) -> TurnResult:
                 message="No HotS matches recorded yet — run the replay uploader on your gaming PC.",
             )
         return TurnResult(route=TurnRoute.answer, message="Your recent HotS matches:",
-                          artifacts=[auto_artifact("HotS Matches", matches)])
+                          artifacts=[auto_artifact("HotS Matches", matches),
+                                     _link("storm-codex · Matches", "storm-codex", "/matches", utterance)])
 
     from jarvis.connectors import hots
 
@@ -605,9 +621,11 @@ def _present_hots(utterance: str) -> TurnResult:
         return _not_connected("Heroes of the Storm", capabilities.remedy("heroes of the storm"))
     if re.search(r"\bhero", utterance, re.I):
         return TurnResult(route=TurnRoute.answer, message="Here's the HotS hero roster:",
-                          artifacts=[auto_artifact("HotS Heroes", hots.heroes())])
+                          artifacts=[auto_artifact("HotS Heroes", hots.heroes()),
+                                     _link("storm-codex · Heroes", "storm-codex", "/heroes", utterance)])
     return TurnResult(route=TurnRoute.answer, message="Here are the latest HotS patches:",
-                      artifacts=[auto_artifact("HotS Patches", hots.latest_patches(10))])
+                      artifacts=[auto_artifact("HotS Patches", hots.latest_patches(10)),
+                                 _link("storm-codex · Patch notes", "storm-codex", "/patches", utterance)])
 
 
 def _present_news(conn: psycopg.Connection, utterance: str) -> TurnResult:
