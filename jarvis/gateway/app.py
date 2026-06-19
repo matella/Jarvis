@@ -254,6 +254,18 @@ def create_app() -> FastAPI:
 
         return fetch_snapshot()
 
+    @app.get("/api/containers")
+    def containers(principal: Principal = Depends(_principal)) -> dict[str, Any]:
+        """Docker containers (name/state/status) for the Aegis operator console — read-only.
+        Degrades to an empty list (never 500) when docker is briefly unavailable."""
+        _require(principal, "read")
+        from jarvis.ingest.reconcile import list_containers
+
+        try:
+            return {"containers": list_containers(get_settings().docker_context)}
+        except Exception as exc:  # noqa: BLE001 — docker unavailable → empty, never fail the call
+            return {"containers": [], "error": str(exc)}
+
     @app.post("/inbound/{source}")
     async def inbound(source: str, request: Request) -> dict[str, Any]:
         """Signed push from GitHub/Grafana/etc → a verified, sanitized event on the spine."""

@@ -51,6 +51,37 @@ def real_containers(context: str) -> dict[str, str]:
     return out
 
 
+def parse_ps(stdout: str) -> list[dict[str, str]]:
+    """Pure: parse `docker ps -a --format {{json .}}` lines → [{name, state, status}], name-sorted.
+    Bad/blank lines are skipped. `state` is lower-cased; `status` is docker's human string."""
+    out: list[dict[str, str]] = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            raw = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        name = raw.get("Names", "")
+        if name:
+            out.append({
+                "name": name,
+                "state": (raw.get("State") or "").lower(),
+                "status": raw.get("Status", ""),
+            })
+    return sorted(out, key=lambda c: c["name"])
+
+
+def list_containers(context: str) -> list[dict[str, str]]:
+    """`docker ps -a` → [{name, state, status}] for the operator console. Raises on docker failure."""
+    proc = subprocess.run(
+        ["docker", "--context", context, "ps", "-a", "--format", "{{json .}}"],
+        capture_output=True, text=True, timeout=30, check=True,
+    )
+    return parse_ps(proc.stdout)
+
+
 def _emit(event_type: str, name: str, **payload) -> None:
     emit_event(Event(
         type=event_type, severity=Severity.info, source="reconcile",
